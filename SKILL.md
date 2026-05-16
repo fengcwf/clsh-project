@@ -20,14 +20,18 @@ metadata:
       - spike
       - diagnose
     references:
-      - references/ralph-loop-analysis.md
-      - references/openspec-comparison.md
-      - references/constitution-template.md
-      - references/kanban-tasks-bridge.md
-      - references/kiro-superpowers-analysis.md
-      - references/agent-skill-execution-research.md
-      - references/github-sync-guide.md
-      - references/superpowers-v5-changes.md
+      - references/methodology/ralph-loop-analysis.md
+      - references/methodology/openspec-comparison.md
+      - references/methodology/kiro-superpowers-analysis.md
+      - references/methodology/agent-skill-execution-research.md
+      - references/methodology/superpowers-v5-changes.md
+      - references/templates/constitution-template.md
+      - references/integration/kanban-tasks-bridge.md
+      - references/integration/github-sync-guide.md
+      - references/integration/lucky-api-format.md
+      - references/integration/php-env-pattern.md
+      - references/pitfalls/violation-case-2026-05-15.md
+      - references/pitfalls/violation-case-2026-05-15-self-coding.md
 ---
 
 # /clsh-project — 需求驱动项目开发
@@ -36,7 +40,7 @@ metadata:
 
 当大佬提出新的项目或功能需求时，**不直接写代码**，而是走完整的 需求→设计→计划→执行 流程。
 
-**核心理念（来自 Kiro + Superpowers + Phoenix + Ralph Loop）：**（详见 `references/kiro-superpowers-analysis.md` 和 `references/ralph-loop-analysis.md`）
+**核心理念（来自 Kiro + Superpowers + Phoenix + Ralph Loop）：**（详见 `references/methodology/kiro-superpowers-analysis.md` 和 `references/methodology/ralph-loop-analysis.md`）
 - 需求不能跳到编码 — 必须经过需求澄清 → 设计 → 计划
 - 文档是锚点 — 需求和设计必须写成文档，防止进度丢失和跑偏
 - 分阶段审批 — 每个阶段需要大佬确认后才进入下一阶段
@@ -260,7 +264,7 @@ project: "[项目名]"
 - **禁止：** [最重要的 2-3 条]
 ```
 
-**完整版模板：** 见 `references/constitution-template.md`
+**完整版模板：** 见 `references/templates/constitution-template.md`
 
 ---
 
@@ -414,7 +418,7 @@ Slice 4: 删除任务（删除 + API + 确认UI）
 
 ### ⚠️ Ralph Loop 执行模式（核心）
 
-**参考：** `references/ralph-loop-analysis.md`
+**参考：** `references/methodology/ralph-loop-analysis.md`
 
 **核心原则：**
 - 灵犀是循环编排者，agent 是单步执行器
@@ -499,7 +503,7 @@ CHECKPOINT: <任务名称>
 2. 归档变更 → `changes/<变更名>/` → `changes/archive/`
 3. 更新 Source of Truth
 4. 写入完成摘要
-5. 同步 wiki + GitHub（见 `references/github-sync-guide.md`）
+5. 同步 wiki + GitHub（见 `references/integration/github-sync-guide.md`）
 6. 向大佬汇报
 
 ### ⛔ 流程合规复盘（必做）
@@ -617,7 +621,7 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 
 ## Common Pitfalls
 
-1. **灵犀直接写代码** — 即使"很快能做完"也必须派 agent（详见 `references/violation-case-2026-05-15-self-coding.md`）
+1. **灵犀直接写代码** — 即使"很快能做完"也必须派 agent（详见 `references/pitfalls/violation-case-2026-05-15-self-coding.md`）
 2. **跳过 Phase 2.5 Spike** — 有技术不确定性的方案必须先验证再写设计文档
 3. **Phase 6 没有安全扫描** — 每个 Task 的 review 必须包含安全扫描
 4. **tester 只做功能测试** — tester 应运行完整的 requesting-code-review 流水线
@@ -654,15 +658,25 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 
 ## 参考文件
 
-- `references/ralph-loop-analysis.md` — Ralph Loop 调研：原理 + 与 Phase 6 映射
-- `references/superpowers-v5-changes.md` — Superpowers v5 关键变更及对 clsh-project 的影响
-- `references/kiro-superpowers-analysis.md` — Kiro + Superpowers + Phoenix 工作流分析
-- `references/agent-skill-execution-research.md` — Agent Skill 执行跑偏问题：根因分析 + 5种解决方案
-- `references/constitution-template.md` — Constitution 模板
-- `references/kanban-tasks-bridge.md` — Kanban bridge 说明
-- `references/openspec-comparison.md` — OpenSpec 对比分析
-- `references/violation-case-2026-05-15-self-coding.md` — 灵犀直接写代码违规案例
-- `references/github-sync-guide.md` — GitHub 同步指南（仓库地址 + 推送命令）
+### 📐 方法论
+- `references/methodology/kiro-superpowers-analysis.md` — Kiro + Superpowers + Phoenix 工作流分析
+- `references/methodology/ralph-loop-analysis.md` — Ralph Loop 调研：原理 + 与 Phase 6 映射
+- `references/methodology/openspec-comparison.md` — OpenSpec 对比分析
+- `references/methodology/agent-skill-execution-research.md` — Agent Skill 执行跑偏问题：根因分析 + 5种解决方案
+- `references/methodology/superpowers-v5-changes.md` — Superpowers v5 关键变更及对 clsh-project 的影响
+
+### 📋 模板
+- `references/templates/constitution-template.md` — Constitution 模板（Phase 3 使用）
+
+### 🔌 集成
+- `references/integration/kanban-tasks-bridge.md` — Kanban bridge 说明
+- `references/integration/github-sync-guide.md` — GitHub 同步指南（仓库地址 + 推送命令）
+- `references/integration/lucky-api-format.md` — Lucky API 格式
+- `references/integration/php-env-pattern.md` — PHP 环境模式
+
+### ⚠️ 教训
+- `references/pitfalls/violation-case-2026-05-15.md` — 流程违规案例：跳步 + 自测
+- `references/pitfalls/violation-case-2026-05-15-self-coding.md` — 灵犀直接写代码违规案例
 
 ## 流程说明
 
