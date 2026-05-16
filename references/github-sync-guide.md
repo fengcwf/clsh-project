@@ -10,26 +10,16 @@
 ## 同步命令
 
 ```bash
-# 首次推送（已执行）
-cd /root/.hermes/skills/productivity
-git init
-git config user.name "灵犀"
-git config user.email "lingxi@hermes"
-git remote add origin https://<TOKEN>@github.com/fengcwf/clsh-project.git
-git add clsh-project/
+# 日常更新（在 clsh-project 目录执行）
+cd /root/.hermes/skills/productivity/clsh-project
+git add .
 git commit -m "<message>"
-git branch -M main
-git push -u origin main
-
-# 后续更新
-cd /root/.hermes/skills/productivity
-git add clsh-project/
-git commit -m "<message>"
-git push
+git push origin main
 ```
 
 ## 注意事项
 
+- **只同步 clsh-project 目录**：git 仓库在 `clsh-project/` 下，不包含其他 skill
 - Token 从 `/root/.hermes/.env` 读取：`grep GITHUB_TOKEN /root/.hermes/.env | cut -d= -f2`
 - 不要在 commit message 中包含 token
-- 同步范围：`clsh-project/` 目录（SKILL.md + references/）
+- 同步范围：`SKILL.md` + `README.md` + `references/` 目录
