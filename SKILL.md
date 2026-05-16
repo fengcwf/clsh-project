@@ -642,6 +642,16 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 
 ---
 
+## 版本历史
+
+| 版本 | 日期 | 变更 |
+|------|------|------|
+| v2.4.0 | 2026-05-16 | P0-P3 全面优化：Security Scan/Auto-Fix Loop/Phase 2.5 Spike/Visual Companion/Common Pitfalls/Verification Checklist/垂直切片策略/Ralph Loop 显式原则 |
+| v2.3.0 | 2026-05-15 | 铁律 8 条 + Phase 6 状态机 + Phase 8 反馈循环 |
+| v2.2.0 | 2026-05-13 | Kanban bridge + tasks.md 回写 |
+| v2.1.0 | 2026-05-12 | Constitution 模板 + Phase 4 自检 |
+| v2.0.0 | 2026-05-11 | 初始版本：需求→设计→计划→执行 4 阶段 |
+
 ## 参考文件
 
 - `references/ralph-loop-analysis.md` — Ralph Loop 调研：原理 + 与 Phase 6 映射

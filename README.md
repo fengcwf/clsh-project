@@ -145,7 +145,10 @@ Phase 8: 反馈循环（大佬测试后，diagnose 6 阶段）→ 回到 Phase 1
 
 ## 版本历史
 
-| 版本 | 变更 |
-|------|------|
-| v2.4.0 | P0-P3 全面优化（Security Scan/Auto-Fix/Spike/Visual Companion/Common Pitfalls 等） |
-| v2.3.0 | 铁律 8 条 + Phase 6 状态机 + Phase 8 反馈循环 |
+| 版本 | 日期 | 变更 |
+|------|------|------|
+| v2.4.0 | 2026-05-16 | P0-P3 全面优化（Security Scan/Auto-Fix/Spike/Visual Companion 等） + git 仓库迁移到 clsh-project 目录 |
+| v2.3.0 | 2026-05-15 | 铁律 8 条 + Phase 6 状态机 + Phase 8 反馈循环 |
+| v2.2.0 | 2026-05-13 | Kanban bridge + tasks.md 回写 |
+| v2.1.0 | 2026-05-12 | Constitution 模板 + Phase 4 自检 |
+| v2.0.0 | 2026-05-11 | 初始版本 |
