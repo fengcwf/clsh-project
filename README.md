@@ -49,6 +49,7 @@ Phase 8: 反馈循环（大佬测试后，diagnose 6 阶段）→ 回到 Phase 1
 ## 各 Phase 详解
 
 ### Phase 1: 需求澄清
+- **调研前置**：提问前默认调研类似项目/行业方案，输出调研摘要（3-5 条关键发现 + 2-3 条项目启示）写入 `conversation.md`
 - **一次只问一个问题**，多选题优先
 - **先理解目的，再讨论细节**
 - **Visual Companion**（UI/视觉项目专用）：可启动本地 HTML 页面展示设计方案
@@ -147,6 +148,7 @@ Phase 8: 反馈循环（大佬测试后，diagnose 6 阶段）→ 回到 Phase 1
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v2.5.0 | 2026-05-17 | Phase 1 新增"调研前置"环节：需求提问前默认调研类似项目/行业方案，输出调研摘要写入 conversation.md |
 | v2.4.0 | 2026-05-16 | P0-P3 全面优化（Security Scan/Auto-Fix/Spike/Visual Companion 等） + git 仓库迁移到 clsh-project 目录 |
 | v2.3.0 | 2026-05-15 | 铁律 8 条 + Phase 6 状态机 + Phase 8 反馈循环 |
 | v2.2.0 | 2026-05-13 | Kanban bridge + tasks.md 回写 |

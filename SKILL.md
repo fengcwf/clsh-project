@@ -1,7 +1,7 @@
 ---
 name: clsh-project
 description: "需求驱动的项目开发工作流 — 从需求澄清到设计文档到实现计划到执行。灵感来自 Kiro 的 Spec-Driven Development、Superpowers 的 Brainstorming 方法论、Phoenix 的状态机执行模式。"
-version: 2.4.0
+version: 2.5.0
 author: 灵犀
 license: MIT
 platforms: [linux, macos, windows]
@@ -30,6 +30,8 @@ metadata:
       - references/integration/github-sync-guide.md
       - references/integration/lucky-api-format.md
       - references/integration/php-env-pattern.md
+      - references/integration/hermes-slash-command-mechanism.md
+      - references/integration/hermes-plugin-zero-token.md
       - references/pitfalls/violation-case-2026-05-15.md
       - references/pitfalls/violation-case-2026-05-15-self-coding.md
 ---
@@ -53,6 +55,13 @@ metadata:
 ## ⛔ 流程铁律（不可违反，违反 = 流程违规）
 
 以下规则优先级高于一切效率考量：
+
+0. **先查进度再行动** — 收到"继续项目"指令时，必须按以下顺序确认进度：
+   - **第一步：** `ls wiki/projects/<项目名>/` 检查项目容器是否存在
+   - **第二步：** 读 `overview.md` 确认当前 Phase 和状态
+   - **第三步：** 读 `changes/` 下的文档确认已完成的工作
+   - **第四步：** 只有确认进度后，才从下一个未完成的 Phase 继续
+   - **禁止：** 凭印象重走已完成的 Phase。wiki 文档是进度真相，不是 session 记忆。
 
 1. **文档先于代码** — Phase 3（设计文档）未完成 + 大佬未确认，禁止写任何代码
 2. **分阶段审批** — 每个 Phase 必须有大佬确认输出才能进入下一 Phase
@@ -85,7 +94,7 @@ metadata:
 ```
 大佬: "我要做一个 XXX 系统"
            ↓
-Phase 1: 需求澄清（一次一个问题，多选优先；UI项目可选 Visual Companion）→ conversation.md
+Phase 1: 需求澄清（调研前置 + 一次一个问题，多选优先；UI项目可选 Visual Companion）→ conversation.md
            ↓ [大佬确认需求]
 Phase 2: 提出 2-3 个方案 + 推荐理由 → 大佬选择
            ↓ [大佬确认方案]
@@ -138,6 +147,36 @@ Phase 8: 反馈循环（大佬测试后，diagnose 6 阶段）→ 回到 Phase 1
 - 完成后关闭服务
 
 **⚠️ 注意：** 仅用于视觉/UI 讨论。纯后端/API 项目不需要。
+
+### 🔄 Phase 中断恢复（Restart Protocol）
+
+如果 session 中断后重启（如新会话、网关重启等），**不要从头开始 Phase 1**，而是：
+
+1. `session_search` 搜索最近 3 个 session，关键词用项目名
+2. 读取历史 session 的 summary，恢复上下文
+3. 检查 `wiki/projects/<项目名>/` 是否已有文档产出
+4. 从上次中断的 Phase 继续，**不要重复已完成的工作**
+5. 向大佬确认恢复的上下文是否正确，再继续提问
+
+### 🔍 调研前置（Phase 1 必问）
+
+在开始提问之前，先问大佬是否需要调研：
+
+> "在讨论需求之前，要不要我先调研一下类似项目的常见做法、行业方案或技术趋势？这样讨论时能有更多参考依据。（默认：是）"
+
+- **大佬说"是"或"需要"** → 用 `web_search` 调研 2-3 个类似项目/产品，总结关键发现和启示，再开始 Phase 1 提问
+- **大佬说"不用"或"直接聊"** → 跳过调研，直接进入提问模板
+- **大佬未明确回答** → 默认执行调研（主动权在灵犀）
+
+**调研输出格式：**
+```markdown
+## 调研摘要
+- 调研方向：[类似产品/技术方案/行业实践]
+- 关键发现：[3-5 条]
+- 对本项目启示：[2-3 条]
+```
+
+调研结果写入 `conversation.md` 顶部，作为需求讨论的参考上下文。
 
 ### 提问模板（按顺序探索）
 
@@ -635,6 +674,7 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 ## Verification Checklist（每次使用此 skill 前）
 
 - [ ] 确认不是简单查询/单步操作（否则不应触发 clsh-project）
+- [ ] 确认 Phase 1 已执行调研前置（调研摘要已写入 conversation.md 或大佬明确跳过）
 - [ ] 确认 Phase 1-3 已完成且有文档产出（conversation.md / proposal.md / constitution.md）
 - [ ] 确认大佬已明确回复"确认"才进入下一 Phase
 - [ ] 确认 tasks.md 中每个 Task 有验收标准 + 完整代码（无 TBD/TODO）
@@ -650,6 +690,7 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v2.5.0 | 2026-05-17 | Phase 1 新增"调研前置"环节：需求提问前默认调研类似项目/行业方案，输出调研摘要（3-5 条关键发现 + 2-3 条项目启示）写入 conversation.md |
 | v2.4.0 | 2026-05-16 | P0-P3 全面优化：Security Scan/Auto-Fix Loop/Phase 2.5 Spike/Visual Companion/Common Pitfalls/Verification Checklist/垂直切片策略/Ralph Loop 显式原则 |
 | v2.3.0 | 2026-05-15 | 铁律 8 条 + Phase 6 状态机 + Phase 8 反馈循环 |
 | v2.2.0 | 2026-05-13 | Kanban bridge + tasks.md 回写 |
@@ -673,6 +714,8 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 - `references/integration/github-sync-guide.md` — GitHub 同步指南（仓库地址 + 推送命令）
 - `references/integration/lucky-api-format.md` — Lucky API 格式
 - `references/integration/php-env-pattern.md` — PHP 环境模式
+- `references/integration/hermes-slash-command-mechanism.md` — Hermes 斜杠命令机制与插件化架构调研（2026-05-17）：内置命令硬编码、插件 hook 能力边界、零 token 三方案、mp-menu 教训
+- `references/integration/hermes-plugin-zero-token.md` — Hermes 插件零令牌路由架构（2026-05-17）：pre_gateway_dispatch 能力边界、register_command 零 token 路径、双层路由方案、菜单状态管理、命令匹配逻辑
 
 ### ⚠️ 教训
 - `references/pitfalls/violation-case-2026-05-15.md` — 流程违规案例：跳步 + 自测
