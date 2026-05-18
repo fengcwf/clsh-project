@@ -34,6 +34,7 @@ metadata:
       - references/integration/hermes-plugin-zero-token.md
       - references/pitfalls/violation-case-2026-05-15.md
       - references/pitfalls/violation-case-2026-05-15-self-coding.md
+      - references/pitfalls/violation-case-2026-05-18.md
 ---
 
 # /clsh-project — 需求驱动项目开发
@@ -511,13 +512,49 @@ CHECKPOINT: <任务名称>
 对于计划中的每个 Task:
   1. 读取 constitution.md
   2. 根据任务类型选择 agent（coder/artist/tester）
-  3. delegate_task 派发（context 中包含验收标准 + TDD 要求）
-  4. agent 完成后，灵犀验证 checkpoint
-  5. PASS → Security Scan + Quality Review
-  6. 有问题 → fix agent（不是实现者本人）→ 重新 review（max 2轮）
-  7. 全部通过 → tester 验证
-  8. tester 通过 → 标记 Task 完成
-  9. 全部 Task 完成 → Final Integration Review
+  3. kanban_create 创建实现卡（绝对路径 + 验收标准 + 不在范围内）
+  4. kanban_create 创建 review 卡（assignee=tester, parents=[实现卡]）
+  5. 通知订阅（可选，当前 notify-subscribe 命令可能返回空）
+  6. dispatcher 自动派发 ready 状态的卡
+  7. 灵犀验证 checkpoint（产出物 ls 验证）
+  8. PASS → Security Scan + Quality Review（由 tester 执行）
+  9. 有问题 → 创建 fix 卡（不是实现者本人）→ 重新 review（max 2轮）
+  10. tester 通过 → 标记 Task 完成
+  11. 全部 Task 完成 → Final Integration Review
+```
+
+### ⚡ Phase 6 执行规范（2026-05-18 验证）
+
+**Kanban 创建必须使用绝对路径：**
+- 产出物路径：`~/.hermes/skills/productivity/<project>/scripts/xxx.cjs`
+- 报告路径：`/mnt/unraid_data/Obsidian/wiki/projects/<项目名>/changes/<变更名>/`
+- 测试输出：`/tmp/<project>-test/`
+
+**Review 卡创建规范：**
+```bash
+hermes kanban create "[项目名] Review: <任务名>" \
+  --assignee tester \
+  --body "...审查维度...\nPASS/FAIL 输出要求..." \
+  --parent <实现卡ID> \
+  --json
+```
+- Review 卡依赖实现卡（parents），实现卡完成后自动 promoted → ready
+- Review 卡 body 必须包含：审查维度 + PASS/FAIL 输出格式 + 上下文（实现卡ID）
+
+**并行派发策略：**
+- 无依赖的任务同时创建 Kanban 卡
+- Review 卡与实现卡同时创建（通过 parents 依赖）
+- dispatcher 自动并行执行 ready 状态的任务
+
+**进展监控：**
+```bash
+hermes kanban list --json | python3 -c "
+import json, sys
+data = json.load(sys.stdin)
+for t in data:
+    if '项目名' in t.get('title',''):
+        print(f\"{t['id']} | {t['status']} | {t['title'][:60]}\")
+"
 ```
 
 ### ⛔ 执行红线
@@ -660,7 +697,7 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 
 ## Common Pitfalls
 
-1. **灵犀直接写代码** — 即使"很快能做完"也必须派 agent（详见 `references/pitfalls/violation-case-2026-05-15-self-coding.md`）
+1. **灵犀直接写代码** — 即使"很快能做完"也必须派 agent
 2. **跳过 Phase 2.5 Spike** — 有技术不确定性的方案必须先验证再写设计文档
 3. **Phase 6 没有安全扫描** — 每个 Task 的 review 必须包含安全扫描
 4. **tester 只做功能测试** — tester 应运行完整的 requesting-code-review 流水线
@@ -669,7 +706,20 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 7. **agent 自判完成** — 必须通过 CHECKPOINT 客观验证
 8. **Auto-Fix 无限循环** — 2 轮后必须 escalate 给大佬
 9. **Placeholder 污染 tasks.md** — TBD/TODO/similar to N = 计划缺陷
-10. **忽略 Type Consistency** — 跨任务的函数签名/类型必须一致
+10. **不要在 session 里重启 gateway** — `hermes gateway restart` 会杀死当前进程，导致 session 中断。重启后新 session 不知道进度，又分析一遍，又重启……形成循环。修改插件代码后，清 `__pycache__`，然后**告诉大佬手动重启**，不要在 session 里执行重启命令。
+11. **`register_command` 只对斜杠命令有效** — `register_command("/mp", handler)` 只拦截 `/mp` 前缀。纯数字消息不是斜杠命令，不会被拦截。**这是唯一的零 token 路径。**
+12. **hook 只拦截特定前缀消息** — `pre_gateway_dispatch` hook 只拦截你配置的前缀（如 `"mp "`、`"/mp"`）。纯数字消息（`"9 功夫足球"`）不经过插件直接进 LLM。要让 hook 支持数字匹配，必须在 `on_pre_dispatch` 里显式处理（正则匹配数字前缀）。
+13. **飞书 Card 按钮点击不会发送消息到对话** — 飞书 Interactive Card 按钮点击后触发 `card.action.trigger` 回调（POST 到开发者服务器），**不会**把按钮 value 作为消息发送到对话。Hermes 飞书 adapter 会把回调转换为 `/card` 命令（GitHub issue #7675）。飞书 Card 按钮 value 不会作为消息发送到对话，只触发 callback。
+14. **插件指令一次性化** — 插件执行完就结束，没有上下文保持。搜索完结果后，用户想订阅/下载第一个结果，需要重新发指令。应设计状态机或上下文保持机制。
+15. **调研时不要反复重启 gateway** — 每次重启都中断 session，导致重复分析。调研阶段只读文档和搜索，不要修改运行中的代码。
+16. **需求范围可能在 Phase 2 调整** — 大佬可能在方案设计阶段调整项目核心定位（如从"博客管理"改为"文章生成+多渠道发布"）。此时应回到 Phase 1 更新 conversation.md，重新确认需求，而不是继续在旧方案上推进。**需求变更 = 回到 Phase 1。**
+17. **图片生成方案调研** — 当项目涉及图片生成时，优先推荐免费 API 方案（Nano Banana 2 / Gemini、FLUX.2 Schnell / fal.ai、Seedream V4），不要推荐付费方案（DALL-E 3）或需要本地 GPU 的方案（Stable Diffusion）作为首选。用户偏好免费、可切换模型的 API 方案。
+18. **Phase 6 Kanban 卡创建后状态为 running 而非 ready** — dispatcher 会自动将 ready 状态的卡标记为 running。如果卡创建后立即显示 running，说明 dispatcher 已自动领取。这是正常行为，不需要手动干预。
+19. **notify-subscribe 命令可能返回空** — `hermes kanban notify-subscribe` 命令在某些版本中可能返回空输出（exit code 1）。这不影响 Kanban 功能，只是通知订阅失败。可以跳过此步骤，不影响任务执行。
+20. **Kanban 状态同步问题（2026-05-18）** — coder/worker 完成工作后可能未正确调用 `kanban_complete`，导致状态停留在 running/blocked。灵犀应：(1) 等待 5 分钟后检查 running 状态的卡 (2) 用 `ls` 检查产出物是否存在 (3) 产出物存在则手动 `hermes kanban complete <id>` 标记完成 (4) 不等 dispatcher 通知，主动推进流程。
+21. **角色分离违规（2026-05-18）** — worker 卡住时灵犀直接创建了 cron 任务，违反了角色分离原则。正确做法：(1) 创建 fix 卡派给另一个 worker (2) 或 escalate 给大佬 (3) 即使\"看起来很小\"也不能自己动手。效率不是跳过角色分离的理由。
+22. **Review 卡应由灵犀创建而非依赖 agent（2026-05-18）** — 实现卡完成后，灵犀应主动创建 Review 卡，不依赖 agent 自判。agent 可能完成工作但忘记创建 review 卡。灵犀在验证 checkpoint 后立即创建 review 卡。
+23. **超时机制缺失（2026-05-18）** — worker 任务无超时，导致灵犀等待过长（>2 分钟）。建议：(1) coder 任务超时 10 分钟 (2) worker 任务超时 5 分钟 (3) tester 任务超时 5 分钟 (4) 超时后自动 escalate 给灵犀介入。
 
 ## Verification Checklist（每次使用此 skill 前）
 
@@ -690,12 +740,13 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
-| v2.5.0 | 2026-05-17 | Phase 1 新增"调研前置"环节：需求提问前默认调研类似项目/行业方案，输出调研摘要（3-5 条关键发现 + 2-3 条项目启示）写入 conversation.md |
-| v2.4.0 | 2026-05-16 | P0-P3 全面优化：Security Scan/Auto-Fix Loop/Phase 2.5 Spike/Visual Companion/Common Pitfalls/Verification Checklist/垂直切片策略/Ralph Loop 显式原则 |
+| v2.8.0 | 2026-05-18 | Common Pitfalls 新增 4 条：Kanban 状态同步、角色分离违规、Review 卡创建责任、超时机制缺失 |
+| v2.5.0 | 2026-05-17 | Phase 1 新增"调研前置"环节 |
+| v2.4.0 | 2026-05-16 | P0-P3 全面优化 |
 | v2.3.0 | 2026-05-15 | 铁律 8 条 + Phase 6 状态机 + Phase 8 反馈循环 |
 | v2.2.0 | 2026-05-13 | Kanban bridge + tasks.md 回写 |
 | v2.1.0 | 2026-05-12 | Constitution 模板 + Phase 4 自检 |
-| v2.0.0 | 2026-05-11 | 初始版本：需求→设计→计划→执行 4 阶段 |
+| v2.0.0 | 2026-05-11 | 初始版本 |
 
 ## 参考文件
 
