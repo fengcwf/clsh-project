@@ -119,6 +119,11 @@ Phase 8: 反馈循环（大佬测试后，diagnose 6 阶段）→ 回到 Phase 1
 8. **Auto-Fix 无限循环** — 2 轮后必须 escalate 给大佬
 9. **Placeholder 污染 tasks.md** — TBD/TODO/similar to N = 计划缺陷
 10. **忽略 Type Consistency** — 跨任务的函数签名/类型必须一致
+11. **写入文件后不验证路径** — write_file 后必须 `ls` 确认文件存在于声明路径（2026-05-15 教训）
+12. **方向变化不回 Phase 1** — 核心定位/架构变化必须回 Phase 1，禁止回 Phase 3（2026-05-19 教训）
+13. **超时后直接提交半成品** — 子 agent 超时后必须 git stash/revert，不能提交半成品（2026-05-19 教训）
+14. **Phase 5 缺少 Self-Review** — tasks.md 写完后必须执行 Spec Coverage + Placeholder Scan + Type Consistency（2026-05-19 教训）
+15. **Phase 6 不做 Spec-Code 同步** — 每个 Task 完成后必须检查 proposal.md 与实际代码是否一致（2026-05-19 教训）
 
 ## Verification Checklist（每次使用此 skill 前）
 
@@ -148,6 +153,10 @@ Phase 8: 反馈循环（大佬测试后，diagnose 6 阶段）→ 回到 Phase 1
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v3.2.0 | 2026-05-19 | Phase 5 新增 Self-Review（Spec Coverage + Placeholder Scan + Type Consistency + File Isolation）；Phase 6 新增 Step 9 Spec-Code 同步（Kiro）；Phase 6 超时机制新增自动回滚（Phoenix）：git stash/revert，禁止提交半成品；Phase 8 路径 C 明确方向变化必须回 Phase 1；Phase 4 添加自动路径检查 |
+| v3.1.0 | 2026-05-19 | Phase 6 添加 Checkpoint 输出截断规则（200 字以内）；Phase 6 添加三层超时防护（子 agent 自带超时 + 产出物预检 + 灵犀 5 分钟轮询）；delegation-protocol 添加 session 内缓存 + 快速检查清单 |
+| v3.0.0 | 2026-05-19 | github-sync-guide 补充 clsh-content 仓库；Common Pitfalls 补充 Wireguard 运维、Hermes 插件注册、小红书 MCP 部署 |
+| v2.9.0 | 2026-05-19 | Common Pitfalls 新增 3 条：需求范围调整回 Phase 1、图片生成方案偏好、notify-subscribe 返回空 |
 | v2.5.0 | 2026-05-17 | Phase 1 新增"调研前置"环节：需求提问前默认调研类似项目/行业方案，输出调研摘要写入 conversation.md |
 | v2.4.0 | 2026-05-16 | P0-P3 全面优化（Security Scan/Auto-Fix/Spike/Visual Companion 等） + git 仓库迁移到 clsh-project 目录 |
 | v2.3.0 | 2026-05-15 | 铁律 8 条 + Phase 6 状态机 + Phase 8 反馈循环 |

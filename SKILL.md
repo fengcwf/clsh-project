@@ -1,7 +1,7 @@
 ---
 name: clsh-project
 description: "需求驱动的项目开发工作流 — 从需求澄清到设计文档到实现计划到执行。灵感来自 Kiro 的 Spec-Driven Development、Superpowers 的 Brainstorming 方法论、Phoenix 的状态机执行模式。"
-version: 2.5.0
+version: 3.2.0
 author: 灵犀
 license: MIT
 platforms: [linux, macos, windows]
@@ -338,6 +338,30 @@ project: "[项目名]"
 
 **等待大佬确认后才进入 Phase 5。**
 
+### 🔍 自动路径检查（Q1 改进 — 2026-05-19）
+
+**每次写入文件后，必须执行路径验证：**
+
+```bash
+# 写入文件后立即验证
+ls -la <声明路径>
+# 确认文件存在且大小 > 0
+```
+
+**Phase 3 写入验证清单：**
+- [ ] `proposal.md` 已写入 `wiki/projects/<项目名>/changes/<变更名>/` → `ls` 验证
+- [ ] `constitution.md` 已写入 `wiki/projects/<项目名>/source-of-truth/` → `ls` 验证
+- [ ] 文件大小 > 0（非空文件）
+
+**Phase 6 产出物验证清单：**
+- [ ] 代码文件已写入声明的绝对路径 → `ls` 验证
+- [ ] 测试文件已写入 → `ls` 验证
+- [ ] 产出物路径使用绝对路径（禁止相对路径）
+
+**⛔ 路径错误 = 流程违规，必须记 ERRORS.md**
+
+> ⚠️ **教训（2026-05-15）：** write_file 使用相对路径，文件落到 skill references/ 目录而不是 wiki/projects/ 目录。写入后未 `ls` 验证，导致虚假汇报。
+
 ---
 
 ## Phase 5: 写实现计划
@@ -440,6 +464,43 @@ Slice 4: 删除任务（删除 + API + 确认UI）
 - 未完成的功能用**功能标志**隐藏（`FEATURE_NEW_UI=false`）
 - 每个切片可独立回滚（`git revert`）
 
+### 🔍 Phase 5 Self-Review（Superpowers v5 — 必做）
+
+写完全部 tasks.md 后，执行以下自检，**全部通过才能进入 Phase 6**：
+
+**1. Spec Coverage（需求覆盖）**
+- 逐条扫描 Phase 1 conversation.md 中的每个需求
+- 确认每个需求都有对应的 Task
+- 遗漏 → 补充 Task，不能"后面再说"
+
+**2. Placeholder Scan（占位符扫描）**
+搜索 tasks.md 中的以下模式，**全部修复**：
+| ❌ 错误模式 | ✅ 修复方式 |
+|------------|------------|
+| `TBD`、`TODO`、`稍后实现` | 写实际代码 |
+| `添加错误处理` | 写具体的 try/catch |
+| `类似 Task N` | 复制实际代码 |
+| `写测试覆盖上述` | 写实际测试代码 |
+| `填充详情` | 直接写详情 |
+
+**3. Type Consistency（类型一致性）**
+- Task 3 定义的函数签名，Task 5/7 调用时是否匹配？
+- 类型定义（interface/type/class）前后是否一致？
+- 命名风格是否统一？
+
+**4. File Isolation（文件隔离）**
+- 是否有多个 Task 修改同一文件？
+- 如果有，确认顺序和依赖关系已标注
+
+**Self-Review 结果写入 tasks.md 末尾：**
+```markdown
+## Self-Review 结果
+- Spec Coverage: ✅/❌ (N 个需求全部覆盖 / 遗漏: xxx)
+- Placeholder Scan: ✅/❌ (无占位符 / 发现: xxx)
+- Type Consistency: ✅/❌
+- File Isolation: ✅/❌
+```
+
 ---
 
 ## Phase 6: Ralph Loop 分发执行
@@ -494,6 +555,13 @@ Step 6: Quality Review（代码质量）
 Step 7: Tester 验证（功能测试 + 回归测试）
   ↓
 Step 8: CHECKPOINT: PASS → 标记 Task 完成 → 进入下一 Task
+  ↓
+Step 9: Spec-Code 同步（Kiro — 必做）
+  检查 proposal.md 中的设计是否与实际代码一致：
+  - 读取 proposal.md 中该 Task 对应的设计描述
+  - 对比实际代码实现
+  - 如有偏差 → 更新 proposal.md（不是"后面再补"）
+  - 更新内容：接口变更、架构调整、新增/删除的功能点
 ```
 
 **Checkpoint 格式（每个 Task 完成后必须输出）：**
@@ -505,6 +573,12 @@ CHECKPOINT: <任务名称>
 状态: PASS / FAIL
 如 FAIL: <具体问题描述>
 ```
+
+**⚠️ Checkpoint 输出截断规则（Q2 改进 #4）：**
+- Checkpoint 输出限制在 **200 字以内**
+- 编译日志、测试输出等长文本 → 写入 `/tmp/<project>-<task>.log`，Checkpoint 只写文件路径
+- 禁止将完整编译输出/测试日志直接输出到上下文
+- 原因：一个 Task 的往返可能消耗 2000-5000 token，截断可节省 50-80%
 
 ### 任务派发流程
 
@@ -556,6 +630,68 @@ for t in data:
         print(f\"{t['id']} | {t['status']} | {t['title'][:60]}\")
 "
 ```
+
+### ⚡ Phase 6 超时机制（Q5 方案 C — 2026-05-19 实施）
+
+**三层防护：子 agent 自带超时 + 产出物预检 + 灵犀 5 分钟轮询**
+
+#### 第 1 层：子 agent 自带超时
+派活时在 delegate_task 的 context 中写明：
+```
+## 超时规则
+- 本任务必须在 N 分钟内完成（coder: 10分钟, worker: 5分钟, tester: 5分钟）
+- 超时则输出 TIMEOUT 并退出，不要继续尝试
+- 产出物写到 /tmp/<project>-<task>/ 目录
+```
+
+#### 第 2 层：产出物预检
+- agent 开始工作前先创建产出物目录：`mkdir -p /tmp/<project>-<task>/`
+- 灵犀通过 `ls /tmp/<project>-<task>/` 判断 agent 是否在工作
+- **5 分钟内产出物目录无任何变化 → 判定为卡死**，不再等待
+
+#### 第 3 层：灵犀 5 分钟轮询
+Phase 6 执行过程中，灵犀每 5 分钟检查一次：
+```bash
+hermes kanban list --json | python3 -c "
+import json, sys, time
+data = json.load(sys.stdin)
+now = time.time()
+for t in data:
+    if t['status'] == 'running' and '项目名' in t.get('title',''):
+        started = t.get('started_at', 0)
+        elapsed = (now - started) / 60
+        print(f\"{t['id']} | {elapsed:.0f}min | {t['assignee']} | {t['title'][:50]}\")
+"
+```
+- running 超过 5 分钟 → 检查产出物目录
+- 产出物存在 → `hermes kanban complete <id>` 手动标记完成
+- 产出物不存在 → 执行超时自动回滚（Phoenix）→ escalate 给大佬
+
+#### 超时自动回滚（Phoenix — 2026-05-19 实施）
+
+子 agent 超时/卡死后，灵犀执行以下回滚流程：
+
+```bash
+# 1. 检查未提交的改动
+cd <项目目录>
+git diff --stat
+git status --short
+
+# 2. 如果有未提交的改动 → stash（不直接提交半成品）
+git stash save "auto-rollback: <task-name> timeout at $(date +%Y%m%d-%H%M)"
+
+# 3. 如果有未 stash 的改动 → 记录到日志
+echo "TIMEOUT_ROLLBACK: <task-name> | $(date) | $(git diff --stat)" >> /tmp/<project>-timeout.log
+
+# 4. 通知大佬
+# 发送飞书告警：任务超时 + 已自动回滚 + 需要人工介入
+```
+
+**回滚原则：**
+- ⛔ 禁止直接提交半成品代码
+- ✅ 未提交改动 → `git stash`，保留现场供大佬检查
+- ✅ 已提交改动 → `git revert <commit>`，回滚到超时前状态
+- ✅ 回滚后通知大佬，不自行重试
 
 ### ⛔ 执行红线
 
@@ -659,13 +795,21 @@ Stage 6: 复盘（Retrospect）
   → tester 验证 → 汇报
 ```
 
-### 路径 C：新需求
-```
-大佬提出新需求
-  → 评估范围（能否追加到当前变更？）
-  → 能追加：更新 proposal.md，回到 Phase 3
-  → 不能追加：新变更目录，从 Phase 1 开始
-```
+### 路径 C：需求变更
+大佬提出新需求/方向变化
+  → 判断变更级别：
+     ├─ 功能追加（在现有方向上增加功能）
+     │   → 能追加：更新 proposal.md，回到 Phase 3
+     │   → 不能追加：新变更目录，从 Phase 1 开始
+     │
+     └─ 方向变化（核心定位/架构/目标用户变化）
+         → ⛔ 禁止回到 Phase 3
+         → 必须：新变更目录 + 从 Phase 1 开始
+         → 必须：归档旧变更（status: superseded）
+         → 必须：更新 overview.md 说明方向变化
+         → 必须：更新 conversation.md 记录变更原因
+
+> ⚠️ **教训（2026-05-19）：** 项目做到一半，大佬说"不做博客了，改做内容引擎"。灵犀直接在旧代码上修改，跳过 Phase 1-5，导致项目文档和实际代码不一致。**方向变化 = 必须回 Phase 1，不能回 Phase 3。**
 
 ### ⛔ 反馈循环红线
 - **禁止"顺手修了"**
@@ -706,7 +850,15 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 7. **agent 自判完成** — 必须通过 CHECKPOINT 客观验证
 8. **Auto-Fix 无限循环** — 2 轮后必须 escalate 给大佬
 9. **Placeholder 污染 tasks.md** — TBD/TODO/similar to N = 计划缺陷
-10. **不要在 session 里重启 gateway** — `hermes gateway restart` 会杀死当前进程，导致 session 中断。重启后新 session 不知道进度，又分析一遍，又重启……形成循环。修改插件代码后，清 `__pycache__`，然后**告诉大佬手动重启**，不要在 session 里执行重启命令。
+10. **忽略 Type Consistency** — 跨任务的函数签名/类型必须一致
+11. **写入文件后不验证路径** — write_file 后必须 `ls` 确认（2026-05-15 教训）
+12. **方向变化不回 Phase 1** — 核心定位变化必须回 Phase 1（2026-05-19 教训）
+13. **超时后提交半成品** — 子 agent 超时后 git stash/revert（2026-05-19 教训）
+14. **Phase 5 缺少 Self-Review** — tasks.md 写完后必须 Self-Review（2026-05-19 教训）
+15. **Phase 6 不做 Spec-Code 同步** — 每个 Task 完成后更新 proposal.md（2026-05-19 教训）
+16. **公众号检查不走云主机** — 必须 SSH 到 <WG_CLIENT_IP>:<SSH_PORT>（2026-05-19 教训）
+17. **巡检报告写本地** — cron prompt 必须指定 Obsidian 路径（2026-05-19 教训）
+18. **MCP 重复调用归因错误** — 是工具映射问题，不是项目问题（2026-05-19 教训）
 11. **`register_command` 只对斜杠命令有效** — `register_command("/mp", handler)` 只拦截 `/mp` 前缀。纯数字消息不是斜杠命令，不会被拦截。**这是唯一的零 token 路径。**
 12. **hook 只拦截特定前缀消息** — `pre_gateway_dispatch` hook 只拦截你配置的前缀（如 `"mp "`、`"/mp"`）。纯数字消息（`"9 功夫足球"`）不经过插件直接进 LLM。要让 hook 支持数字匹配，必须在 `on_pre_dispatch` 里显式处理（正则匹配数字前缀）。
 13. **飞书 Card 按钮点击不会发送消息到对话** — 飞书 Interactive Card 按钮点击后触发 `card.action.trigger` 回调（POST 到开发者服务器），**不会**把按钮 value 作为消息发送到对话。Hermes 飞书 adapter 会把回调转换为 `/card` 命令（GitHub issue #7675）。飞书 Card 按钮 value 不会作为消息发送到对话，只触发 callback。
@@ -720,6 +872,10 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 21. **角色分离违规（2026-05-18）** — worker 卡住时灵犀直接创建了 cron 任务，违反了角色分离原则。正确做法：(1) 创建 fix 卡派给另一个 worker (2) 或 escalate 给大佬 (3) 即使\"看起来很小\"也不能自己动手。效率不是跳过角色分离的理由。
 22. **Review 卡应由灵犀创建而非依赖 agent（2026-05-18）** — 实现卡完成后，灵犀应主动创建 Review 卡，不依赖 agent 自判。agent 可能完成工作但忘记创建 review 卡。灵犀在验证 checkpoint 后立即创建 review 卡。
 23. **超时机制缺失（2026-05-18）** — worker 任务无超时，导致灵犀等待过长（>2 分钟）。建议：(1) coder 任务超时 10 分钟 (2) worker 任务超时 5 分钟 (3) tester 任务超时 5 分钟 (4) 超时后自动 escalate 给灵犀介入。
+24. **巡检 cron 报告写入本地而非 Obsidian（2026-05-19）** — 巡检 cron prompt 中报告路径写的是 `~/.hermes/cron/output/`，没有写 Obsidian。导致巡检结果只在本地，大佬在 Obsidian 看不到。修复：prompt 中同时写入 Obsidian `wiki/projects/clsh-content/changes/`。
+25. **公众号 API 检查未走云主机 SSH（2026-05-19）** — 巡检脚本在本地调用 `wechat-publish.cjs` 检查微信 API，但本地出口 IP 不在微信白名单中。云主机固定 IP 已在白名单中。修复：公众号检查通过 SSH 到云主机（WG IP: <WG_CLIENT_IP>:<SSH_PORT>）执行。
+26. **delegation-protocol 重复加载浪费 token（2026-05-19）** — 每次派活前都读完整 delegation-protocol（3000+ 字），同一个 session 中重复加载。修复：session 内缓存（只加载一次）+ 快速检查清单（80% 场景只需读 200 字摘要）。
+27. **Phase 6 Checkpoint 输出过长（2026-05-19）** — agent 的 Checkpoint 输出包含完整编译日志/测试输出，单个 Task 往返消耗 2000-5000 token。修复：Checkpoint 限制 200 字以内，长文本写入 `/tmp/<project>-<task>.log`。
 
 ## Verification Checklist（每次使用此 skill 前）
 
@@ -740,7 +896,10 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
-| v2.8.0 | 2026-05-18 | Common Pitfalls 新增 4 条：Kanban 状态同步、角色分离违规、Review 卡创建责任、超时机制缺失 |
+| v3.2.0 | 2026-05-19 | Phase 5 新增 Self-Review（Spec Coverage + Placeholder Scan + Type Consistency + File Isolation）；Phase 6 新增 Step 9 Spec-Code 同步（Kiro）；Phase 6 超时机制新增自动回滚（Phoenix）：git stash/revert，禁止提交半成品；delegation-protocol session 内缓存 + 快速检查清单 |
+| v3.1.0 | 2026-05-19 | Phase 4 新增自动路径检查；Phase 6 新增 Checkpoint 输出截断规则（200字限制）+ 三层超时防护（子agent自带超时 + 产出物预检 + 灵犀5分钟轮询）；Phase 8 路径 C 明确方向变化必须回 Phase 1；Common Pitfalls 新增巡检 cron 报告写入本地而非 Obsidian、公众号检查未走云主机 SSH |
+| v3.0.0 | 2026-05-19 | github-sync-guide 补充 clsh-content 仓库；Common Pitfalls 补充 Wireguard 运维、Hermes 插件注册、小红书 MCP 部署 |
+| v2.9.0 | 2026-05-19 | Common Pitfalls 新增 3 条：需求范围调整回 Phase 1、图片生成方案偏好、notify-subscribe 返回空 |
 | v2.5.0 | 2026-05-17 | Phase 1 新增"调研前置"环节 |
 | v2.4.0 | 2026-05-16 | P0-P3 全面优化 |
 | v2.3.0 | 2026-05-15 | 铁律 8 条 + Phase 6 状态机 + Phase 8 反馈循环 |
