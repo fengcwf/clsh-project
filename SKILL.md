@@ -876,6 +876,16 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 25. **公众号 API 检查未走云主机 SSH（2026-05-19）** — 巡检脚本在本地调用 `wechat-publish.cjs` 检查微信 API，但本地出口 IP 不在微信白名单中。云主机固定 IP 已在白名单中。修复：公众号检查通过 SSH 到云主机（WG IP: <WG_CLIENT_IP>:<SSH_PORT>）执行。
 26. **delegation-protocol 重复加载浪费 token（2026-05-19）** — 每次派活前都读完整 delegation-protocol（3000+ 字），同一个 session 中重复加载。修复：session 内缓存（只加载一次）+ 快速检查清单（80% 场景只需读 200 字摘要）。
 27. **Phase 6 Checkpoint 输出过长（2026-05-19）** — agent 的 Checkpoint 输出包含完整编译日志/测试输出，单个 Task 往返消耗 2000-5000 token。修复：Checkpoint 限制 200 字以内，长文本写入 `/tmp/<project>-<task>.log`。
+28. **大规模文件索引策略（2026-05-19）** — 14229 个文件全量扫描 >120s 不可接受。必须用 grep 预过滤（只处理含目标内容的文件）。SQLite FTS5 trigram 分词器对中文更友好。反链索引用 grep + 标题匹配，<1s。
+29. **write_file 大文件截断（2026-05-20）** — tasks.md 等实现计划文件内容过大（>5000字）时，write_file 会因输出长度限制被截断，导致文件写入失败或内容丢失。**解决方案：** (1) 拆分为多个子文件（如 tasks-slice1.md, tasks-slice2.md...），每个文件控制在 3000 字以内；(2) 再写一个汇总版 tasks.md 引用各子文件。Phase 5 的 tasks.md 已成功用此方案（4 个 slice 文件 + 1 个汇总，总计 2180 行分 5 次写入成功）。
+30. **delegate_task coder 超时根因（2026-05-20）** — coder agent 超时（600s）不一定是代码逻辑问题，常见根因是：(1) 验证阶段启动服务器时，同步 I/O（如 `readdirSync` 扫描 15K 文件）阻塞事件循环，导致 curl 请求无响应；(2) npm install 网络慢；(3) Docker Hub 超时。**解决方案：** (1) 在 agent 任务描述中明确"不要运行验证命令，只写文件"，验证由灵犀在主线程执行；(2) 代码中优先使用异步 I/O（`fs/promises`）；(3) 如果 agent 超时但产出物文件已存在且内容正确，直接标记 PASS，不重派。T08 coder 超时但 tree.mjs 产出物完整即为典型案例。
+31. **端口冲突积累（2026-05-20）** — Phase 6 多次测试中，background 服务器进程（`node src/server.mjs`）可能未正常退出，导致 EADDRINUSE。**解决方案：** 每次启动新服务器前，先执行 `lsof -ti:3456 | xargs kill -9 2>/dev/null` 清理旧进程。建议在测试脚本开头统一加此步骤。
+32. **模块导出缺失（2026-05-20）** — 跨文件导入时（如 tags.mjs 从 search.mjs 导入 `getTitleIndex`），如果导出方忘记 `export`，运行时报 `SyntaxError: The requested module does not provide export`。**解决方案：** 写完所有模块后，用 `node -e "import { X } from './path'"` 逐个验证导出。或在 server.mjs 启动时加 try/catch 捕获 import 错误。
+33. **环境路径差异（2026-05-20）** — Docker 容器内路径（`/app/data`、`/vault`）与本地开发路径（`/opt/obsidian-workbench/data`、`/mnt/unraid_data/Obsidian`）不同。**解决方案：** 所有路径通过环境变量（`VAULT_PATH`、`DB_PATH`）注入，默认值用 Docker 路径，本地测试时显式传环境变量。indexer.mjs 的 DB_PATH 应改为条件路径：`process.env.DB_PATH || path.join(VAULT_PATH.startsWith('/vault') ? '/app/data' : '/opt/obsidian-workbench/data', 'index.db')`。
+34. **execSync 扫描大文件集超时（2026-05-20）** — backlinks.mjs 用 `execSync('grep -rl ...')` 扫描 15K 文件时，10s 超时不够。**解决方案：** (1) 增大 timeout 到 30000ms；(2) 更好的方案是用 `fs.promises.readdir` 递归扫描 + `fs.promises.readFile` 批量读取（并行，每批 100 个），避免 shell 命令开销。实测纯 Node.js 方案扫描 14K 文件约 25s，无超时风险。
+35. **server.mjs 路由注册遗漏（2026-05-20）** — 用 patch 分步修改 server.mjs 时，可能只加了 import 但忘记加路由注册代码，导致 404。**解决方案：** 修改 server.mjs 时，一次性完成 `import` + `路由注册` + `ensureSharesTable()` 等所有相关改动，避免分步 patch 遗漏。写完后用 `grep -n "app.get\|app.post"` 验证路由是否全部注册。
+36. **getTree() 缺少 await（2026-05-20）** — tree.mjs 的 `getTree()` 改为 async 后，server.mjs 中调用时忘记加 `await`，导致返回 Promise 对象而非实际数据。**解决方案：** 所有 async 函数调用处必须检查是否有 `await`。用 `node -e "import { getTree } from './tree.mjs'; console.log(typeof getTree())"` 验证返回类型应为 `object` 而非 `promise`。
+37. **write_file 覆盖导致内容丢失（2026-05-20）** — write_file 会完全覆盖文件。当需要追加内容时（如 style.css 多次追加样式），必须先读取现有内容再合并写入，或使用 patch 工具。**解决方案：** 对需要增量修改的文件，用 `patch` 工具而非 `write_file`；或在 write_file 前先 `read_file` 获取现有内容，合并后写入。
 
 ## Verification Checklist（每次使用此 skill 前）
 
@@ -897,6 +907,8 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 | 版本 | 日期 | 变更 |
 |------|------|------|
 | v3.2.0 | 2026-05-19 | Phase 5 新增 Self-Review（Spec Coverage + Placeholder Scan + Type Consistency + File Isolation）；Phase 6 新增 Step 9 Spec-Code 同步（Kiro）；Phase 6 超时机制新增自动回滚（Phoenix）：git stash/revert，禁止提交半成品；delegation-protocol session 内缓存 + 快速检查清单 |
+| v3.3.0 | 2026-05-20 | Common Pitfalls 新增 write_file 大文件截断解决方案（拆分为多个子文件，每个控制在 3000 字以内） |
+| v3.5.0 | 2026-05-20 | Common Pitfalls 新增 5 条：execSync 扫描大文件集超时（改用 fs.promises 批量读取）；server.mjs 路由注册遗漏（一次性完成 import + 路由注册）；getTree() 缺少 await（async 函数调用必须检查 await）；write_file 覆盖导致内容丢失（增量修改用 patch 而非 write_file） |
 | v3.1.0 | 2026-05-19 | Phase 4 新增自动路径检查；Phase 6 新增 Checkpoint 输出截断规则（200字限制）+ 三层超时防护（子agent自带超时 + 产出物预检 + 灵犀5分钟轮询）；Phase 8 路径 C 明确方向变化必须回 Phase 1；Common Pitfalls 新增巡检 cron 报告写入本地而非 Obsidian、公众号检查未走云主机 SSH |
 | v3.0.0 | 2026-05-19 | github-sync-guide 补充 clsh-content 仓库；Common Pitfalls 补充 Wireguard 运维、Hermes 插件注册、小红书 MCP 部署 |
 | v2.9.0 | 2026-05-19 | Common Pitfalls 新增 3 条：需求范围调整回 Phase 1、图片生成方案偏好、notify-subscribe 返回空 |
