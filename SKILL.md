@@ -1,7 +1,7 @@
 ---
 name: clsh-project
 description: "需求驱动的项目开发工作流 — 从需求澄清到设计文档到实现计划到执行。灵感来自 Kiro 的 Spec-Driven Development、Superpowers 的 Brainstorming 方法论、Phoenix 的状态机执行模式。"
-version: 3.8.0
+version: 4.1.0
 author: 灵犀
 license: MIT
 platforms: [linux, macos, windows]
@@ -26,11 +26,13 @@ metadata:
       - references/methodology/kiro-superpowers-analysis.md
       - references/methodology/agent-skill-execution-research.md
       - references/methodology/superpowers-v5-changes.md
+      - references/methodology/superpowers-architecture-analysis.md
       # 模板（clsh-project 流程模板，保留本地）
       - references/templates/constitution-template.md
       - references/templates/archive-workflow.md
       - references/templates/cloud-server-wireguard.md
       - references/templates/phase7-archive-checklist.md
+      - references/templates/phase8-checkpoint-template.md
       # 集成（clsh-project 工具链，保留本地）
       - references/integration/kanban-tasks-bridge.md
       - references/integration/hermes-slash-command-mechanism.md
@@ -39,6 +41,7 @@ metadata:
       - references/integration/halo-auth.md
       - references/integration/halo-cli-auth.md
       - references/integration/reference-migration-pattern.md
+      - references/integration/hermes-pitfalls.md
       # 教训（流程违规案例，保留本地）
       - references/pitfalls/violation-case-2026-05-15.md
       - references/pitfalls/violation-case-2026-05-15-self-coding.md
@@ -57,6 +60,25 @@ metadata:
 
 当大佬提出新的项目或功能需求时，**不直接写代码**，而是走完整的 需求→设计→计划→执行 流程。
 
+## 边界定义
+
+### 管什么
+- 流程编排（Phase 1-8 门禁和流转）
+- 角色分离（灵犀 ≠ coder）
+- 质量保障（checkpoint + review + security scan）
+- 文档管理（wiki/projects/ 结构）
+
+### 不管什么
+- 具体技术实现细节 → `wiki/projects/<项目>/references/pitfalls/`
+- Hermes 工具链使用细节 → `references/integration/hermes-pitfalls.md`
+- 调试方法论 → `diagnose` skill
+- 代码质量规则 → `code-principles` skill
+
+### 膨胀阈值
+- SKILL.md: ≤ 900 行
+- Common Pitfalls: ≤ 25 条（超出迁移）
+- references/: ≤ 25 个文件（超出归档）
+
 **核心理念（来自 Kiro + Superpowers + Phoenix + Ralph Loop）：**（详见 `references/methodology/kiro-superpowers-analysis.md` 和 `references/methodology/ralph-loop-analysis.md`）
 - 需求不能跳到编码 — 必须经过需求澄清 → 设计 → 计划
 - 文档是锚点 — 需求和设计必须写成文档，防止进度丢失和跑偏
@@ -66,6 +88,7 @@ metadata:
 - **刚性管道**（Kiro）：Requirements → Design → Tasks，每阶段有强制审批门禁
 - **状态机执行**（Phoenix/MiMo/Qwen）：每个 Task 有明确的 checkpoint、验证条件、失败阻断。流程控制权在代码，不在 LLM
 - **Ralph Loop 原则**：灵犀是循环编排者，agent 是单步执行器；客观验证不自判；文件系统+git 是记忆层
+
 
 ## ⛔ 流程铁律（不可违反，违反 = 流程违规）
 
@@ -156,7 +179,7 @@ Phase 8: 反馈循环（大佬测试后，diagnose 6 阶段）→ 回到 Phase 1
 > 需要吗？（默认：否）"
 
 **执行方式：**
-- 大佬同意 → 使用 `sketch` skill（`references/../creative/sketch/SKILL.md`）生成 2-3 个 HTML 设计方案
+- 大佬同意 → 使用 `sketch` skill（`sketch` skill）生成 2-3 个 HTML 设计方案
 - 启动本地 HTTP 服务（`python3 -m http.server`），在浏览器中展示
 - 大佬在浏览器中查看并反馈，灵犀根据反馈调整方案
 - 完成后关闭服务
@@ -676,10 +699,32 @@ PASS/FAIL 输出要求..." \
 - Review 卡依赖实现卡（parents），实现卡完成后自动 promoted → ready
 - Review 卡 body 必须包含：审查维度 + PASS/FAIL 输出格式 + 上下文（实现卡ID）
 
-**并行派发策略：**
-- 无依赖的任务同时创建 Kanban 卡
-- Review 卡必须在实现卡 checkpoint 验证 PASS 后创建（不是同时创建）
-- dispatcher 自动并行执行 ready 状态的任务
+**Wave 并行派发策略（Kiro Specs 模式）：**
+
+基于依赖图将任务分层（Wave），同层任务并行，跨层串行：
+
+```
+依赖图分层:
+Wave 1: Task 1, Task 2 (无依赖)         ← 同时创建，dispatcher 并行执行
+Wave 2: Task 3 (依赖 T1), Task 4 (依赖 T2) ← T1/T2 完成后自动 promoted
+Wave 3: Task 5 (依赖 T3, T4)             ← T3/T4 完成后自动 promoted
+```
+
+**派发流程：**
+1. 按依赖图计算 Wave 层级（拓扑排序）
+2. 创建所有卡（指定 `--parent`），初始 blocked 或无 parent 的直接 ready
+3. dispatcher 自动派发 ready 卡，完成后 promote 子卡
+4. Review 卡在 checkpoint 验证 PASS 后创建（不是同时创建）
+
+**`hermes kanban swarm` 快速模式（可选）：**
+```bash
+hermes kanban swarm "项目目标" \
+  --worker coder:"Task 1: 数据模型":skill1,skill2 \
+  --worker coder:"Task 2: API 层":skill1 \
+  --verifier tester \
+  --synthesizer coder
+```
+适合：3+ 个独立任务 + 需要 verifier + 需要 synthesizer 汇总。
 
 **进展监控：**
 ```bash
@@ -801,7 +846,7 @@ Phase 7 归档时，必须确认以下文件已写入 wiki：
 3. 归档 Phase 8 每轮 feedback → `changes/round<N>-feedback/` → `changes/archive/round<N>-feedback/`
 4. 更新 Source of Truth
 5. 写入完成摘要 + 流程复盘
-6. 同步 wiki + GitHub（见 `wiki/reference/integration/github-sync-guide.md`）
+6. 同步 wiki + GitHub（见 `clsh-content/references/integration/github-sync-guide.md`）
 7. 向大佬汇报
 8. `ls` 验证所有归档文件存在且大小 > 0
 
@@ -966,13 +1011,42 @@ Stage 6: 复盘（Retrospect）
 **非确定性 bug 时**：Stage 2 → 统计复现（跑 N 次算失败率），Stage 4 → 用断言而非 print（失败立即停止，不被日志淹没）。
 
 ### 路径 A：Bug 修复
+
+**Bugfix Spec 格式（Kiro 模式）：**
+
+每个 bug 在 diagnose 前先写结构化 spec，确保诊断有锚点：
+
+```markdown
+## Bug Spec: {问题标题}
+
+**当前行为**: {实际发生了什么}
+**期望行为**: {应该发生什么}
+**复现命令**: {单命令 pass/fail}
+**影响范围**: {哪些功能/页面/API 受影响}
+
+### Diagnose
+- Stage 1 复现命令: `{命令}`
+- Stage 2 复现稳定性: {N/N 次复现}
+- Stage 3 根因假设: {X 是 root cause，因为 Y}
+- Stage 4 验证证据: {支持/否定假设的证据}
+
+### Fix
+- 修改文件: {文件列表}
+- 回归测试: {测试命令 + 结果}
+- 防御措施: {已添加/已评估不需要}
+```
+
+**流程：**
 ```
 大佬反馈 bug
   → 记录 conversation.md
+  → 写 Bugfix Spec（当前行为/期望行为/复现命令/影响范围）
   → diagnose 6 阶段（Stage 1-6）
   → 创建修复任务 → 派 coder/artist
   → tester 验证 → 汇报
 ```
+
+**与 diagnose 的关系：** Bugfix Spec 是 diagnose 的输入锚点。Stage 1-2 填充复现信息，Stage 3-4 填充根因和证据，Stage 5-6 填充修复和防御。
 
 ### 路径 B：体验优化
 ```
@@ -1029,95 +1103,30 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 
 ## Common Pitfalls
 
-1. **灵犀直接写代码** — 即使"很快能做完"也必须派 agent
-2. **跳过 Phase 2.5 Spike** — 有技术不确定性的方案必须先验证再写设计文档
-3. **Phase 6 没有安全扫描** — 每个 Task 的 review 必须包含安全扫描
-4. **tester 只做功能测试** — tester 应运行完整的 requesting-code-review 流水线
-5. **攒到最后一起提交** — 每个 Task 后必须 commit
-6. **Phase 8 "顺手修了"** — 大佬反馈问题必须走完整反馈循环
-7. **agent 自判完成** — 必须通过 CHECKPOINT 客观验证
-8. **Auto-Fix 无限循环** — 2 轮后必须 escalate 给大佬
-9. **Placeholder 污染 tasks.md** — TBD/TODO/similar to N = 计划缺陷
-10. **忽略 Type Consistency** — 跨任务的函数签名/类型必须一致
-11. **写入文件后不验证路径** — write_file 后必须 `ls` 确认（2026-05-15 教训）
-12. **方向变化不回 Phase 1** — 核心定位变化必须回 Phase 1（2026-05-19 教训）
-13. **超时后提交半成品** — 子 agent 超时后 git stash/revert（2026-05-19 教训）
-14. **Phase 5 缺少 Self-Review** — tasks.md 写完后必须 Self-Review（2026-05-19 教训）
-15. **Phase 6 不做 Spec-Code 同步** — 每个 Task 完成后更新 proposal.md（2026-05-19 教训）
-16. **Phase 5 write_file 大文件截断** — tasks.md 等实现计划文件内容过大（>5000字）时，write_file 会因输出长度限制被截断，导致文件写入失败或内容丢失。**解决方案：** 拆分为多个子文件（tasks-slice1.md, tasks-slice2.md...），每个文件控制在 2000-3000 字，分多次写入。汇总版 tasks.md 只写依赖图 + 任务索引 + Self-Review。（2026-05-20 教训）
-17. **Phase 8 测试阶段没有用 kanban 派发任务** — Phase 8 修复必须用 delegate_task 派给 coder/artist/tester，不能灵犀直接改。小修复用 delegate_task，大修复用 kanban 创建卡。Phase 8 = Phase 6 执行，角色分离不可跳过。（2026-05-21 教训）
-18. **Phase 8 tester 没有使用浏览器工具** — tester 验证时必须用浏览器访问页面（toolsets 包含 web + browser），不能用 curl/API 替代。浏览器才能验证页面渲染、交互功能、CSS 样式。（2026-05-21 教训）
-19. **Phase 8 每轮测试结果和修复方案没有归档 wiki** — 每轮 Phase 8 修复完成后，必须在 wiki/projects/<项目名>/changes/round<N>-feedback/ 创建 conversation.md（问题列表）、diagnosis.md（诊断记录）、fixes.md（修复方案）、test-report.md（验证报告），然后归档到 archive/。（2026-05-21 教训）
-20. **Phase 7 归档不完整** — Phase 7 归档时必须检查：overview.md 已更新为 done、completion-summary.md 已写入、retrospective.md 已复盘、Phase 8 每轮 feedback 已归档到 archive/、所有文件 ls 验证存在。（2026-05-21 教训）
-21. **Phase 8 delegate_task 不等于 kanban** — delegate_task 是派发方式，kanban 是任务追踪方式。两者不互斥：小修复直接 delegate_task，大修复/跨 session 修复用 kanban 创建卡 + delegate_task 派发。kanban 的优势是状态持久化，session 断开后仍可恢复。（2026-05-21 教训）
-11. **写入文件后不验证路径** — write_file 后必须 `ls` 确认（2026-05-15 教训）
-12. **方向变化不回 Phase 1** — 核心定位变化必须回 Phase 1（2026-05-19 教训）
-13. **超时后提交半成品** — 子 agent 超时后 git stash/revert（2026-05-19 教训）
-14. **Phase 5 缺少 Self-Review** — tasks.md 写完后必须 Self-Review（2026-05-19 教训）
-15. **Phase 6 不做 Spec-Code 同步** — 每个 Task 完成后更新 proposal.md（2026-05-19 教训）
-16. **公众号检查不走云主机** — 必须 SSH 到 <WG_CLIENT_IP>:<SSH_PORT>（2026-05-19 教训）
-17. **巡检报告写本地** — cron prompt 必须指定 Obsidian 路径（2026-05-19 教训）
-18. **MCP 重复调用归因错误** — 是工具映射问题，不是项目问题（2026-05-19 教训）
-11. **`register_command` 只对斜杠命令有效** — `register_command("/mp", handler)` 只拦截 `/mp` 前缀。纯数字消息不是斜杠命令，不会被拦截。**这是唯一的零 token 路径。**
-12. **hook 只拦截特定前缀消息** — `pre_gateway_dispatch` hook 只拦截你配置的前缀（如 `"mp "`、`"/mp"`）。纯数字消息（`"9 功夫足球"`）不经过插件直接进 LLM。要让 hook 支持数字匹配，必须在 `on_pre_dispatch` 里显式处理（正则匹配数字前缀）。
-13. **飞书 Card 按钮点击不会发送消息到对话** — 飞书 Interactive Card 按钮点击后触发 `card.action.trigger` 回调（POST 到开发者服务器），**不会**把按钮 value 作为消息发送到对话。Hermes 飞书 adapter 会把回调转换为 `/card` 命令（GitHub issue #7675）。飞书 Card 按钮 value 不会作为消息发送到对话，只触发 callback。
-14. **插件指令一次性化** — 插件执行完就结束，没有上下文保持。搜索完结果后，用户想订阅/下载第一个结果，需要重新发指令。应设计状态机或上下文保持机制。
-15. **调研时不要反复重启 gateway** — 每次重启都中断 session，导致重复分析。调研阶段只读文档和搜索，不要修改运行中的代码。
-16. **需求范围可能在 Phase 2 调整** — 大佬可能在方案设计阶段调整项目核心定位（如从"博客管理"改为"文章生成+多渠道发布"）。此时应回到 Phase 1 更新 conversation.md，重新确认需求，而不是继续在旧方案上推进。**需求变更 = 回到 Phase 1。**
-17. **图片生成方案调研** — 当项目涉及图片生成时，优先推荐免费 API 方案（Nano Banana 2 / Gemini、FLUX.2 Schnell / fal.ai、Seedream V4），不要推荐付费方案（DALL-E 3）或需要本地 GPU 的方案（Stable Diffusion）作为首选。用户偏好免费、可切换模型的 API 方案。
-18. **Phase 6 Kanban 卡创建后状态为 running 而非 ready** — dispatcher 会自动将 ready 状态的卡标记为 running。如果卡创建后立即显示 running，说明 dispatcher 已自动领取。这是正常行为，不需要手动干预。
-19. **notify-subscribe 命令可能返回空** — `hermes kanban notify-subscribe` 命令在某些版本中可能返回空输出（exit code 1）。这不影响 Kanban 功能，只是通知订阅失败。可以跳过此步骤，不影响任务执行。
-20. **Kanban 状态同步问题（2026-05-18）** — coder/worker 完成工作后可能未正确调用 `kanban_complete`，导致状态停留在 running/blocked。灵犀应：(1) 等待 5 分钟后检查 running 状态的卡 (2) 用 `ls` 检查产出物是否存在 (3) 产出物存在则手动 `hermes kanban complete <id>` 标记完成 (4) 不等 dispatcher 通知，主动推进流程。
-21. **角色分离违规（2026-05-18）** — worker 卡住时灵犀直接创建了 cron 任务，违反了角色分离原则。正确做法：(1) 创建 fix 卡派给另一个 worker (2) 或 escalate 给大佬 (3) 即使\"看起来很小\"也不能自己动手。效率不是跳过角色分离的理由。
-22. **Review 卡应由灵犀创建而非依赖 agent（2026-05-18）** — 实现卡完成后，灵犀应主动创建 Review 卡，不依赖 agent 自判。agent 可能完成工作但忘记创建 review 卡。灵犀在验证 checkpoint 后立即创建 review 卡。
-23. **超时机制缺失（2026-05-18）** — worker 任务无超时，导致灵犀等待过长（>2 分钟）。建议：(1) coder 任务超时 10 分钟 (2) worker 任务超时 5 分钟 (3) tester 任务超时 5 分钟 (4) 超时后自动 escalate 给灵犀介入。
-24. **巡检 cron 报告写入本地而非 Obsidian（2026-05-19）** — 巡检 cron prompt 中报告路径写的是 `~/.hermes/cron/output/`，没有写 Obsidian。导致巡检结果只在本地，大佬在 Obsidian 看不到。修复：prompt 中同时写入 Obsidian `wiki/projects/clsh-content/changes/`。
-25. **公众号 API 检查未走云主机 SSH（2026-05-19）** — 巡检脚本在本地调用 `wechat-publish.cjs` 检查微信 API，但本地出口 IP 不在微信白名单中。云主机固定 IP 已在白名单中。修复：公众号检查通过 SSH 到云主机（WG IP: <WG_CLIENT_IP>:<SSH_PORT>）执行。
-26. **delegation-protocol 重复加载浪费 token（2026-05-19）** — 每次派活前都读完整 delegation-protocol（3000+ 字），同一个 session 中重复加载。修复：session 内缓存（只加载一次）+ 快速检查清单（80% 场景只需读 200 字摘要）。
-27. **Phase 6 Checkpoint 输出过长（2026-05-19）** — agent 的 Checkpoint 输出包含完整编译日志/测试输出，单个 Task 往返消耗 2000-5000 token。修复：Checkpoint 限制 200 字以内，长文本写入 `/tmp/<project>-<task>.log`。
-28. **大规模文件索引策略（2026-05-19）** — 14229 个文件全量扫描 >120s 不可接受。必须用 grep 预过滤（只处理含目标内容的文件）。SQLite FTS5 trigram 分词器对中文更友好。反链索引用 grep + 标题匹配，<1s。
-29. **Phase 8 大量 bug 修复时上下文溢出（2026-05-21）** — 13 个 bug 全部灵犀直接修复，导致上下文过长，session 断开。应：(1) 每轮最多修 5-6 个 bug (2) agent 超时后分批重试而非全量自修 (3) 后端和前端分开修 (4) 每修完一批先重启测试再继续。
-30. **agent 超时后退化为灵犀直接改代码（2026-05-21）** — 3 个并行 agent 全部超时/失败后，灵犀 fallback 到直接写代码。违反角色分离但 session 断开代价更大。正确做法：(1) 先缩小任务范围重试 (2) 如果 agent 反复失败，向大佬报告瓶颈 (3) 至少分 2 个 session 完成。
-31. **ESM 变量遮蔽导致 500 错误（2026-05-21）** — `createShare({ path })` 的解构参数 `path` 遮蔽了顶部 `import path from 'path'` 的模块。函数体内 `path.resolve()` 调用的是参数而非模块，导致 `require is not defined`。修复：参数重命名为 `sharePath`。教训：ESM 模块中，任何参数名不应与 import 的模块名冲突。
-32. **Markdown 表格正则匹配非表格行（2026-05-21）** — 正则 `/(^.*\|.*$)/gm` 匹配所有含 `|` 的行，包括代码块内和非表格行。修复：(1) 先匹配有 separator 行的标准表格 (2) 再匹配无 separator 的连续 `|` 行 (3) 确保 separator 行格式 `|---|---|` 正确解析。lessons: `buildTable` 函数用 `function` 声明（会被 hoisting）避免定义顺序问题。
-33. **前端 z-index 层级管理（2026-05-21）** — Toast z-index=2000 被 modal z-index=3000 遮挡。规则：Toast ≥ 5000 > Modal ≥ 3000 > Context menu ≥ 1000 > Content。
-34. **TOC 在 flex 容器中不悬浮（2026-05-21）** — `position: sticky` 在 flex item 上需要 `align-self: flex-start` 才生效。滚动容器必须是 `.content-inner`（有 overflow-y: auto），TOC 的 `max-height: calc(100vh - 60px)` 防止溢出。
-29. **write_file 大文件截断（2026-05-20）** — tasks.md 等实现计划文件内容过大（>5000字）时，write_file 会因输出长度限制被截断，导致文件写入失败或内容丢失。**解决方案：** (1) 拆分为多个子文件（如 tasks-slice1.md, tasks-slice2.md...），每个文件控制在 3000 字以内；(2) 再写一个汇总版 tasks.md 引用各子文件。Phase 5 的 tasks.md 已成功用此方案（4 个 slice 文件 + 1 个汇总，总计 2180 行分 5 次写入成功）。
-30. **delegate_task coder 超时根因（2026-05-20）** — coder agent 超时（600s）不一定是代码逻辑问题，常见根因是：(1) 验证阶段启动服务器时，同步 I/O（如 `readdirSync` 扫描 15K 文件）阻塞事件循环，导致 curl 请求无响应；(2) npm install 网络慢；(3) Docker Hub 超时。**解决方案：** (1) 在 agent 任务描述中明确"不要运行验证命令，只写文件"，验证由灵犀在主线程执行；(2) 代码中优先使用异步 I/O（`fs/promises`）；(3) 如果 agent 超时但产出物文件已存在且内容正确，直接标记 PASS，不重派。T08 coder 超时但 tree.mjs 产出物完整即为典型案例。
-31. **端口冲突积累（2026-05-20）** — Phase 6 多次测试中，background 服务器进程（`node src/server.mjs`）可能未正常退出，导致 EADDRINUSE。**解决方案：** 每次启动新服务器前，先执行 `lsof -ti:3456 | xargs kill -9 2>/dev/null` 清理旧进程。建议在测试脚本开头统一加此步骤。
-32. **模块导出缺失（2026-05-20）** — 跨文件导入时（如 tags.mjs 从 search.mjs 导入 `getTitleIndex`），如果导出方忘记 `export`，运行时报 `SyntaxError: The requested module does not provide export`。**解决方案：** 写完所有模块后，用 `node -e "import { X } from './path'"` 逐个验证导出。或在 server.mjs 启动时加 try/catch 捕获 import 错误。
-33. **环境路径差异（2026-05-20）** — Docker 容器内路径（`/app/data`、`/vault`）与本地开发路径（`/opt/obsidian-workbench/data`、`/mnt/unraid_data/Obsidian`）不同。**解决方案：** 所有路径通过环境变量（`VAULT_PATH`、`DB_PATH`）注入，默认值用 Docker 路径，本地测试时显式传环境变量。indexer.mjs 的 DB_PATH 应改为条件路径：`process.env.DB_PATH || path.join(VAULT_PATH.startsWith('/vault') ? '/app/data' : '/opt/obsidian-workbench/data', 'index.db')`。
-34. **execSync 扫描大文件集超时（2026-05-20）** — backlinks.mjs 用 `execSync('grep -rl ...')` 扫描 15K 文件时，10s 超时不够。**解决方案：** (1) 增大 timeout 到 30000ms；(2) 更好的方案是用 `fs.promises.readdir` 递归扫描 + `fs.promises.readFile` 批量读取（并行，每批 100 个），避免 shell 命令开销。实测纯 Node.js 方案扫描 14K 文件约 25s，无超时风险。
-35. **server.mjs 路由注册遗漏（2026-05-20）** — 用 patch 分步修改 server.mjs 时，可能只加了 import 但忘记加路由注册代码，导致 404。**解决方案：** 修改 server.mjs 时，一次性完成 `import` + `路由注册` + `ensureSharesTable()` 等所有相关改动，避免分步 patch 遗漏。写完后用 `grep -n "app.get\|app.post"` 验证路由是否全部注册。
-36. **getTree() 缺少 await（2026-05-20）** — tree.mjs 的 `getTree()` 改为 async 后，server.mjs 中调用时忘记加 `await`，导致返回 Promise 对象而非实际数据。**解决方案：** 所有 async 函数调用处必须检查是否有 `await`。用 `node -e "import { getTree } from './tree.mjs'; console.log(typeof getTree())"` 验证返回类型应为 `object` 而非 `promise`。
-37. **write_file 覆盖导致内容丢失（2026-05-20）** — write_file 会完全覆盖文件。当需要追加内容时（如 style.css 多次追加样式），必须先读取现有内容再合并写入，或使用 patch 工具。**解决方案：** 对需要增量修改的文件，用 `patch` 工具而非 `write_file`；或在 write_file 前先 `read_file` 获取现有内容，合并后写入。
-38. **write_file 大文件截断（2026-05-20）** — tasks.md 等实现计划文件内容过大（>5000字）时，write_file 会因输出长度限制被截断。**解决方案：** 拆分为多个子文件（每个控制在 3000 字以内），再写汇总版引用。Phase 5 已成功用此方案（4 个 slice + 1 个汇总，2180 行分 5 次写入）。
-39. **delegate_task coder 超时根因（2026-05-20）** — 验证阶段同步 I/O 阻塞、npm 网络慢、Docker Hub 超时。**解决方案：** 任务描述中明确"不要运行验证命令，只写文件"；优先异步 I/O；超时但产出物正确则直接 PASS。
-40. **端口冲突积累（2026-05-20）** — 启动服务器前执行 `lsof -ti:3456 | xargs kill -9 2>/dev/null` 清理旧进程。
-41. **模块导出缺失（2026-05-20）** — 写完后用 `node -e "import { X } from './path'"` 逐个验证导出。
-42. **execSync 扫描大文件集超时（2026-05-20）** — 用 `fs.promises` 批量读取替代 shell 命令，每批 100 个并行。
-43. **server.mjs 路由注册遗漏（2026-05-20）** — 一次性完成 import + 路由注册 + ensureSharesTable()，用 grep 验证。
-44. **async 函数调用缺少 await（2026-05-20）** — 所有 async 函数调用处必须检查是否有 await。
-45. **部署方式切换 Docker→本地 pm2（2026-05-20）** — Docker Hub 网络超时，切换为本地 pm2 部署。VAULT_PATH 默认值改为 `/mnt/unraid_data/Obsidian`。
-46. **子 agent 超时零容忍（2026-05-20）** — 拆小任务(<10min)，不派验证命令，直接写更快就直接写。
-47. **Phase 8 修复必须走角色分离（2026-05-20）** — 大佬测试反馈问题后，即使是"小修复"也必须派 coder/artist/tester，禁止灵犀直接改代码。第一轮修复（6个问题全部灵犀自己写）已记 ERRORS.md。第二轮严格按角色分离执行（coder + 3个artist + tester），9/9 通过。
-53. **ESM 模块中禁止使用 require()（2026-05-21）** — 当 agent 修改 .mjs 文件时，可能错误地引入 `require('path')` 或 `require('fs')`，但 ESM 模块不支持 `require`。**症状：** 运行时 `ReferenceError: require is not defined`，HTTP 500。**解决方案：** 所有 `.mjs` 文件使用 `import` 语句，文件顶部已有 `import path from 'path'` 和 `import fs from 'fs'`，直接使用即可。**验证：** 修改后用 `node -e "import { X } from './path'"` 验证导入是否正常。share.mjs 中 `createShare` 函数的参数名 `path` 与 import 的 `path` 模块同名，需重命名为 `sharePath` 避免冲突。
-54. **delegate_task 全部超时的应急方案（2026-05-21）** — 当一轮中 3+ 个 delegate_task 全部超时（600s）时，不要重复派发。**应急方案：** (1) 灵犀直接用 `write_file`/`patch` 修改前端文件（app.mjs template、style.css）；(2) 记录为流程偏差；(3) 修改后必须通过 tester 验证。**根因：** 任务描述过于复杂、agent 启动开销大、网络延迟。**预防：** 每个 agent 任务控制在 2-3 个文件修改，不要求 agent 运行验证命令。
-55. **TOC 在 flex 容器中 sticky 不生效（2026-05-21）** — `position: sticky` 在 flex item 上可能不生效。**症状：** 滚动笔记时 TOC 跟随滚动而不是固定在右侧。**解决方案：** (1) 确保 `.note-with-toc` 的父容器 `.content-inner` 有 `overflow-y: auto`；(2) TOC 的 `max-height` 设为 `calc(100vh - 60px)` 而非 `100vh`；(3) 如果 sticky 仍不生效，改用 `position: fixed` + JS 计算 top 位置。
-56. **Toast z-index 被 modal 遮挡（2026-05-21）** — Toast 默认 z-index 2000，modal-overlay z-index 3000，导致 toast 被遮罩挡住。**解决方案：** Toast z-index 设为 5000+，并添加 `pointer-events: none` 防止遮挡交互。
-57. **用户偏好：任务拆分防超时（2026-05-21）** — 大佬明确指出"注意任务太大子 agent 或者 sub-agent 超时，看能否拆分"。**规则：** 派活前必须评估任务粒度，单个 agent 任务不超过 5 分钟。前端任务按职责拆分（CSS/样式、功能修复、新增功能），后端任务按 API/模块拆分。宁可多派几个小任务，不要一个大任务。
-58. **CSS 全局变量 alpha 值对 Toast 不可见（2026-05-21）** — CSS 变量 `--success-bg: rgba(22,163,74,0.08)` 的 alpha 仅 0.08，toast 使用此变量时背景几乎透明。**修复：** Toast/notification 背景使用独立实色 hex 值（如 `#DCFCE7`），不引用全局 alpha 变量。详见 `wiki/projects/obsidian-workbench/references/pitfalls/trap-case-2026-05-21-round6-frontend-patterns.md`。
-59. **Markdown 渲染器必须在后端生成 Heading ID（2026-05-21）** — `renderMarkdown()` 生成的 `<h1>` 无 `id` 属性导致 TOC 无法跳转。前端 `applyTocIds()` 补充 ID 存在时序问题。**修复：** 后端渲染器直接用 slugify 生成带 ID 的标题标签。详见 `wiki/projects/obsidian-workbench/references/pitfalls/trap-case-2026-05-21-round6-frontend-patterns.md`。
-60. **API 响应遗漏前端所需属性（2026-05-21）** — `getFolderShares()` 返回 folder 项缺 `path` 属性，前端无法展开子文件夹。**规则：** API 返回后用 python3 检查每个 item 是否包含前端需要的全部字段。新增 API 响应时，列清楚前端需要哪些字段。详见 `wiki/projects/obsidian-workbench/references/pitfalls/trap-case-2026-05-21-round6-frontend-patterns.md`。
-61. **独立 HTML 页面功能遗漏检查（2026-05-21）** — 主 SPA 有文件夹展开+TOC，但 folder.html/share.html 缺失。**规则：** 新增独立 HTML 页面时，对照主 SPA 功能清单检查：文件树展开、TOC、搜索、深色主题、移动端响应式。
-62. **Phase 8 修复两次中断的教训（2026-05-21）** — 大佬第七轮测试反馈后，修复任务因上下文过大中断了两次。根因：(1) 一轮修太多 bug（>10 个）；(2) 在主对话中逐个 read_file，上下文膨胀；(3) 没有写 checkpoint 文件保存进度。**规则：** (1) 每轮最多修 3-4 个 bug；(2) 用 `execute_code` 批量读代码，不在主对话中逐个 read_file；(3) 每批修完写 checkpoint 到 `/tmp/<project>-round<N>-checkpoint.md`；(4) 中断后先读 checkpoint 恢复进度；(5) 向大佬确认恢复的上下文再继续。
-63. **blocked 状态不触发依赖引擎（2026-05-21）** — worker 调用 `kanban_block()` 后，blocked 状态不等于 done，依赖引擎不会 promote 子任务。如果灵犀不 `hermes kanban complete <id>` 原卡就直接创建 fix 子卡，fix 卡永远卡在 todo。**规则：** worker block → 灵犀 complete 原卡 → 灵犀创建 fix 卡（parents=[原卡]）。详见 Phase 6 Blocked 状态处理协议。
-64. **Review 卡必须在 checkpoint 验证后创建（2026-05-21）** — 旧版流程写"同时创建实现卡和 Review 卡"，但 kan-orchestrator 的 Review Gate Protocol 要求：灵犀验证 checkpoint PASS 后才能创建 Review 卡。虽然 parents 依赖会阻止 Review 卡提前被 claim，但提前创建会浪费 dispatcher 的调度资源，且不符合"验证后再审查"的语义。**规则：** Step 7 验证 PASS → Step 8 创建 Review 卡。
-48. **Artist 大任务拆分模式（2026-05-20）** — 当 artist 任务包含 5+ 个前端变更时，单个 artist 容易超时（10min 限制）。**解决方案：** 按职责拆分为多个并行 artist 子任务：artist-1 负责 CSS/样式重写，artist-2 负责功能修复（Modal/右键菜单等），artist-3 负责新增功能（TOC/iframe 等）。每个子任务控制在 5-8 分钟内。并行派发，各自写同一个文件的不同部分（通过 append 模式），最后由灵犀合并验证。
-49. **UI/UX Pro Max 使用模式（2026-05-20）** — 当需要专业 UI 设计系统时：(1) `uipro init --ai all --force` 安装到项目；(2) `python3 .cursor/skills/ui-ux-pro-max/scripts/search.py "项目类型 风格关键词" --design-system -p "项目名" -f markdown` 生成设计系统；(3) 把生成的色板/字体/原则写入 `design-system/MASTER.md`；(4) artist 按 MASTER.md 规范写 CSS。注意：uipro-cli 命令名是 `uipro`，不是 `uipro-cli`。
-50. **Coder 任务描述精确性（2026-05-20）** — coder 完成任务后可能遗漏小字段（如 findShareByPath 返回值缺少 fullLink）。**解决方案：** 在任务描述中明确列出每个函数的返回值格式，包括计算字段（如 fullLink = `${BASE_URL}/s/${token}`）。验证步骤中明确检查每个返回字段。
-51. **delegate_task 多 agent 同时超时的根因（2026-05-20）** — 当派发 3+ 个 delegate_task 时，可能全部超时（600s）。根因：(1) 任务描述过于复杂（包含多文件修改+验证步骤）；(2) agent 启动开销大；(3) 网络/API 延迟。**解决方案：** (1) 每个 agent 任务控制在 2-3 个文件修改以内；(2) 不要求 agent 运行验证命令，验证由灵犀在主线程执行；(3) 如果连续 2 个 agent 超时，转为灵犀直接修改（记录为流程偏差）；(4) 对于纯前端 CSS/JS 修改，灵犀直接 patch 比派 agent 更高效。
-52. **Phase 8 角色分离的务实权衡（2026-05-20）** — 当 agent 连续超时时，灵犀直接修改前端文件（CSS/JS template）是务实选择，但必须：(1) 记录为流程偏差；(2) 修改后必须通过 tester 验证（不能自验）；(3) 优先尝试派 agent，超时 2 次后才转为直接修改。本轮第四轮修复中，3 个 delegate_task 全部超时，灵犀直接 patch 了 app.mjs 和 style.css，最终通过 tester 验证。
+> 78 条教训已去重迁移。流程纪律保留在下方，技术陷阱→`wiki/projects/<项目>/references/pitfalls/`，工具链→`references/integration/hermes-pitfalls.md`。
+
+### 角色分离（铁律）
+1. **禁止灵犀直接写代码** — 即使"很快能做完"也必须派 agent
+2. **禁止 Phase 8 "顺手修了"** — 大佬反馈问题必须走完整反馈循环
+3. **角色分离违规** — worker 卡住时不能自己动手，创建 fix 卡或 escalate
+4. **Phase 8 必须走角色分离** — 小修复用 delegate_task，大修复用 kanban
+
+### 流程完整性
+5. **方向变化不回 Phase 1** — 核心定位变化必须回 Phase 1，不能回 Phase 3
+6. **跳过 Phase 2.5 Spike** — 有技术不确定性的方案必须先验证
+7. **Phase 5 缺少 Self-Review** — tasks.md 写完后必须 4 项自检
+8. **Phase 6 不做 Spec-Code 同步** — 每个 Task 完成后更新 proposal.md
+9. **Phase 7 归档不完整** — 必须检查 overview.md + completion-summary + retrospective + Phase 8 归档
+
+### 质量保障
+10. **agent 自判完成** — 必须通过 CHECKPOINT 客观验证
+11. **Auto-Fix 无限循环** — 2 轮后必须 escalate 给大佬
+12. **Placeholder 污染 tasks.md** — TBD/TODO/similar to N = 计划缺陷
+13. **写入文件后不验证路径** — write_file 后必须 `ls` 确认
+
+### 执行纪律
+14. **超时后提交半成品** — 子 agent 超时后 git stash/revert
+15. **Phase 8 上下文溢出** — 每轮最多修 3-4 个 bug，用 execute_code 批量读代码
 
 ## Verification Checklist（每次使用此 skill 前）
 
@@ -1134,104 +1143,48 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 
 ---
 
-## 版本历史（续）
+## 版本历史
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
-| v3.8.0 | 2026-05-21 | **Phase 6 与 Hermes Kanban 对齐**：(1) 新增 Blocked 状态处理协议（blocked ≠ done，灵犀必须先 complete 原卡再创建 fix 子卡）；(2) 修正 Review 卡创建时机（必须在 checkpoint 验证 PASS 后创建，不是同时创建）；(3) 补充 Worker Heartbeat 说明（长任务可选，dispatcher passive heartbeat 每 60s 检查 PID）；(4) Common Pitfalls 新增 #63-64（blocked 状态、Review 卡时机） |
-| v3.7.0 | 2026-05-21 | **References 架构重构**：项目相关 references 从 clsh-project skill 迁移到 wiki 项目目录。跨项目共享（github-sync-guide, lucky-api, php-env）→ `wiki/reference/integration/`；项目专属技术陷阱 → `wiki/projects/<项目名>/references/pitfalls/`；项目专属集成参考 → `wiki/projects/<项目名>/references/integration/`。每个目录有 `.references-meta.json` 追踪归属+过期状态。SKILL.md frontmatter references 列表完整更新，正文所有路径指向新位置。 |
-| v3.6.0 | 2026-05-21 | Phase 5 新增文件大小控制（tasks.md ≤3000字，必须拆分为子文件）；Phase 7 新增 wiki 归档检查清单（含 Phase 8 每轮归档）；Phase 8 新增执行规范（必须 delegate_task 派发、tester 必须用浏览器工具、每轮必须归档 wiki、大修复用 kanban）；Common Pitfalls 新增 #16-21（write_file 截断、kanban 派发、tester 浏览器、Phase 8 归档、Phase 7 归档、delegate_task vs kanban） |
-| v3.4.0 | 2026-05-21 | Common Pitfalls 新增 4 条（#58-61）：CSS alpha 变量对 Toast 不可见、Markdown 渲染器后端生成 Heading ID、API 响应遗漏前端属性、独立 HTML 页面功能遗漏检查。新增 references/pitfalls/trap-case-2026-05-21-round6-frontend-patterns.md |
-| v3.3.0 | 2026-05-21 | Phase 8 新增"上下文溢出防护"铁律 + 3 条新 pitfalls（ESM 变量遮蔽、Markdown 表格正则、前端调试三件套）+ Phase 8 大量 bug 修复节奏控制 |
+| v4.1.0 | 2026-05-22 | **上游优化集成**：(1) Phase 6 新增 Wave 并行派发策略（Kiro Specs 模式）+ `hermes kanban swarm` 快速模式；(2) Phase 8 路径 A 新增 Bugfix Spec 结构化格式（Kiro 模式）；(3) 新增 `phase8-checkpoint-template.md`；(4) 修复 2 个断链（sketch/github-sync-guide） |
+| v4.0.0 | 2026-05-22 | **Pitfalls 大迁移 + 边界定义**：89 条 Common Pitfalls 去重→78 条→三类迁移（流程纪律保留、技术陷阱→wiki、工具链→references/integration/）。新增边界定义（膨胀阈值）。SKILL.md 从 1237→~1100 行。 |
+| v3.8.0 | 2026-05-21 | Phase 6 与 Hermes Kanban 对齐（Blocked 状态、Review 卡时机、Worker Heartbeat） |
+| v3.7.0 | 2026-05-21 | References 架构重构（项目相关→wiki、跨项目共享→wiki/reference/） |
 
-| 版本 | 日期 | 变更 |
-|------|------|------|
-| v3.2.0 | 2026-05-19 | Phase 5 新增 Self-Review（Spec Coverage + Placeholder Scan + Type Consistency + File Isolation）；Phase 6 新增 Step 9 Spec-Code 同步（Kiro）；Phase 6 超时机制新增自动回滚（Phoenix）：git stash/revert，禁止提交半成品；delegation-protocol session 内缓存 + 快速检查清单 |
-| v3.3.0 | 2026-05-20 | Common Pitfalls 新增 write_file 大文件截断解决方案（拆分为多个子文件，每个控制在 3000 字以内） |
-| v3.9.0 | 2026-05-21 | Common Pitfalls 新增 5 条：ESM 模块禁止 require()（agent 引入的 require 导致 500 错误）；delegate_task 全部超时应急方案（灵犀直接 patch + tester 验证）；TOC sticky 在 flex 容器不生效（max-height + overflow 修复）；Toast z-index 被 modal 遮挡（z-index 5000+pointer-events:none）；用户偏好任务拆分防超时（单个 agent ≤5 分钟） |
-| v3.5.0 | 2026-05-20 | Common Pitfalls 新增 5 条：execSync 扫描大文件集超时（改用 fs.promises 批量读取）；server.mjs 路由注册遗漏（一次性完成 import + 路由注册）；getTree() 缺少 await（async 函数调用必须检查 await）；write_file 覆盖导致内容丢失（增量修改用 patch 而非 write_file） |
-| v3.1.0 | 2026-05-19 | Phase 4 新增自动路径检查；Phase 6 新增 Checkpoint 输出截断规则（200字限制）+ 三层超时防护（子agent自带超时 + 产出物预检 + 灵犀5分钟轮询）；Phase 8 路径 C 明确方向变化必须回 Phase 1；Common Pitfalls 新增巡检 cron 报告写入本地而非 Obsidian、公众号检查未走云主机 SSH |
-| v3.0.0 | 2026-05-19 | github-sync-guide 补充 clsh-content 仓库；Common Pitfalls 补充 Wireguard 运维、Hermes 插件注册、小红书 MCP 部署 |
-| v2.9.0 | 2026-05-19 | Common Pitfalls 新增 3 条：需求范围调整回 Phase 1、图片生成方案偏好、notify-subscribe 返回空 |
-| v2.5.0 | 2026-05-17 | Phase 1 新增"调研前置"环节 |
-| v2.4.0 | 2026-05-16 | P0-P3 全面优化 |
-| v2.3.0 | 2026-05-15 | 铁律 8 条 + Phase 6 状态机 + Phase 8 反馈循环 |
-| v2.2.0 | 2026-05-13 | Kanban bridge + tasks.md 回写 |
-| v2.1.0 | 2026-05-12 | Constitution 模板 + Phase 4 自检 |
-| v2.0.0 | 2026-05-11 | 初始版本 |
+> 完整版本历史见 git log。
 
 ## 参考文件
 
-### 📍 Reference 架构说明（2026-05-21 迁移）
-
-**原则：项目相关的 references 存在 wiki 项目目录里，不在 clsh-project skill 里。**
-
-| 参考类型 | 位置 | 原因 |
-|---------|------|------|
-| 方法论 | `references/methodology/`（本地） | 流程知识，与项目代码无关 |
-| 模板 | `references/templates/`（本地） | 流程模板，所有项目共用 |
-| 工具链集成 | `references/integration/`（本地） | Hermes/Halo/Kanban 工具使用指南 |
-| 流程违规案例 | `references/pitfalls/violation-case-*`（本地） | 流程纪律，与项目无关 |
-| 流程管理指南 | `references/pitfalls/phase8-*, memory-*`（本地） | Phase 8 管理方法论 |
-| **跨项目共享** | **`wiki/reference/integration/`** | github-sync-guide, lucky-api, php-env |
-| **项目专属技术陷阱** | **`wiki/projects/<项目名>/references/pitfalls/`** | obsidian-workbench 的前端模式等 |
-| **项目专属集成参考** | **`wiki/projects/<项目名>/references/integration/`** | clsh-content 的 halo-obsidian-ref |
-
-**过期检测：** 每个项目目录有 `.references-meta.json`，记录 `projects`（归属）、`last_verified`（最后验证时间）、`staleness_threshold_days`（过期阈值）。执行项目时只检查该项目相关的 references。
-
-**迁移模式详见：** `references/integration/reference-migration-pattern.md`（分类决策树 + 8 步迁移流程 + 过期检测逻辑）
-
-### 📐 方法论（本地）
+### 📐 方法论
 - `references/methodology/kiro-superpowers-analysis.md` — Kiro + Superpowers + Phoenix 工作流分析
-- `references/methodology/ralph-loop-analysis.md` — Ralph Loop 调研：原理 + 与 Phase 6 映射
-- `references/methodology/openspec-comparison.md` — OpenSpec 对比分析
-- `references/methodology/agent-skill-execution-research.md` — Agent Skill 执行跑偏问题：根因分析 + 5种解决方案
-- `references/methodology/superpowers-v5-changes.md` — Superpowers v5 关键变更及对 clsh-project 的影响
+- `references/methodology/ralph-loop-analysis.md` — Ralph Loop：原理 + Phase 6 映射
+- `references/methodology/superpowers-v5-changes.md` — Superpowers v5 关键变更
+- `references/methodology/agent-skill-execution-research.md` — Agent 执行跑偏：根因 + 5 种方案
+- `references/methodology/superpowers-architecture-analysis.md` — Superpowers 架构拆解
 
-### 📋 模板（本地）
-- `references/templates/constitution-template.md` — Constitution 模板（Phase 3 使用）
+### 📋 模板
+- `references/templates/constitution-template.md` — Constitution 模板
 - `references/templates/archive-workflow.md` — Phase 7 归档操作手册
-- `references/templates/cloud-server-wireguard.md` — 云服务器 + Wireguard 参考
-- `references/templates/phase7-archive-checklist.md` — Phase 7 归档快速检查清单
+- `references/templates/phase7-archive-checklist.md` — 归档快速检查清单
 
-### 🔌 集成（本地）
-- `references/integration/kanban-tasks-bridge.md` — Kanban bridge 说明
-- `references/integration/hermes-slash-command-mechanism.md` — Hermes 斜杠命令机制与插件化架构调研
-- `references/integration/hermes-plugin-zero-token.md` — Hermes 插件零令牌路由架构
-- `references/integration/hermes-plugin-hooks-reference.md` — Hermes 插件 hook 能力边界
-- `references/integration/halo-auth.md` — Halo CMS Session-Based 认证
-- `references/integration/halo-cli-auth.md` — Halo CLI Linux 无桌面环境认证
-- `references/integration/reference-migration-pattern.md` — Reference 架构迁移模式：分类决策树 + 8 步迁移 + 过期检测
+### 🔌 集成
+- `references/integration/hermes-pitfalls.md` — **Hermes 工具链陷阱**（从 Common Pitfalls 迁移）
+- `references/integration/kanban-tasks-bridge.md` — Kanban bridge
+- `references/integration/hermes-plugin-hooks-reference.md` — 插件 hook 能力边界
+- `references/integration/hermes-plugin-zero-token.md` — 零令牌路由
+- `references/integration/halo-auth.md` — Halo 认证
+- `references/integration/reference-migration-pattern.md` — Reference 迁移模式
 
-### 🔌 跨项目共享（wiki/reference/integration/，2026-05-21 迁移）
-- `wiki/reference/integration/github-sync-guide.md` — GitHub 同步指南（仓库地址 + 推送命令）
-- `wiki/reference/integration/lucky-api-format.md` — Lucky API 格式
-- `wiki/reference/integration/php-env-pattern.md` — PHP 环境模式
-- 追踪文件：`wiki/reference/.references-meta.json`
+### ⚠️ 教训（流程违规案例）
+- `references/pitfalls/violation-case-2026-05-15.md` — 跳步 + 自测
+- `references/pitfalls/violation-case-2026-05-18.md` — Kanban 状态同步 + 角色分离
+- `references/pitfalls/violation-case-2026-05-20.md` — Phase 8 灵犀直接写代码
+- `references/pitfalls/phase8-context-management.md` — Phase 8 上下文管理
 
-### ⚠️ 教训 — 流程违规（本地）
-- `references/pitfalls/violation-case-2026-05-15.md` — 流程违规案例：跳步 + 自测
-- `references/pitfalls/violation-case-2026-05-15-self-coding.md` — 灵犀直接写代码违规
-- `references/pitfalls/violation-case-2026-05-18.md` — Phase 6 Kanban 状态同步 + 角色分离
-- `references/pitfalls/violation-case-2026-05-20.md` — Phase 8 灵犀直接写代码违规
+### 📂 项目专属（wiki）
+- `wiki/projects/obsidian-workbench/references/pitfalls/` — ESM/CSS/Markdown/部署陷阱
+- `wiki/projects/clsh-content/references/integration/` — Halo + Obsidian 参考
 
-### ⚠️ 教训 — 流程管理指南（本地）
-- `references/pitfalls/phase8-context-management.md` — Phase 8 上下文管理：批量读代码、checkpoint、中断恢复
-- `references/pitfalls/phase8-session-management.md` — Phase 8 Session 管理：分批修复、避免上下文溢出
-- `references/pitfalls/phase8-frontend-debug-patterns.md` — Phase 8 前端调试模式参考
-- `references/pitfalls/memory-tool-traps-2026-05-21.md` — Memory 工具使用陷阱
-- `references/pitfalls/technical-traps-2026-05-20.md` — 技术陷阱合集
-
-### ⚠️ 教训 — 项目专属技术陷阱（wiki，2026-05-21 迁移）
-- `wiki/projects/obsidian-workbench/references/pitfalls/trap-case-2026-05-20-share-html-and-emit.md` — share.html 风格遗漏 + Vue emit 陷阱
-- `wiki/projects/obsidian-workbench/references/pitfalls/trap-case-2026-05-21-round6-frontend-patterns.md` — 前端修复模式（Toast/Heading ID/API 属性/独立页面）
-- `wiki/projects/obsidian-workbench/references/pitfalls/trap-case-2026-05-21-round7-regex-dom-css.md` — Regex/DOM/CSS 陷阱
-- 追踪文件：`wiki/projects/obsidian-workbench/.references-meta.json`
-
-### 📎 项目专属集成参考（wiki，2026-05-21 迁移）
-- `wiki/projects/clsh-content/references/integration/halo-obsidian-ref.md` — Halo 认证 + Obsidian CLI 参考
-- 追踪文件：`wiki/projects/clsh-content/.references-meta.json`
-
-## 流程说明
-
-详见 `README.md`（skill 根目录）— 包含流程总览、各 Phase 详解、速查表、版本历史。
+### 流程说明
+详见 `README.md`（skill 根目录）— 流程总览、各 Phase 详解、速查表。

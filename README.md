@@ -11,6 +11,25 @@
 - 状态机执行 — 流程控制权在代码，不在 LLM
 - Ralph Loop 原则 — 灵犀是循环编排者，agent 是单步执行器
 
+## 边界定义
+
+### 管什么
+- 流程编排（Phase 1-8 门禁和流转）
+- 角色分离（灵犀 ≠ coder）
+- 质量保障（checkpoint + review + security scan）
+- 文档管理（wiki/projects/ 结构）
+
+### 不管什么
+- 具体技术实现细节 → `wiki/projects/<项目>/references/pitfalls/`
+- Hermes 工具链使用细节 → `references/integration/hermes-pitfalls.md`
+- 调试方法论 → `diagnose` skill
+- 代码质量规则 → `code-principles` skill
+
+### 膨胀阈值
+- SKILL.md: ≤ 900 行
+- Common Pitfalls: ≤ 25 条（超出迁移）
+- references/: ≤ 25 个文件（超出归档）
+
 ## 何时触发
 
 以下任一条件满足时主动触发：
@@ -46,49 +65,72 @@ Phase 8: 反馈循环（大佬测试后，diagnose 6 阶段）→ 回到 Phase 1
 
 **⛔ 关键：每个 ↓ 处必须有明确的大佬确认，才能进入下一阶段。**
 
-## 各 Phase 详解
+## 架构
 
-### Phase 1: 需求澄清
-- **调研前置**：提问前默认调研类似项目/行业方案，输出调研摘要（3-5 条关键发现 + 2-3 条项目启示）写入 `conversation.md`
-- **一次只问一个问题**，多选题优先
-- **先理解目的，再讨论细节**
-- **Visual Companion**（UI/视觉项目专用）：可启动本地 HTML 页面展示设计方案
+```
+clsh-project/
+├── SKILL.md                              ← 主流程定义（~1140 行）
+├── README.md                             ← 本文件
+└── references/
+    ├── methodology/                      ← 方法论研究（5 个文件）
+    │   ├── kiro-superpowers-analysis.md
+    │   ├── ralph-loop-analysis.md
+    │   ├── superpowers-v5-changes.md
+    │   ├── superpowers-architecture-analysis.md
+    │   └── agent-skill-execution-research.md
+    ├── templates/                        ← 流程模板（4 个文件）
+    │   ├── constitution-template.md
+    │   ├── archive-workflow.md
+    │   ├── phase7-archive-checklist.md
+    │   ├── phase8-checkpoint-template.md  ← ⭐ 修复进度持久化
+    │   └── cloud-server-wireguard.md
+    ├── integration/                      ← 工具链集成 + 陷阱（8 个文件）
+    │   ├── hermes-pitfalls.md            ← ⭐ 工具链陷阱（从 Common Pitfalls 迁移）
+    │   ├── kanban-tasks-bridge.md
+    │   ├── hermes-plugin-hooks-reference.md
+    │   ├── hermes-plugin-zero-token.md
+    │   ├── hermes-slash-command-mechanism.md
+    │   ├── halo-auth.md
+    │   ├── halo-cli-auth.md
+    │   └── reference-migration-pattern.md
+    └── pitfalls/                         ← 流程违规案例（8 个文件）
+        ├── violation-case-2026-05-15.md
+        ├── violation-case-2026-05-18.md
+        ├── violation-case-2026-05-20.md
+        ├── phase8-context-management.md
+        ├── phase8-session-management.md
+        ├── phase8-frontend-debug-patterns.md
+        ├── memory-tool-traps-2026-05-21.md
+        └── technical-traps-2026-05-20.md
+```
 
-### Phase 2: 方案设计
-- 提出 2-3 个方案，每个说清楚优缺点和工作量
-- **技术不确定性检查**：有不确定时必须进入 Phase 2.5
+### 项目专属参考（wiki）
 
-### Phase 2.5: Technical Spike（可选）
-- 在写设计文档前验证技术可行性
-- 分解为 2-5 个可行性问题 → 快速原型 → 裁决（VALIDATED/PARTIAL/INVALIDATED）
+```
+wiki/projects/<项目名>/
+└── references/
+    └── pitfalls/                         ← 技术陷阱（从 Common Pitfalls 迁移）
+        ├── node-esm-traps.md             ← ESM/require/await 模块陷阱
+        ├── frontend-css-traps.md         ← z-index/sticky/alpha CSS 陷阱
+        ├── markdown-render-traps.md      ← 表格正则/Heading ID 渲染陷阱
+        ├── server-ops-traps.md           ← 端口冲突/execSync/路由注册
+        └── deployment-traps.md           ← Docker→pm2/环境路径差异
+```
 
-### Phase 3: 写设计文档 + Constitution
-- 产出：`proposal.md` + `constitution.md`
-- Constitution 是项目级"宪法"，定义 AI worker 必须遵守的技术约束
+## 相关 Skills
 
-### Phase 4: 设计文档自检 + 大佬 Review
-- 流程合规检查（6 项）+ 文档质量自检（6 项）
-- 自检通过后向大佬确认
-
-### Phase 5: 写实现计划
-- **No Placeholders**：禁止 TBD/TODO/"类似 Task N"
-- **Type Consistency**：跨任务签名一致
-- **文件依赖图**：标注任务间依赖
-- **垂直切片策略**：3 种切片方式（垂直/契约优先/风险优先）
-- **Self-Review**：写完计划后 fresh eyes 检查
-
-### Phase 6: Ralph Loop 分发执行
-- **状态机 8 步**：agent 执行 → CHECKPOINT → 灵犀验证 → Security Scan → Quality Review → Tester
-- **Auto-Fix Loop**：最多 2 轮，2 轮后 escalate 给大佬
-- **角色分离**：后端→coder，UI→artist，测试→tester，灵犀只协调
-
-### Phase 7: 完成归档 + 流程复盘
-- 更新提案状态、归档变更、更新 Source of Truth
-- 流程合规复盘（7 项）写入 `retrospective.md`
-
-### Phase 8: 反馈循环
-- **Diagnose 6 阶段**：建循环 → 复现 → 假设 → 插桩 → 修复 → 复盘
-- 3 条路径：Bug 修复 / 体验优化 / 新需求
+| Skill | 关系 | 说明 |
+|-------|------|------|
+| `kanban-orchestrator` | Phase 6 执行 | 任务分解 + 派发 |
+| `kanban-worker` | Phase 6 执行 | Worker 执行协议 |
+| `subagent-driven-development` | Phase 6 执行 | 子 agent 派发模式 |
+| `plan` | Phase 5 计划 | 实现计划编写 |
+| `spike` | Phase 2.5 | 技术可行性验证 |
+| `diagnose` | Phase 8 调试 | 6 阶段诊断循环 |
+| `test-driven-development` | Phase 5-6 | TDD 流程 |
+| `incremental-build` | Phase 5 | 垂直切片策略 |
+| `requesting-code-review` | Phase 6 Review | 代码审查流水线 |
+| `obsidian-operations` | 文档管理 | wiki 归档 |
 
 ## 流程门禁
 
@@ -102,64 +144,39 @@ Phase 8: 反馈循环（大佬测试后，diagnose 6 阶段）→ 回到 Phase 1
 | Phase 6 修复 | Auto-Fix 最多 2 轮 | 2 轮后必须 escalate 给大佬 |
 | Phase 6 测试 | 修复后必须 tester 验证 | 不允许汇报完成 |
 
-## 快捷方式
+## Common Pitfalls（精简版）
 
-- 大佬说"简单做一下" → 可跳过 Phase 2（方案对比），但 Phase 1 和 Phase 3 不能跳过
-- Phase 2.5 Spike 是可选的，仅在技术不确定时触发
+> 78 条教训已去重迁移。流程纪律保留在下方，技术陷阱→`wiki/projects/<项目>/references/pitfalls/`，工具链→`references/integration/hermes-pitfalls.md`。
 
-## Common Pitfalls
+### 角色分离（铁律）
+1. **禁止灵犀直接写代码** — 即使"很快能做完"也必须派 agent
+2. **禁止 Phase 8 "顺手修了"** — 大佬反馈问题必须走完整反馈循环
+3. **角色分离违规** — worker 卡住时不能自己动手，创建 fix 卡或 escalate
+4. **Phase 8 必须走角色分离** — 小修复用 delegate_task，大修复用 kanban
 
-1. **灵犀直接写代码** — 即使"很快能做完"也必须派 agent
-2. **跳过 Phase 2.5 Spike** — 有技术不确定性的方案必须先验证
-3. **Phase 6 没有安全扫描** — 每个 Task 的 review 必须包含安全扫描
-4. **tester 只做功能测试** — tester 应运行完整的 requesting-code-review 流水线
-5. **攒到最后一起提交** — 每个 Task 后必须 commit
-6. **Phase 8 "顺手修了"** — 大佬反馈问题必须走完整反馈循环
-7. **agent 自判完成** — 必须通过 CHECKPOINT 客观验证
-8. **Auto-Fix 无限循环** — 2 轮后必须 escalate 给大佬
-9. **Placeholder 污染 tasks.md** — TBD/TODO/similar to N = 计划缺陷
-10. **忽略 Type Consistency** — 跨任务的函数签名/类型必须一致
-11. **写入文件后不验证路径** — write_file 后必须 `ls` 确认文件存在于声明路径（2026-05-15 教训）
-12. **方向变化不回 Phase 1** — 核心定位/架构变化必须回 Phase 1，禁止回 Phase 3（2026-05-19 教训）
-13. **超时后直接提交半成品** — 子 agent 超时后必须 git stash/revert，不能提交半成品（2026-05-19 教训）
-14. **Phase 5 缺少 Self-Review** — tasks.md 写完后必须执行 Spec Coverage + Placeholder Scan + Type Consistency（2026-05-19 教训）
-15. **Phase 6 不做 Spec-Code 同步** — 每个 Task 完成后必须检查 proposal.md 与实际代码是否一致（2026-05-19 教训）
+### 流程完整性
+5. **方向变化不回 Phase 1** — 核心定位变化必须回 Phase 1，不能回 Phase 3
+6. **跳过 Phase 2.5 Spike** — 有技术不确定性的方案必须先验证
+7. **Phase 5 缺少 Self-Review** — tasks.md 写完后必须 4 项自检
+8. **Phase 6 不做 Spec-Code 同步** — 每个 Task 完成后更新 proposal.md
+9. **Phase 7 归档不完整** — 必须检查 overview.md + completion-summary + retrospective + Phase 8 归档
 
-## Verification Checklist（每次使用此 skill 前）
+### 质量保障
+10. **agent 自判完成** — 必须通过 CHECKPOINT 客观验证
+11. **Auto-Fix 无限循环** — 2 轮后必须 escalate 给大佬
+12. **Placeholder 污染 tasks.md** — TBD/TODO/similar to N = 计划缺陷
+13. **写入文件后不验证路径** — write_file 后必须 `ls` 确认
 
-- [ ] 确认不是简单查询/单步操作
-- [ ] 确认 Phase 1-3 已完成且有文档产出
-- [ ] 确认大佬已明确回复"确认"才进入下一 Phase
-- [ ] 确认 tasks.md 中每个 Task 有验收标准 + 完整代码（无 TBD/TODO）
-- [ ] 确认代码任务已派给 coder/artist，不是灵犀直接写
-- [ ] 确认每个 Task 有 tester 卡
-- [ ] 确认 Phase 6 有 Security Scan 步骤
-- [ ] 确认 Phase 8 反馈走流程而非"顺手修了"
-- [ ] 确认 Auto-Fix 不超过 2 轮后 escalate
-
-## 参考文件
-
-- `references/ralph-loop-analysis.md` — Ralph Loop 调研：原理 + 与 Phase 6 映射
-- `references/superpowers-v5-changes.md` — Superpowers v5 关键变更及对 clsh-project 的影响
-- `references/kiro-superpowers-analysis.md` — Kiro + Superpowers + Phoenix 工作流分析
-- `references/agent-skill-execution-research.md` — Agent Skill 执行跑偏问题：根因分析 + 5种解决方案
-- `references/constitution-template.md` — Constitution 模板
-- `references/kanban-tasks-bridge.md` — Kanban bridge 说明
-- `references/openspec-comparison.md` — OpenSpec 对比分析
-- `references/violation-case-2026-05-15-self-coding.md` — 灵犀直接写代码违规案例
-- `references/github-sync-guide.md` — GitHub 同步指南
+### 执行纪律
+14. **超时后提交半成品** — 子 agent 超时后 git stash/revert
+15. **Phase 8 上下文溢出** — 每轮最多修 3-4 个 bug，用 execute_code 批量读代码
 
 ## 版本历史
 
 | 版本 | 日期 | 变更 |
-|------|------|------|
-| v3.2.0 | 2026-05-19 | Phase 5 新增 Self-Review（Spec Coverage + Placeholder Scan + Type Consistency + File Isolation）；Phase 6 新增 Step 9 Spec-Code 同步（Kiro）；Phase 6 超时机制新增自动回滚（Phoenix）：git stash/revert，禁止提交半成品；Phase 8 路径 C 明确方向变化必须回 Phase 1；Phase 4 添加自动路径检查 |
-| v3.1.0 | 2026-05-19 | Phase 6 添加 Checkpoint 输出截断规则（200 字以内）；Phase 6 添加三层超时防护（子 agent 自带超时 + 产出物预检 + 灵犀 5 分钟轮询）；delegation-protocol 添加 session 内缓存 + 快速检查清单 |
-| v3.0.0 | 2026-05-19 | github-sync-guide 补充 clsh-content 仓库；Common Pitfalls 补充 Wireguard 运维、Hermes 插件注册、小红书 MCP 部署 |
-| v2.9.0 | 2026-05-19 | Common Pitfalls 新增 3 条：需求范围调整回 Phase 1、图片生成方案偏好、notify-subscribe 返回空 |
-| v2.5.0 | 2026-05-17 | Phase 1 新增"调研前置"环节：需求提问前默认调研类似项目/行业方案，输出调研摘要写入 conversation.md |
-| v2.4.0 | 2026-05-16 | P0-P3 全面优化（Security Scan/Auto-Fix/Spike/Visual Companion 等） + git 仓库迁移到 clsh-project 目录 |
-| v2.3.0 | 2026-05-15 | 铁律 8 条 + Phase 6 状态机 + Phase 8 反馈循环 |
-| v2.2.0 | 2026-05-13 | Kanban bridge + tasks.md 回写 |
-| v2.1.0 | 2026-05-12 | Constitution 模板 + Phase 4 自检 |
-| v2.0.0 | 2026-05-11 | 初始版本 |
+| v4.1.0 | 2026-05-22 | **上游优化集成**：Wave 并行派发 + Bugfix Spec + checkpoint 模板 |
+| v4.0.0 | 2026-05-22 | **Pitfalls 大迁移 + 边界定义**：89→15 条精简，技术陷阱→wiki，工具链→hermes-pitfalls.md |
+| v3.8.0 | 2026-05-21 | Phase 6 与 Kanban 对齐（Blocked 状态、Review 卡时机） |
+| v3.7.0 | 2026-05-21 | References 架构重构（项目→wiki、跨项目→wiki/reference/） |
+
+> 完整版本历史见 git log。
