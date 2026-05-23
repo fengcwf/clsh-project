@@ -1,7 +1,7 @@
 ---
 name: clsh-project
 description: "需求驱动的项目开发工作流 — 从需求澄清到设计文档到实现计划到执行。灵感来自 Kiro 的 Spec-Driven Development、Superpowers 的 Brainstorming 方法论、Phoenix 的状态机执行模式。"
-version: 4.1.0
+version: 5.1.0
 author: 灵犀
 license: MIT
 platforms: [linux, macos, windows]
@@ -19,6 +19,7 @@ metadata:
       - incremental-build
       - spike
       - diagnose
+      - project-wrap-up
     references:
       # 方法论（clsh-project 流程知识，保留本地）
       - references/methodology/ralph-loop-analysis.md
@@ -109,7 +110,7 @@ metadata:
 6. **文档写入路径验证** — 文档必须写入 `wiki/projects/<项目名>/changes/<变更名>/` 目录，写入后必须 `ls` 验证
 7. **反馈走流程** — 大佬测试反馈问题后，走 Phase 8 反馈循环，禁止"顺手修了"
 8. **Checkpoint 机制** — 每个 Task 执行后必须输出 checkpoint（产出物验证），未通过验证不得进入下一 Task
-9. **安全扫描** — Phase 6 每个 Task 的 review 必须包含安全扫描（硬编码密钥、SQL 注入、shell 注入等）
+9. **安全扫描** — Phase 6 每个 Task 的 review 必须包含安全扫描（硬编码密钥、SQL 注入、shell 注入等）。agent 提交前必须完成 Pre-Commit 安全自检（见 phase6-execution.md §Pre-Commit）
 10. **Auto-Fix 上限** — review 发现问题后派 fix agent 修复并重新 review，最多 2 轮后 escalate 给大佬
 
 **违反以上任何一条 = 流程违规，必须记 ERRORS.md。**
@@ -153,933 +154,71 @@ Phase 8: 反馈循环（大佬测试后，diagnose 6 阶段）→ 回到 Phase 1
 
 **⛔ 关键：每个 ↓ 处必须有明确的大佬确认，才能进入下一阶段。**
 
----
+### 🅿️ 项目暂存（Project Parking）
 
-## Phase 1: 需求澄清
+大佬说"先存 wiki，不做"/"记录一下方案，下次继续"时：
+1. 写 `wiki/projects/<项目名>/overview.md`（状态 `planning`）
+2. 写 `wiki/projects/<项目名>/proposal.md`（技术方案）
+3. 向大佬确认已存档
+4. **不进入 Phase 2+**，等大佬下次确认后再继续
 
-**目标：** 理解大佬真正想要什么，发现大佬没想到的需求点。
-
-### 规则
-- **一次只问一个问题** — 不要一次抛出 5 个问题
-- **多选题优先** — 比如"这个通知方式你倾向哪种？A.飞书 B.邮件 C.短信 D.都要"
-- **先理解目的，再讨论细节** — 问"这个功能主要解决什么问题？"而不是"数据库用什么字段？"
-- **主动提出大佬没想到的需求**
-- **如果需求太大，先帮助拆分子项目"
-
-### 🎨 Visual Companion（UI/视觉项目专用）
-
-**触发条件：** Phase 1 涉及视觉/UI 问题（布局、交互流程、页面结构）时，在提出第一个视觉相关问题前提供。
-
-**模板：**
-> "这个项目涉及 UI/视觉设计。我可以启动一个 Visual Companion 帮助你：
-> - 启动本地 HTML 页面展示设计方案
-> - 实时对比不同布局/交互方案
-> - 你可以直接在浏览器中点击反馈
-> 
-> 需要吗？（默认：否）"
-
-**执行方式：**
-- 大佬同意 → 使用 `sketch` skill（`sketch` skill）生成 2-3 个 HTML 设计方案
-- 启动本地 HTTP 服务（`python3 -m http.server`），在浏览器中展示
-- 大佬在浏览器中查看并反馈，灵犀根据反馈调整方案
-- 完成后关闭服务
-
-**⚠️ 注意：** 仅用于视觉/UI 讨论。纯后端/API 项目不需要。
-
-### 🔄 Phase 中断恢复（Restart Protocol）
-
-如果 session 中断后重启（如新会话、网关重启等），**不要从头开始 Phase 1**，而是：
-
-1. `session_search` 搜索最近 3 个 session，关键词用项目名
-2. 读取历史 session 的 summary，恢复上下文
-3. 检查 `wiki/projects/<项目名>/` 是否已有文档产出
-4. 从上次中断的 Phase 继续，**不要重复已完成的工作**
-5. 向大佬确认恢复的上下文是否正确，再继续提问
-
-### 🔍 调研前置（Phase 1 必问）
-
-在开始提问之前，先问大佬是否需要调研：
-
-> "在讨论需求之前，要不要我先调研一下类似项目的常见做法、行业方案或技术趋势？这样讨论时能有更多参考依据。（默认：是）"
-
-- **大佬说"是"或"需要"** → 用 `web_search` 调研 2-3 个类似项目/产品，总结关键发现和启示，再开始 Phase 1 提问
-- **大佬说"不用"或"直接聊"** → 跳过调研，直接进入提问模板
-- **大佬未明确回答** → 默认执行调研（主动权在灵犀）
-
-**调研输出格式：**
-```markdown
-## 调研摘要
-- 调研方向：[类似产品/技术方案/行业实践]
-- 关键发现：[3-5 条]
-- 对本项目启示：[2-3 条]
-```
-
-调研结果写入 `conversation.md` 顶部，作为需求讨论的参考上下文。
-
-### 提问模板（按顺序探索）
-
-1. **目的和用户** — "这个功能主要是给谁用的？解决什么问题？"
-2. **核心功能** — "核心要做什么？最小可用版本包含哪些功能？"
-3. **输入输出** — "用户输入什么？系统输出什么？"
-4. **边界条件** — "异常情况怎么处理？"
-5. **非功能需求** — "性能要求？安全要求？需要兼容什么环境？"
-6. **优先级** — "如果时间紧，哪些功能可以后做？"
-
-### 需求文档格式
-
-**文件位置：** `wiki/projects/<项目名>/changes/YYYY-MM-DD-<变更名>/conversation.md`
+这是合法的项目状态 — 不是每个需求都需要立即执行。
 
 ---
 
-## Phase 2: 方案设计
+## Phase 0+1: 需求准备与澄清
 
-**目标：** 提出多个技术方案，让大佬做选择题。
+Phase 0 每次项目开始前内化历史教训；Phase 1 一次一个问题、多选优先、先理解目的再讨论细节。UI 项目可选 Visual Companion。含调研前置、提问模板、需求文档格式。
 
-### 规则
-- **提出 2-3 个方案** — 不要只给一个"推荐方案"
-- **每个方案说清楚：** 优点、缺点、工作量估算
-- **给出推荐理由**
-- **用对比表格呈现**
-
-### ⛔ 技术不确定性检查
-
-如果方案中存在以下情况，**必须进入 Phase 2.5 Spike**，不可直接跳到 Phase 3：
-- 使用从未在项目中用过的框架/协议/库
-- 性能要求可能无法满足（需要基准测试验证）
-- 多方案技术路线差异大，无法凭经验判断
-- 依赖第三方服务的稳定性/兼容性未知
+📋 **详细流程:** [references/workflow/phase0-1-requirements.md](references/workflow/phase0-1-requirements.md)
 
 ---
 
-## Phase 2.5: Technical Spike（可选）
+## Phase 2+2.5: 方案设计与技术验证
 
-**目标：** 在写设计文档前验证技术可行性，降低设计返工风险。
+Phase 2 提出 2-3 个方案 + 推荐理由，用对比表格呈现。Phase 2.5 Spike 仅在技术不确定时触发，快速原型验证可行性。
 
-**参考：** `spike` skill
-
-### 何时触发（满足任一）
-- Phase 2 的方案存在技术不确定性
-- 新框架/新协议首次引入
-- 性能/兼容性需要实际验证
-- 大佬明确要求"先确认能不能做"
-
-### 流程
-
-```
-1. 分解为 2-5 个独立可行性问题（Given/When/Then 格式）
-2. 按风险排序，最高风险的 spike 先做
-3. 每个 spike：研究 → 快速原型 → 裁决
-4. 输出：VALIDATED / PARTIAL / INVALIDATED
-5. 更新 Phase 2 方案
-```
-
-### 裁决格式
-
-```markdown
-## Verdict: VALIDATED | PARTIAL | INVALIDATED
-
-### What worked
-- ...
-
-### What didn't
-- ...
-
-### Surprises
-- ...
-
-### Recommendation for the real build
-- ...
-```
-
-**文件位置：** `wiki/projects/<项目名>/changes/<变更名>/spikes/NNN-question/`
-
-### ⛔ Spike 铁律
-- **快速原型 ≠ 生产代码** — spike 代码写完就扔，不要"顺手合并"
-- **每个 spike 独立目录** — 不互相干扰
-- **有 PARTIAL 或 INVALIDATED 时** — 必须更新方案，不能假装没看到
+📋 **详细流程:** [references/workflow/phase2-design.md](references/workflow/phase2-design.md)
 
 ---
 
-## Phase 3: 写设计文档 + Constitution
+## Phase 3+4: 设计文档与自检
 
-**目标：** 将需求和选定方案转化为详细的技术设计文档。
+Phase 3 写 proposal.md + constitution.md（含轻量版和完整版模板）。UI 项目可选 **设计发散**（2-3 个 HTML mockup 变体供大佬选择方向）。Phase 4 流程合规检查 + 文档质量自检 + 大佬 Review Gate + 自动路径验证。
 
-### 文件位置
-
-```
-wiki/projects/<项目名>/
-├── overview.md
-├── source-of-truth/
-│   ├── constitution.md
-│   └── <capability>.md
-└── changes/
-    └── YYYY-MM-DD-<变更名>/
-        ├── proposal.md
-        ├── conversation.md
-        ├── spikes/          ← Phase 2.5 产出
-        └── tasks.md
-```
-
-### 创建 Constitution（Phase 3 必做）
-
-Constitution 是项目级的"宪法"，定义 AI worker 必须遵守的技术约束。
-
-**轻量版（小项目）：**
-```markdown
----
-title: "[项目名] 项目约束"
-date: YYYY-MM-DD
-type: constitution
-project: "[项目名]"
----
-
-# [项目名] 项目约束
-
-- **技术栈：** [一句话描述]
-- **代码规范：** [关键规则]
-- **架构：** [核心约束]
-- **禁止：** [最重要的 2-3 条]
-```
-
-**完整版模板：** 见 `references/templates/constitution-template.md`
+📋 **详细流程:** [references/workflow/phase3-spec.md](references/workflow/phase3-spec.md)
 
 ---
 
-## Phase 4: 设计文档自检 + 大佬 Review
+## Phase 5: 实现计划
 
-### ⛔ 流程合规检查
+tasks.md 单文件 ≤3000 字，超出必须拆分。每个任务 = 一个 kanban 卡，粒度 2-5 分钟。No Placeholders + Type Consistency 必做。含文件依赖图、垂直切片策略、Self-Review 四项检查。
 
-1. Phase 1 是否完成？
-2. Phase 2 是否完成？
-3. Phase 2.5（如触发）是否完成？
-4. Phase 3 是否完成？
-5. 是否有跳步？
-6. 代码是否已提前编写？
-
-**如果以上任何一项为 NO → 停止，补全缺失的 Phase。**
-
-### 文档质量自检
-
-1. **Placeholder 扫描** — 有无 "TBD"、"TODO"、"implement later"？
-2. **内部一致性** — 各章节是否矛盾？架构与功能描述是否匹配？
-3. **范围检查** — 是否过大需要拆分？
-4. **歧义检查** — 是否有需求可被两种解读？
-5. **需求覆盖** — Phase 1 的每个需求是否都有对应设计？
-6. **Type Consistency** — 跨章节的类型/接口/命名是否一致？
-
-### 大佬 Review Gate
-
-自检通过后，向大佬确认：
-
-> "设计文档已写入 `wiki/projects/<项目名>/changes/<变更名>/`，请 review。确认无误后我开始写实现计划。"
-
-**等待大佬确认后才进入 Phase 5。**
-
-### 🔍 自动路径检查（Q1 改进 — 2026-05-19）
-
-**每次写入文件后，必须执行路径验证：**
-
-```bash
-# 写入文件后立即验证
-ls -la <声明路径>
-# 确认文件存在且大小 > 0
-```
-
-**Phase 3 写入验证清单：**
-- [ ] `proposal.md` 已写入 `wiki/projects/<项目名>/changes/<变更名>/` → `ls` 验证
-- [ ] `constitution.md` 已写入 `wiki/projects/<项目名>/source-of-truth/` → `ls` 验证
-- [ ] 文件大小 > 0（非空文件）
-
-**Phase 6 产出物验证清单：**
-- [ ] 代码文件已写入声明的绝对路径 → `ls` 验证
-- [ ] 测试文件已写入 → `ls` 验证
-- [ ] 产出物路径使用绝对路径（禁止相对路径）
-
-**⛔ 路径错误 = 流程违规，必须记 ERRORS.md**
-
-> ⚠️ **教训（2026-05-15）：** write_file 使用相对路径，文件落到 skill references/ 目录而不是 wiki/projects/ 目录。写入后未 `ls` 验证，导致虚假汇报。
-
----
-
-## Phase 5: 写实现计划
-
-**文件位置：** `wiki/projects/<项目名>/changes/YYYY-MM-DD-<变更名>/tasks.md`
-
-**参考：** `plan` skill（前身 writing-plans）
-
-### ⛔ 文件大小控制（不可违反）
-
-**tasks.md 单文件不得超过 3000 字。** 超过时必须拆分：
-
-```
-tasks.md          ← 汇总版（依赖图 + 任务索引 + Self-Review）
-tasks-slice1.md   ← Slice 1 详细任务（~2000字）
-tasks-slice2.md   ← Slice 2 详细任务（~2000字）
-tasks-slice3.md   ← Slice 3 详细任务（~2000字）
-tasks-slice4.md   ← Slice 4 详细任务（~2000字）
-```
-
-**拆分规则：**
-1. tasks.md 写汇总：依赖图 + 每个 Slice 的简要描述 + 任务索引 + Self-Review
-2. 每个 slice 文件写该 Slice 的完整任务（含代码片段）
-3. 每个文件控制在 2000-3000 字
-4. 分多次 write_file 写入，每次写一个文件
-5. 写入后必须 `ls` 验证文件存在且大小 > 0
-
-**⛔ 禁止：** 一次性 write_file 写入 >5000 字的内容（会被截断导致文件损坏）
-
-### 关键原则
-- **每个任务 = 一个 kanban 卡**
-- **任务粒度：2-5 分钟**（一个任务 = 一个动作：写测试/运行/实现/提交）
-- **包含完整代码片段**（可复制粘贴到文件中）
-- **包含精确文件路径**（`exact/path/to/file.py:123-145`）
-- **包含验证步骤**（精确命令 + 预期输出）
-- **标注依赖关系**（哪些任务必须等别的任务完成）
-- **标注完整的测试代码**（不是"写个测试"，而是实际测试代码）
-
-### ⛔ Superpowers v5 — No Placeholders
-
-以下写法 = **计划缺陷**，必须修复：
-
-| ❌ 错误 | ✅ 正确 |
-|---------|---------|
-| "TBD"、"TODO"、"稍后实现" | 写实际代码 |
-| "添加错误处理" | 写具体的 try/catch 代码 |
-| "类似 Task 3" | 复制实际代码（开发者可能跳读） |
-| "写测试覆盖上述" | 写实际测试代码 |
-| "填充详情" | 直接写详情 |
-
-### ⛔ Superpowers v5 — Type Consistency
-
-写完全部任务后，检查跨任务一致性：
-- Task 3 定义的函数签名，Task 5/7 调用时是否匹配？
-- 类型定义（interface/type/class）前后是否一致？
-- 命名风格是否统一？
-
-### Superpowers v5 — Self-Review
-
-写完全部任务后执行：
-1. **Spec Coverage** — 逐条扫描 spec 需求，确认每个需求都有对应任务。列出遗漏。
-2. **Placeholder Scan** — 搜索 No Placeholders 表中的模式，全部修复。
-3. **Type Consistency** — 跨任务检查签名一致性。
-4. **File Isolation** — 是否有任务修改了相同的文件？（如果有，确认顺序和依赖关系已标注）
-
-### 📋 文件依赖图
-
-在 tasks.md 开头标注任务间依赖，确保无冲突的并行执行：
-
-```
-# [功能名] 实现计划
-
-## 依赖图
-Task 1: 创建数据模型（无依赖）
-Task 2: 创建 API 层（依赖 Task 1）
-Task 3: 创建 UI 组件（依赖 Task 2）
-Task 4: 集成测试（依赖 Task 1, 2, 3）
-
-依赖图:
-Task 1 → Task 2 → Task 3
-  ↓              ↓
-  └──── Task 4 ←─┘
-
-可并行: 无（线性依赖）
-```
-
-**规则：**
-- 有依赖的任务必须等父任务完成
-- 无依赖的任务可并行派发
-- 修改同一文件的任务必须串行，且依赖关系明确
-
-### 📋 垂直切片策略（incremental-build）
-
-**参考：** `incremental-build` skill
-
-将功能拆分为可独立交付的端到端切片，每个切片完成后系统处于可工作状态。
-
-**三种切片策略：**
-
-| 策略 | 适用场景 | 示例 |
-|------|---------|------|
-| **垂直切片**（推荐） | 完整功能路径 | 切片1: 创建任务(DB+API+UI) → 切片2: 列表任务 → 切片3: 编辑任务 |
-| **契约优先** | 前后端并行开发 | 切片0: API契约 → 切片1a: 后端 + 切片1b: 前端(并行) → 切片2: 集成 |
-| **风险优先** | 技术不确定性高 | 切片1: 验证最风险的技术点 → 切片2: 核心功能 → 切片3: 增强功能 |
-
-**垂直切片模板：**
-```
-Slice 1: 创建任务（DB + API + 基础UI）
-  验证: 测试通过，用户可通过 UI 创建任务
-Slice 2: 列表任务（查询 + API + UI）
-  验证: 测试通过，用户可看到任务列表
-Slice 3: 编辑任务（更新 + API + UI）
-  验证: 测试通过，用户可修改任务
-Slice 4: 删除任务（删除 + API + 确认UI）
-  验证: 测试通过，完整 CRUD
-```
-
-**切片原则：**
-- 每个切片 = 一个可独立验证的端到端功能
-- 切片完成后**立即 commit**，不攒到最后
-- 未完成的功能用**功能标志**隐藏（`FEATURE_NEW_UI=false`）
-- 每个切片可独立回滚（`git revert`）
-
-### 🔍 Phase 5 Self-Review（Superpowers v5 — 必做）
-
-写完全部 tasks.md 后，执行以下自检，**全部通过才能进入 Phase 6**：
-
-**1. Spec Coverage（需求覆盖）**
-- 逐条扫描 Phase 1 conversation.md 中的每个需求
-- 确认每个需求都有对应的 Task
-- 遗漏 → 补充 Task，不能"后面再说"
-
-**2. Placeholder Scan（占位符扫描）**
-搜索 tasks.md 中的以下模式，**全部修复**：
-| ❌ 错误模式 | ✅ 修复方式 |
-|------------|------------|
-| `TBD`、`TODO`、`稍后实现` | 写实际代码 |
-| `添加错误处理` | 写具体的 try/catch |
-| `类似 Task N` | 复制实际代码 |
-| `写测试覆盖上述` | 写实际测试代码 |
-| `填充详情` | 直接写详情 |
-
-**3. Type Consistency（类型一致性）**
-- Task 3 定义的函数签名，Task 5/7 调用时是否匹配？
-- 类型定义（interface/type/class）前后是否一致？
-- 命名风格是否统一？
-
-**4. File Isolation（文件隔离）**
-- 是否有多个 Task 修改同一文件？
-- 如果有，确认顺序和依赖关系已标注
-
-**Self-Review 结果写入 tasks.md 末尾：**
-```markdown
-## Self-Review 结果
-- Spec Coverage: ✅/❌ (N 个需求全部覆盖 / 遗漏: xxx)
-- Placeholder Scan: ✅/❌ (无占位符 / 发现: xxx)
-- Type Consistency: ✅/❌
-- File Isolation: ✅/❌
-```
+📋 **详细流程:** [references/workflow/phase5-tasks.md](references/workflow/phase5-tasks.md)
 
 ---
 
 ## Phase 6: Ralph Loop 分发执行
 
-### ⚠️ 角色分配规则（不可违反）
+角色分配（coder/artist/tester）+ Ralph Loop 状态机 + Blocked 状态处理 + 任务派发 + Wave 并行 + 三层超时机制 + 执行红线。**新增：** UI 项目必做 Browser QA（浏览器自动化测试）、Pre-Commit 安全自检（代码提交前检查）。
 
-| 任务类型 | 必须派给 | 灵犀能做吗 |
-|---------|---------|-----------|
-| 后端 API | coder | ❌ |
-| 前端逻辑 | coder | ❌ |
-| UI 模板 | artist | ❌ |
-| CSS 样式 | artist | ❌ |
-| 测试验证 | tester | ❌ |
-| 文档编写 | 灵犀 | ✅ |
-| 协调汇报 | 灵犀 | ✅ |
-
-### ⚠️ Ralph Loop 执行模式（核心）
-
-**参考：** `references/methodology/ralph-loop-analysis.md`
-
-**核心原则：**
-- 灵犀是循环编排者，agent 是单步执行器
-- 每轮通过 CHECKPOINT 客观验证，不依赖 agent 自判
-- 失败反馈注入重试，最多 2 轮后 escalate 给大佬
-- 文件系统 + git 作为记忆层（不是 agent 的上下文）
-
-每个 Task 必须按以下状态机执行：
-
-```
-Task 开始
-  ↓
-Step 1: agent 读取任务描述 + constitution
-  ↓
-Step 2: agent 执行任务（TDD：先写失败测试 → 实现 → 通过测试）
-  ↓
-Step 3: 输出 CHECKPOINT（产出物自检）
-  ↓
-Step 4: 灵犀验证 checkpoint
-  ├─ FAIL → 返回 Step 2（重试），最多 2 轮 → 仍 FAIL → 派 fix agent
-  └─ PASS ↓
-  ↓
-Step 5: Security Scan（安全扫描）
-  硬编码密钥、SQL 注入、shell 注入、eval/pickle、路径遍历
-  ├─ 有问题 → 派 fix agent → 重新 Step 5（最多 2 轮）
-  └─ PASS ↓
-  ↓
-Step 6: Quality Review（代码质量）
-  命名、DRY、错误处理、测试覆盖
-  ├─ 有问题 → 派 fix agent → 重新 Step 6（最多 2 轮）
-  └─ PASS ↓
-  ↓
-Step 7: Tester 验证（功能测试 + 回归测试）
-  ↓
-Step 8: CHECKPOINT: PASS → 标记 Task 完成 → 进入下一 Task
-  ↓
-Step 9: Spec-Code 同步（Kiro — 必做）
-
-### ⚠️ Blocked 状态处理协议（必须遵守）
-
-**核心规则：`blocked ≠ done`，blocked 状态不触发依赖引擎 promote 子任务。**
-
-```
-worker 遇到问题无法继续
-  ↓
-Step B1: worker 调用 kanban_block(reason="具体阻塞原因")
-Step B2: worker 调用 kanban_comment(body="完整上下文 + 已尝试的方案")
-  ↓
-Step B3: 灵犀收到通知后介入
-  ├─ 产出物已完成 → hermes kanban complete <id>（标记 done，依赖引擎继续）
-  ├─ 产出物部分完成 → hermes kanban complete <id> + 创建新卡处理剩余工作
-  └─ 产出物不可用 → hermes kanban complete <id> + 创建 fix 卡（parents=[原卡]）
-  ↓
-Step B4: 创建 fix 卡（如需要）
-  → assignee = 原 worker 或另一个 coder（不是灵犀自己）
-  → parents = [原实现卡]（必须等原卡 done 后 fix 卡才 promoted）
-  → body 包含：具体问题描述 + B2 的 comment 上下文
-```
-
-**⛔ 禁止：**
-- worker 调用 `kanban_block()` 后，灵犀不 complete 原卡就直接创建 fix 子卡
-  → 结果：fix 卡永远卡在 todo（parent 未 done）
-- worker 遇到问题直接 `kanban_complete(summary="...")` 假装完成
-  → 结果：产出物缺失但状态为 done，后续步骤踩坑
-  检查 proposal.md 中的设计是否与实际代码一致：
-  - 读取 proposal.md 中该 Task 对应的设计描述
-  - 对比实际代码实现
-  - 如有偏差 → 更新 proposal.md（不是"后面再补"）
-  - 更新内容：接口变更、架构调整、新增/删除的功能点
-```
-
-**Checkpoint 格式（每个 Task 完成后必须输出）：**
-
-```
-CHECKPOINT: <任务名称>
-产出物: <文件路径/内容摘要>
-自检: <是否满足验收标准>
-状态: PASS / FAIL
-如 FAIL: <具体问题描述>
-```
-
-**⚠️ Checkpoint 输出截断规则（Q2 改进 #4）：**
-- Checkpoint 输出限制在 **200 字以内**
-- 编译日志、测试输出等长文本 → 写入 `/tmp/<project>-<task>.log`，Checkpoint 只写文件路径
-- 禁止将完整编译输出/测试日志直接输出到上下文
-- 原因：一个 Task 的往返可能消耗 2000-5000 token，截断可节省 50-80%
-
-### 任务派发流程
-
-```
-对于计划中的每个 Task:
-  1. 读取 constitution.md
-  2. 根据任务类型选择 agent（coder/artist/tester）
-  3. kanban_create 创建实现卡（绝对路径 + 验收标准 + 不在范围内）
-  4. dispatcher 自动派发 ready 状态的卡
-  5. worker 执行任务
-  6. worker 完成后输出 CHECKPOINT（产出物自检）
-  7. 灵犀验证 checkpoint（产出物 ls 验证）
-     ├─ FAIL → 返回 Step 5（重试），最多 2 轮 → 仍 FAIL → 创建 fix 卡
-     └─ PASS ↓
-  8. kanban_create 创建 review 卡（assignee=tester, parents=[实现卡]）
-     ⚠️ Review 卡必须在 Step 7 验证 PASS 后才能创建
-  9. dispatcher 自动派发 review 卡
-  10. tester 执行 Security Scan + Quality Review
-  11. PASS → 标记 Task 完成
-  12. FAIL → 创建 fix 卡（不是实现者本人）→ 重新 review（max 2轮）
-  13. 全部 Task 完成 → Final Integration Review
-```
-
-**Review 卡创建规范：**
-```bash
-hermes kanban create "[项目名] Review: <任务名>" \
-  --assignee tester \
-  --body "...审查维度...\
-PASS/FAIL 输出要求..." \
-  --parent <实现卡ID> \
-  --json
-```
-- Review 卡依赖实现卡（parents），实现卡完成后自动 promoted → ready
-- Review 卡 body 必须包含：审查维度 + PASS/FAIL 输出格式 + 上下文（实现卡ID）
-
-**Wave 并行派发策略（Kiro Specs 模式）：**
-
-基于依赖图将任务分层（Wave），同层任务并行，跨层串行：
-
-```
-依赖图分层:
-Wave 1: Task 1, Task 2 (无依赖)         ← 同时创建，dispatcher 并行执行
-Wave 2: Task 3 (依赖 T1), Task 4 (依赖 T2) ← T1/T2 完成后自动 promoted
-Wave 3: Task 5 (依赖 T3, T4)             ← T3/T4 完成后自动 promoted
-```
-
-**派发流程：**
-1. 按依赖图计算 Wave 层级（拓扑排序）
-2. 创建所有卡（指定 `--parent`），初始 blocked 或无 parent 的直接 ready
-3. dispatcher 自动派发 ready 卡，完成后 promote 子卡
-4. Review 卡在 checkpoint 验证 PASS 后创建（不是同时创建）
-
-**`hermes kanban swarm` 快速模式（可选）：**
-```bash
-hermes kanban swarm "项目目标" \
-  --worker coder:"Task 1: 数据模型":skill1,skill2 \
-  --worker coder:"Task 2: API 层":skill1 \
-  --verifier tester \
-  --synthesizer coder
-```
-适合：3+ 个独立任务 + 需要 verifier + 需要 synthesizer 汇总。
-
-**进展监控：**
-```bash
-hermes kanban list --json | python3 -c "
-import json, sys
-data = json.load(sys.stdin)
-for t in data:
-    if '项目名' in t.get('title',''):
-        print(f\"{t['id']} | {t['status']} | {t['title'][:60]}\")
-"
-```
-
-### ⚡ Phase 6 超时机制（Q5 方案 C — 2026-05-19 实施）
-
-**三层防护：子 agent 自带超时 + 产出物预检 + 灵犀 5 分钟轮询**
-
-#### 第 1 层：子 agent 自带超时
-派活时在 delegate_task 的 context 中写明：
-```
-## 超时规则
-- 本任务必须在 N 分钟内完成（coder: 10分钟, worker: 5分钟, tester: 5分钟）
-- 超时则输出 TIMEOUT 并退出，不要继续尝试
-- 产出物写到 /tmp/<project>-<task>/ 目录
-```
-
-#### 第 2 层：产出物预检
-- agent 开始工作前先创建产出物目录：`mkdir -p /tmp/<project>-<task>/`
-- 灵犀通过 `ls /tmp/<project>-<task>/` 判断 agent 是否在工作
-- **5 分钟内产出物目录无任何变化 → 判定为卡死**，不再等待
-
-#### 第 3 层：灵犀 5 分钟轮询
-Phase 6 执行过程中，灵犀每 5 分钟检查一次：
-```bash
-hermes kanban list --json | python3 -c "
-import json, sys, time
-data = json.load(sys.stdin)
-now = time.time()
-for t in data:
-    if t['status'] == 'running' and '项目名' in t.get('title',''):
-        started = t.get('started_at', 0)
-        elapsed = (now - started) / 60
-        print(f\"{t['id']} | {elapsed:.0f}min | {t['assignee']} | {t['title'][:50]}\")
-"
-```
-- running 超过 5 分钟 → 检查产出物目录
-- 产出物存在 → `hermes kanban complete <id>` 手动标记完成
-- 产出物不存在 → 执行超时自动回滚（Phoenix）→ escalate 给大佬
-
-#### Worker Heartbeat（长任务可选）
-- 预计 >5 分钟的任务，worker 应每 2-3 分钟调用 `kanban_heartbeat(note="进度描述")`
-- dispatcher 的 passive heartbeat 每 60s 检查 PID 是否存活（自动延长 claim）
-- heartbeat 不能替代显式超时机制，只是辅助监控
-
-#### 超时自动回滚（Phoenix — 2026-05-19 实施）
-
-子 agent 超时/卡死后，灵犀执行以下回滚流程：
-
-```bash
-# 1. 检查未提交的改动
-cd <项目目录>
-git diff --stat
-git status --short
-
-# 2. 如果有未提交的改动 → stash（不直接提交半成品）
-git stash save "auto-rollback: <task-name> timeout at $(date +%Y%m%d-%H%M)"
-
-# 3. 如果有未 stash 的改动 → 记录到日志
-echo "TIMEOUT_ROLLBACK: <task-name> | $(date) | $(git diff --stat)" >> /tmp/<project>-timeout.log
-
-# 4. 通知大佬
-# 发送飞书告警：任务超时 + 已自动回滚 + 需要人工介入
-```
-
-**回滚原则：**
-- ⛔ 禁止直接提交半成品代码
-- ✅ 未提交改动 → `git stash`，保留现场供大佬检查
-- ✅ 已提交改动 → `git revert <commit>`，回滚到超时前状态
-- ✅ 回滚后通知大佬，不自行重试
-
-### ⛔ 执行红线
-
-- **禁止灵犀直接写代码** — 即使"很快能做完"也必须派
-- **禁止跳过 checkpoint** — 每个 Task 必须有产出物验证
-- **禁止自己测自己写的代码**
-- **禁止跳过 tester 卡**
-- **禁止在 Phase 4 确认前开始编码**
-- **禁止跳过 artist 做 UI**
-- **禁止跳过 Security Scan** — 即使"代码很简单"
-- **禁止 fix agent 超过 2 轮** — 2 轮后必须 escalate 给大佬
-- **禁止 agent 自判完成** — 必须通过客观验证
+📋 **详细流程:** [references/workflow/phase6-execution.md](references/workflow/phase6-execution.md)
 
 ---
 
-## Phase 7: 完成归档 + 流程复盘
+## Phase 7: 完成归档与流程复盘
 
-### ⛔ wiki 归档检查清单（必做，不可跳过）
+wiki 归档检查清单（必做）+ 归档 9 步 + 流程合规复盘 7 项 + 蒸馏评估。
 
-Phase 7 归档时，必须确认以下文件已写入 wiki：
-
-**项目文档：**
-- [ ] `wiki/projects/<项目名>/overview.md` → 更新 status 为 `done`
-- [ ] `wiki/projects/<项目名>/changes/archive/<变更名>/completion-summary.md` → 完成摘要
-- [ ] `wiki/projects/<项目名>/changes/archive/<变更名>/retrospective.md` → 流程复盘
-- [ ] `wiki/projects/<项目名>/changes/archive/<变更名>/conversation.md` → 需求对话
-- [ ] `wiki/projects/<项目名>/changes/archive/<变更名>/proposal.md` → 设计提案
-- [ ] `wiki/projects/<项目名>/changes/archive/<变更名>/tasks.md` → 实现计划
-- [ ] `wiki/projects/<项目名>/source-of-truth/constitution.md` → 项目约束
-
-**Phase 8 各轮归档（每轮必须）：**
-- [ ] `wiki/projects/<项目名>/changes/archive/round<N>-feedback/conversation.md` → 测试反馈记录
-- [ ] `wiki/projects/<项目名>/changes/archive/round<N>-feedback/fixes.md` → 修复方案记录
-
-**⛔ 如果 Phase 8 已完成多轮测试，必须将每轮的 feedback 目录归档到 archive/，不能只保留在 changes/ 下。**
-
-### 归档步骤
-
-1. 更新提案状态 → `status: done`
-2. 归档所有变更 → `changes/<变更名>/` → `changes/archive/`
-3. 归档 Phase 8 每轮 feedback → `changes/round<N>-feedback/` → `changes/archive/round<N>-feedback/`
-4. 更新 Source of Truth
-5. 写入完成摘要 + 流程复盘
-6. 同步 wiki + GitHub（见 `clsh-content/references/integration/github-sync-guide.md`）
-7. 向大佬汇报
-8. `ls` 验证所有归档文件存在且大小 > 0
-
-### ⛔ 流程合规复盘（必做）
-
-1. 是否有跳步？
-2. 是否有提前编码？
-3. 是否有自测自验？
-4. 文档是否前置？
-5. Security Scan 是否执行？
-6. Auto-Fix 是否超过 2 轮？
-7. 改进措施
-
-**复盘结果写入** `retrospective.md`
+📋 **详细流程:** [references/workflow/phase7-archive.md](references/workflow/phase7-archive.md)
 
 ---
 
-## Phase 8: 反馈循环（大佬测试后）
+## Phase 8: 反馈循环
 
-**触发条件：** 大佬测试后反馈问题
+执行规范（角色分离 + tester 浏览器验证 + 每轮归档）+ 上下文溢出防护（每轮 ≤3-4 bug）+ Diagnose 6 阶段 + Bugfix Spec + 路径 A/B/C + 反馈循环红线。
 
-### ⛔ Phase 8 执行规范（不可违反）
-
-#### 1. 必须用 delegate_task 派发修复任务
-
-**Phase 8 修复 = Phase 6 执行，必须角色分离。**
-
-| 修复类型 | 必须派给 | 工具集 |
-|---------|---------|--------|
-| 后端 API 修复 | coder | terminal, file |
-| 前端逻辑修复 | coder | terminal, file |
-| UI/CSS 修复 | artist | terminal, file |
-| **测试验证** | **tester** | **terminal, file, web, browser** |
-
-**⛔ 禁止灵犀直接改代码。** 即使"很快能做完"也必须派 delegate_task。
-
-#### 2. Tester 必须使用浏览器工具
-
-**tester 的 toolsets 必须包含 `web` 和 `browser`（或 `computer_use`）。**
-
-tester 验证时：
-- **必须用浏览器访问页面**，不能用 curl/API 替代
-- 浏览器工具：`mcp_mp_browse_webpage` 或 `browser` toolset
-- 验证内容：页面渲染、交互功能、CSS 样式、响应式布局
-- 如果浏览器工具不可用，向大佬报告，不要降级为 curl 测试
-
-**tester 派发模板：**
-```
-toolsets: ["terminal", "file", "web", "browser"]
-```
-
-#### 3. 每轮必须归档 wiki
-
-**每轮 Phase 8 修复完成后，必须创建变更目录并归档：**
-
-```
-wiki/projects/<项目名>/changes/round<N>-feedback/
-├── conversation.md    ← 大佬反馈的问题列表
-├── diagnosis.md       ← diagnose 6 阶段记录
-├── fixes.md           ← 每个问题的修复方案 + 派发记录
-└── test-report.md     ← tester 验证报告
-```
-
-**全部修复完成后，归档到 archive/：**
-```
-wiki/projects/<project>/changes/archive/round<N>-feedback/
-```
-
-**⛔ 禁止只在对话中修复，不写 wiki 记录。**
-
-#### 4. 大修复用 kanban，小修复用 delegate_task
-
-| 场景 | 方式 |
-|------|------|
-| ≤3 个简单修复 | delegate_task 直接派发 |
-| >3 个修复 或 需要追踪 | kanban 创建卡 + delegate_task |
-| 跨 session 的大修复 | kanban（状态持久化） |
-
-**kanban 创建规范：**
-```bash
-# 创建修复卡
-hermes kanban create "[项目名] Round<N>: <问题简述>" \
-  --assignee coder/artist \
-  --body "问题描述 + 验收标准" \
-  --json
-
-# 创建 review 卡（依赖修复卡）
-hermes kanban create "[项目名] Review: <问题简述>" \
-  --assignee tester \
-  --body "验证步骤 + PASS/FAIL 标准" \
-  --parent <修复卡ID> \
-  --json
-```
-
-### ⚠️ 上下文溢出防护（2026-05-21 教训，2026-05-21 强化）
-
-**Phase 8 大量 bug 修复时，必须控制节奏。两次中断 = 必须更激进地控制上下文：**
-
-#### 核心原则：每轮最多修 3-4 个 bug（不是 5-6 个）
-
-1. **每轮最多修 3-4 个 bug** — 超过 4 个时必须分批，每批修完先重启测试
-2. **后端和前端分开修** — 先修后端（通常少），再修前端
-3. **Agent 反复超时后向大佬报告** — 不要全部 fallback 到灵犀直接改代码（违反角色分离 + 上下文爆炸）
-4. **每批修完后写 checkpoint** — 记录已修复项，防止 session 断开后丢失进度
-5. **修完一批先 `pm2 restart` + 基础测试** — 确确无回归再继续下批
-
-#### 上下文节省策略（每次修复必做）
-
-6. **用 `execute_code` 批量读代码** — 不要在主对话中逐个 read_file，用 execute_code 一次读多个文件并输出关键片段
-7. **每个 bug 只读相关代码片段** — 不加载整个文件，用 offset/limit 或 grep 定位
-8. **修一个验证一个** — 不要一次性修改所有文件再验证
-9. **长输出写入 /tmp/ 而非主对话** — 测试结果、日志等写入文件，只在对话中放结论
-10. **进度写入 checkpoint 文件** — `/tmp/<project>-round<N>-checkpoint.md`，记录已修/待修/阻塞项
-
-#### 中断恢复协议
-
-当 session 因上下文过大中断后重启：
-1. 读取 `/tmp/<project>-round<N>-checkpoint.md` 恢复进度
-2. 如果 checkpoint 不存在，从项目文档 `changes/` 目录恢复
-3. **从上次中断的 bug 继续，不重做已完成的修复**
-4. 向大佬确认恢复的上下文是否正确
-
-### ⚠️ Diagnose 6 阶段循环
-
-**参考：** `diagnose` skill
-
-每个阶段有明确入口/出口条件。不满足出口条件不能进入下一阶段。
-
-```
-Stage 1: 建循环（Build the Loop）
-  入口：大佬反馈了 bug/异常
-  操作：固化复现命令（单命令 pass/fail）
-  出口：有一键复现命令，输出明确 pass/fail 信号
-  ↓
-Stage 2: 复现（Reproduce）
-  入口：复现命令已建立
-  操作：运行 3 次确认稳定性
-  出口：稳定复现 或 确认非确定性（统计复现率）
-  ↓
-Stage 3: 假设（Hypothesize）
-  入口：问题已稳定复现
-  操作：读完整错误 → 查 git log → 追踪数据流 → 形成具体假设
-  出口："我认为 X 是 root cause，因为 Y，如果做 Z 应能观察到 W"
-  ↓
-Stage 4: 插桩（Instrument）
-  入口：有具体假设
-  操作：选最快反馈方法（类型检查<1s → 单测1-5s → 断点5-30s → 集成测试）
-  出口：有证据支持或否定假设
-  ↓
-Stage 5: 修复（Fix）
-  入口：证据确认 root cause
-  操作：先写回归测试（FAIL → 修复 → PASS → 全量测试无回归）
-  出口：回归测试通过，全量套件无回归
-  Rule of Three：第3次修复失败 → 停止，质疑架构
-  ↓
-Stage 6: 复盘（Retrospect）
-  入口：bug 已修复
-  操作：为什么这个 bug 存在？防御措施？清理插桩？记录教训？
-  出口：防御措施已添加/已评估不需要
-```
-
-**非确定性 bug 时**：Stage 2 → 统计复现（跑 N 次算失败率），Stage 4 → 用断言而非 print（失败立即停止，不被日志淹没）。
-
-### 路径 A：Bug 修复
-
-**Bugfix Spec 格式（Kiro 模式）：**
-
-每个 bug 在 diagnose 前先写结构化 spec，确保诊断有锚点：
-
-```markdown
-## Bug Spec: {问题标题}
-
-**当前行为**: {实际发生了什么}
-**期望行为**: {应该发生什么}
-**复现命令**: {单命令 pass/fail}
-**影响范围**: {哪些功能/页面/API 受影响}
-
-### Diagnose
-- Stage 1 复现命令: `{命令}`
-- Stage 2 复现稳定性: {N/N 次复现}
-- Stage 3 根因假设: {X 是 root cause，因为 Y}
-- Stage 4 验证证据: {支持/否定假设的证据}
-
-### Fix
-- 修改文件: {文件列表}
-- 回归测试: {测试命令 + 结果}
-- 防御措施: {已添加/已评估不需要}
-```
-
-**流程：**
-```
-大佬反馈 bug
-  → 记录 conversation.md
-  → 写 Bugfix Spec（当前行为/期望行为/复现命令/影响范围）
-  → diagnose 6 阶段（Stage 1-6）
-  → 创建修复任务 → 派 coder/artist
-  → tester 验证 → 汇报
-```
-
-**与 diagnose 的关系：** Bugfix Spec 是 diagnose 的输入锚点。Stage 1-2 填充复现信息，Stage 3-4 填充根因和证据，Stage 5-6 填充修复和防御。
-
-### 路径 B：体验优化
-```
-大佬反馈体验问题
-  → 记录 conversation.md
-  → 评估影响范围
-  → 创建优化任务 → 派 artist
-  → tester 验证 → 汇报
-```
-
-### 路径 C：需求变更
-大佬提出新需求/方向变化
-  → 判断变更级别：
-     ├─ 功能追加（在现有方向上增加功能）
-     │   → 能追加：更新 proposal.md，回到 Phase 3
-     │   → 不能追加：新变更目录，从 Phase 1 开始
-     │
-     └─ 方向变化（核心定位/架构/目标用户变化）
-         → ⛔ 禁止回到 Phase 3
-         → 必须：新变更目录 + 从 Phase 1 开始
-         → 必须：归档旧变更（status: superseded）
-         → 必须：更新 overview.md 说明方向变化
-         → 必须：更新 conversation.md 记录变更原因
-
-> ⚠️ **教训（2026-05-19）：** 项目做到一半，大佬说"不做博客了，改做内容引擎"。灵犀直接在旧代码上修改，跳过 Phase 1-5，导致项目文档和实际代码不一致。**方向变化 = 必须回 Phase 1，不能回 Phase 3。**
-
-### ⛔ 反馈循环红线
-- **禁止"顺手修了"**
-- **禁止跳过 tester**
-- **禁止不记录就修**
-- **禁止跳过 diagnose 的 Stage 1-2**（不复现就修 = 瞎猜）
-
-> ⚠️ **教训（2026-05-15）：** 大佬说"测试有问题"，灵犀直接自己修复了，跳过了 Phase 8 的全部流程。
+📋 **详细流程:** [references/workflow/phase8-feedback.md](references/workflow/phase8-feedback.md)
 
 ---
 
@@ -1094,6 +233,7 @@ Stage 6: 复盘（Retrospect）
 | Phase 6 安全 | 每个 Task 必须通过 Security Scan | 不允许进入 Quality Review |
 | Phase 6 修复 | Auto-Fix 最多 2 轮 | 2 轮后必须 escalate 给大佬 |
 | Phase 6 测试 | 修复后必须 tester 验证 | 不允许汇报完成 |
+| Phase 6 Browser QA | UI 项目 tester 必须浏览器验证 | 不允许汇报完成 |
 
 ## 快捷方式
 
@@ -1123,21 +263,27 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 11. **Auto-Fix 无限循环** — 2 轮后必须 escalate 给大佬
 12. **Placeholder 污染 tasks.md** — TBD/TODO/similar to N = 计划缺陷
 13. **写入文件后不验证路径** — write_file 后必须 `ls` 确认
+14. **UI 项目跳过 Browser QA** — 有前端 UI 的项目，tester 必须用浏览器自动化验证，不能只读代码
+15. **Pre-Commit 自检缺失** — agent context 必须包含安全自检清单，不依赖 agent 自觉
+16. **设计发散跳过** — UI 项目且无明确设计参考时，Phase 3 应触发设计发散，不能直接画页面
 
 ### 执行纪律
-14. **超时后提交半成品** — 子 agent 超时后 git stash/revert
-15. **Phase 8 上下文溢出** — 每轮最多修 3-4 个 bug，用 execute_code 批量读代码
+17. **超时后提交半成品** — 子 agent 超时后 git stash/revert
+18. **Phase 8 上下文溢出** — 每轮最多修 3-4 个 bug，用 execute_code 批量读代码
 
 ## Verification Checklist（每次使用此 skill 前）
 
 - [ ] 确认不是简单查询/单步操作（否则不应触发 clsh-project）
 - [ ] 确认 Phase 1 已执行调研前置（调研摘要已写入 conversation.md 或大佬明确跳过）
 - [ ] 确认 Phase 1-3 已完成且有文档产出（conversation.md / proposal.md / constitution.md）
+- [ ] 确认 UI 项目 Phase 3 是否需要设计发散（2-3 mockup 变体）
 - [ ] 确认大佬已明确回复"确认"才进入下一 Phase
 - [ ] 确认 tasks.md 中每个 Task 有验收标准 + 完整代码（无 TBD/TODO）
 - [ ] 确认代码任务已派给 coder/artist，不是灵犀直接写
 - [ ] 确认每个 Task 有 tester 卡
 - [ ] 确认 Phase 6 有 Security Scan 步骤
+- [ ] 确认 UI 项目 Phase 6 tester 卡包含 Browser QA 检查清单
+- [ ] 确认 agent 派发 context 包含 Pre-Commit 安全自检清单
 - [ ] 确认 Phase 8 反馈走流程而非"顺手修了"
 - [ ] 确认 Auto-Fix 不超过 2 轮后 escalate
 
@@ -1147,6 +293,10 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v5.1.0 | 2026-05-23 | **gstack 借鉴落地**：Phase 3 新增 UI 设计发散（2-3 HTML mockup 变体）；Phase 6 新增 Browser QA（UI 项目必做浏览器自动化测试）+ Pre-Commit 安全自检（代码提交前检查清单）。 |
+| v5.0.0 | 2026-05-23 | **SKILL.md 瘦身**：Phase 详情拆分到 references/workflow/，SKILL.md 从 1245→~450 行，符合官方 500 行上限。 |
+| v4.3.0 | 2026-05-23 | **蒸馏 v2 集成**：Phase 0 读取 learnings.md 内化历史教训；Phase 6 checkpoint 后微蒸馏（10 秒 append）；Phase 7 binary eval + 故障分类 + 条件触发深度蒸馏。 |
+| v4.2.0 | 2026-05-23 | **项目蒸馏集成（v1，已废弃）**：Phase 7 归档新增蒸馏步骤。 |
 | v4.1.0 | 2026-05-22 | **上游优化集成**：(1) Phase 6 新增 Wave 并行派发策略（Kiro Specs 模式）+ `hermes kanban swarm` 快速模式；(2) Phase 8 路径 A 新增 Bugfix Spec 结构化格式（Kiro 模式）；(3) 新增 `phase8-checkpoint-template.md`；(4) 修复 2 个断链（sketch/github-sync-guide） |
 | v4.0.0 | 2026-05-22 | **Pitfalls 大迁移 + 边界定义**：89 条 Common Pitfalls 去重→78 条→三类迁移（流程纪律保留、技术陷阱→wiki、工具链→references/integration/）。新增边界定义（膨胀阈值）。SKILL.md 从 1237→~1100 行。 |
 | v3.8.0 | 2026-05-21 | Phase 6 与 Hermes Kanban 对齐（Blocked 状态、Review 卡时机、Worker Heartbeat） |
@@ -1168,6 +318,15 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 - `references/templates/archive-workflow.md` — Phase 7 归档操作手册
 - `references/templates/phase7-archive-checklist.md` — 归档快速检查清单
 
+### 🔄 流程详情（Phase 参考）
+- `references/workflow/phase0-1-requirements.md` — Phase 0+1: 需求准备与澄清
+- `references/workflow/phase2-design.md` — Phase 2+2.5: 方案设计与技术验证
+- `references/workflow/phase3-spec.md` — Phase 3+4: 设计文档与自检
+- `references/workflow/phase5-tasks.md` — Phase 5: 实现计划
+- `references/workflow/phase6-execution.md` — Phase 6: Ralph Loop 分发执行
+- `references/workflow/phase7-archive.md` — Phase 7: 完成归档与流程复盘
+- `references/workflow/phase8-feedback.md` — Phase 8: 反馈循环
+
 ### 🔌 集成
 - `references/integration/hermes-pitfalls.md` — **Hermes 工具链陷阱**（从 Common Pitfalls 迁移）
 - `references/integration/kanban-tasks-bridge.md` — Kanban bridge
@@ -1187,4 +346,4 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 - `wiki/projects/clsh-content/references/integration/` — Halo + Obsidian 参考
 
 ### 流程说明
-详见 `README.md`（skill 根目录）— 流程总览、各 Phase 详解、速查表。
+各 Phase 详细流程见 `references/workflow/` 目录。

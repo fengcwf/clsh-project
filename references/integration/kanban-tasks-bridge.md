@@ -35,7 +35,7 @@ kanban_create(
 
 ### Bridge 脚本
 
-**路径：** `/opt/scripts/obsidian/kanban-tasks-bridge.py`
+**路径：** `/opt/Workspace/scripts/obsidian/kanban-tasks-bridge.py`
 
 **执行逻辑：**
 1. 扫描 kanban DB 中 body 含 `clsh-project:` 的任务
@@ -72,9 +72,9 @@ section_pattern = re.compile(
 ### 手动运行
 
 ```bash
-python3 /opt/scripts/obsidian/kanban-tasks-bridge.py          # 执行
-python3 /opt/scripts/obsidian/kanban-tasks-bridge.py --status  # 查看状态
-python3 /opt/scripts/obsidian/kanban-tasks-bridge.py --dry-run # 预览
+python3 /opt/Workspace/scripts/obsidian/kanban-tasks-bridge.py          # 执行
+python3 /opt/Workspace/scripts/obsidian/kanban-tasks-bridge.py --status  # 查看状态
+python3 /opt/Workspace/scripts/obsidian/kanban-tasks-bridge.py --dry-run # 预览
 ```
 
 ### 测试验证

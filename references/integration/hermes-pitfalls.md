@@ -86,7 +86,10 @@ register_command("/mp", handler) 只拦截 /mp 前缀。纯数字消息不是斜
 优先推荐免费 API 方案（Gemini、FLUX.2 Schnell、Seedream V4），不推荐付费方案或需本地 GPU 的方案。
 
 ### UI/UX Pro Max 使用模式
-uipro init --ai all --force → python3 .cursor/skills/ui-ux-pro-max/scripts/search.py → 写入 design-system/MASTER.md。
+uipro init --ai all --force → python3 .cursor/skills/ui-ux-pro-max/scripts/search.py → 写入 design-system/MASTER.md。⚠️ 已被 Open Design（/opt/open-design/）取代，新项目用 OD 的 152 设计系统。
+
+### Electron 项目 pnpm install 卡住
+Electron postinstall 会下载 ~200MB 二进制文件，国内网络经常超时。解决：`ELECTRON_SKIP_BINARY_DOWNLOAD=1 pnpm install`。不要用 `--ignore-scripts`（会跳过 better-sqlite3 编译导致运行时崩溃）。影响：桌面应用不可用，daemon/web 正常。
 
 ### Phase 6 Checkpoint 输出过长
 限制 200 字以内，长文本写入 /tmp/<project>-<task>.log。
