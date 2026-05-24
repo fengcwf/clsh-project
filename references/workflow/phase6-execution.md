@@ -184,6 +184,7 @@ CHECKPOINT: <任务名称>
   1. 读取 constitution.md
   2. 根据任务类型选择 agent（coder/artist/tester）
   3. kanban_create 创建实现卡（绝对路径 + 验收标准 + 不在范围内）
+  3.1. ⛔ task body 必须注入 proposal 相关章节（代码示例 + 文件路径 + 禁止事项），不能只写一句话描述。coder 只看 body，不读 wiki 文档。
   4. dispatcher 自动派发 ready 状态的卡
   5. worker 执行任务
   6. worker 完成后输出 CHECKPOINT（产出物自检）

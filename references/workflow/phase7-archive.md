@@ -38,6 +38,7 @@ Phase 7 归档时，必须确认以下文件已写入 wiki：
    - 对 FAIL 项做故障分类（FLOW/AGENT/TOOL/KNOWLEDGE）
    - 结果 append 到 learnings.md
    - 触发条件满足时（learnings ≥10 条 或 eval ≤2/5）执行深度蒸馏
+   - **同步到 raw/**：`python3 /opt/Workspace/scripts/obsidian/learnings-to-raw.py`（遵循 raw → ingest → wiki 架构）
 8. 向大佬汇报（含 eval 结果和蒸馏发现）
 9. `ls` 验证所有归档文件存在且大小 > 0
 

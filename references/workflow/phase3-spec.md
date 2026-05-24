@@ -47,26 +47,83 @@ project: "[项目名]"
 
 **完整版模板：** 见 `references/templates/constitution-template.md`
 
-### 🎨 设计发散（UI 项目可选，借鉴 gstack /design-shotgun）
+### 🎨 设计发散（UI 项目必做）
 
 **适用条件：** 项目有前端 UI 且设计方向未确定（Phase 1 无明确视觉参考）。
 
 **时机：** Constitution 创建后、Phase 4 自检前。
 
-**流程：**
-1. 灵犀用 `skill_view('sketch')` 加载 throwaway mockup skill
-2. 生成 **2-3 个设计变体**的 HTML mockup（不需要完美，快速迭代）
-   - 变体 A：保守方案（符合行业惯例）
-   - 变体 B：大胆方案（差异化设计）
-   - 变体 C（可选）：混合方案
-3. 每个变体控制在单文件 HTML（<30KB），可直接浏览器打开
-4. 截图后发给大佬选择方向
-5. 大佬选择后，将设计方向写入 constitution.md 的 UI 约束章节
-
-**不做此步骤的情况：**
+**⛔ 不做此步骤的情况：**
 - 大佬已提供明确设计参考（"类似 Linear"）
 - 纯后端/API 项目
 - 大佬说"简单做一下"
+
+#### 流程
+
+1. **获取设计参考**（二选一）：
+   - 大佬提供参考图 → `vision_analyze` 提取设计参数（颜色、字体、间距、圆角）→ 匹配 Open Design 设计系统
+   - 大佬无明确参考 → 根据项目类型推荐设计系统（见下方选择表）
+
+2. **读取设计 tokens**：
+   - 从 `/opt/open-design/design-systems/<name>/DESIGN.md` 获取语义 tokens
+   - 从 `/opt/open-design/design-systems/<name>/tokens.css` 获取 CSS 变量
+   - 将 tokens 注入 HTML mockup 的 `:root` 块
+
+3. **读取 Open Design 知识包 → 本地渲染 2-3 个 HTML mockup 变体**
+   - **⛔ 禁止用 html-anything 通用模板做复杂 UI mockup** — 效果差、缺乏层次感、扁平化。html-anything 只适合封面图/卡片，不适合 Dashboard/管理后台等复杂 UI
+   - **⛔ 禁止通过 Open Design API 调 hermes CLI**（自己调自己，浪费 token + 时间）
+   - **✅ 读取完整知识包后直接渲染**（质量 70 分→90 分）：
+     1. `tokens.css` — CSS 变量值
+     2. `DESIGN.md` — 9 节设计规范（颜色/字体/布局/组件/动效/反模式）
+     3. `SKILL.md` — 构建工作流 + 布局规则 + 自检清单
+     4. `example.html` — 参考实现
+     5. `craft/*.md` — 质量底线（anti-ai-slop / state-coverage / laws-of-ux）
+   - 详细流程见 `references/pitfalls/ui-design-workflow.md`
+   - 每个变体用不同设计系统（如 glassmorphism + linear-app + shadcn）
+   - 每个变体控制在单文件 HTML（<30KB），自包含（inline CSS，用 var() 引用 tokens）
+   - 灵犀直接渲染（不需要派 agent），除非需要复杂交互原型才派 artist
+
+4. **截图发飞书给大佬选择**
+   - ⛔ **禁止发送 HTML 文件路径** — 飞书无法直接打开 HTML
+   - ✅ **必须发送图片** — 用 `chromium-browser --headless --screenshot` 截图
+   - 发送方式：`send_message(target='feishu', message='描述\nMEDIA:/path/to/screenshot.png')`
+   - 截图命令：`chromium-browser --headless --disable-gpu --screenshot=/path/out.png --window-size=1440,900 --no-sandbox file:///path/to/mockup.html`
+   - ⚠️ AppArmor 限制：snap 版 chromium 无法写入 /tmp，改用 /root/mockups/ 等非受限路径
+
+5. **大佬选择方向 + 修改意见** → 将设计方向写入 constitution.md 的 UI 约束章节
+
+6. **如果大佬不满意** → 迭代修改 HTML mockup，重复 4-5
+
+#### Open Design 设计系统选择表
+
+| 大佬偏好/参考 | 设计系统 | 主色 | 风格 |
+|-------------|---------|------|------|
+| 类 AI UI Kit / Ant Design / 企业级 | `ant/` | `#1677FF` | 企业级、数据密集、专业 |
+| 类 Linear / Notion / 极简 | `shadcn/` | `#000000` | 极简、黑白、大量留白 |
+| 类 Vercel / 暗色仪表板 | `dashboard/` | `#0ea5e9` | 暗色分析面板、数据驱动 |
+| 类 Stripe / 优雅 | `stripe/` | `#635bff` | 专业、优雅 |
+| 类 Apple / 软质感 | `apple/` | 系统蓝 | 软质感、圆润 |
+| 类 GitHub / 开发者 | `github/` | — | 开发者友好 |
+
+**匹配方法：** 大佬发参考图 → vision_analyze 提取主色 → 在 tokens.css 中搜索最接近的设计系统。
+
+#### 设计工具链（2026-05-24 更新）
+
+| 工具 | 用途 | 适用场景 |
+|------|------|---------|
+| **Open Design** | **所有设计需求（首选）** | Dashboard、管理后台、产品原型、封面图、卡片。152 设计系统 + tokens 精确匹配 |
+| **图片模型（Grok/Gemini）** | UI 效果图生成 | 高保真效果图、概念图。需 OpenRouter credits 或 Gemini API Key |
+| popular-web-designs | 品牌风格参考 | 54 个知名品牌的 CSS 设计系统值 |
+
+**⛔ html-anything 已移除（v6.0.0）** — 效果差、缺乏层次感，被 Open Design 完全替代。
+
+**图片模型使用要点：**
+- OpenRouter Grok Imagine：需购买 credits（free tier 无法调用图片模型，返回 402）
+- Gemini：需代理访问（国内服务器无法直连 Google APIs），模型名 `gemini-2.5-flash-image`
+- 截图仍然是主要的飞书展示方式（图片模型是补充，不是替代）
+- 详见 `references/integration/image-generation-api-notes.md`
+
+**与 clsh-content 设计工具链对齐：** 全部用 Open Design + 图片模型，无 html-anything。
 
 ---
 
