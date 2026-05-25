@@ -10,28 +10,42 @@
 
 ### ⛔ Phase 8 执行规范（不可违反）
 
-#### 1. 必须用 delegate_task 派发修复任务
+#### 1. 必须用 kanban 派发修复任务（2026-05-25 强化）
 
-**Phase 8 修复 = Phase 6 执行，必须角色分离。**
+**Phase 8 修复 = Phase 6 执行，必须角色分离 + kanban。**
 
-| 修复类型 | 必须派给 | 工具集 |
-|---------|---------|--------|
-| 后端 API 修复 | coder | terminal, file |
-| 前端逻辑修复 | coder | terminal, file |
-| UI/CSS 修复 | artist | terminal, file |
-| **测试验证** | **tester** | **terminal, file, web, browser** |
+| 修复类型 | 必须派给 | 方式 |
+|---------|---------|------|
+| 后端 API 修复 | coder | kanban |
+| 前端逻辑修复 | coder | kanban |
+| UI/CSS 修复 | artist | kanban |
+| **测试验证** | **tester** | **kanban（依赖修复卡）** |
 
-**⛔ 禁止灵犀直接改代码。** 即使"很快能做完"也必须派 delegate_task。
+**⛔ 禁止灵犀直接改代码。** 即使"很快能做完"也必须派 kanban。
+**⛔ 禁止用 delegate_task 替代 kanban。** delegate_task 缺少持久化、依赖链、状态跟踪、通知、审计 trail。
 
-#### 2. Tester 必须使用浏览器工具
+**灵犀做诊断引擎（2026-05-25 教训）：**
+灵犀的职责不是写"修右键菜单"，而是：
+1. 读代码分析根因（2-3 个工具调用）
+2. 写精确诊断到 task body："根因是什么 → 改哪行 → 改成什么"
+3. coder 只需要执行，不需要推理
+
+**❌ 反例：** task body 写"修复右键菜单位置偏移" → coder 加了 viewport 边界检测（合理但错误）
+**✅ 正例：** task body 写"根因：`.obs-layout` 的 `backdrop-filter` 创建 containing block。修复：删除 style.css L615 的 `backdrop-filter`"
+
+#### 2. Tester 必须使用浏览器工具（2026-05-25 强化）
 
 **tester 的 toolsets 必须包含 `web` 和 `browser`（或 `computer_use`）。**
 
 tester 验证时：
 - **必须用浏览器访问页面**，不能用 curl/API 替代
+- **必须截图验证每个验收标准** — 只读代码不算验证，截图才是证据
 - 浏览器工具：`mcp_mp_browse_webpage` 或 `browser` toolset
 - 验证内容：页面渲染、交互功能、CSS 样式、响应式布局
 - 如果浏览器工具不可用，向大佬报告，不要降级为 curl 测试
+- **review 卡 body 必须包含"必须用浏览器访问页面截图验证"字样** — 不写 = tester 可能只读代码判 PASS
+
+**⛔ 教训（2026-05-25）：** tester 读了修改后的文件就判"5/5 PASS"，大佬测试后发现 3/5 未修复。根因：review spec 没有强制要求截图验证。
 
 **tester 派发模板：**
 ```
@@ -57,13 +71,15 @@ wiki/projects/<project>/changes/archive/round<N>-feedback/
 
 **⛔ 禁止只在对话中修复，不写 wiki 记录。**
 
-#### 4. 大修复用 kanban，小修复用 delegate_task
+#### 4. 全部用 kanban（2026-05-25 强化）
 
 | 场景 | 方式 |
 |------|------|
-| ≤3 个简单修复 | delegate_task 直接派发 |
-| >3 个修复 或 需要追踪 | kanban 创建卡 + delegate_task |
-| 跨 session 的大修复 | kanban（状态持久化） |
+| 所有代码修复 | kanban（coder 卡 + tester review 卡） |
+| 跨 session 修复 | kanban（状态持久化） |
+| 纯推理子任务（调试分析） | delegate_task（唯一例外） |
+
+**⛔ 灵犀在 Wave 1-3 中用 delegate_task 替代 kanban = 第5次违规。没有"小修复用 delegate_task"的例外。**
 
 **kanban 创建规范：**
 ```bash
@@ -192,11 +208,31 @@ Stage 6: 复盘（Retrospect）
 **与 diagnose 的关系：** Bugfix Spec 是 diagnose 的输入锚点。Stage 1-2 填充复现信息，Stage 3-4 填充根因和证据，Stage 5-6 填充修复和防御。
 
 ### 路径 B：体验优化
+
+**多问题 Wave 分批（2026-05-25 教训）：**
+
+大佬一次反馈 5+ 个问题时，不要逐个修或全部一起做。按影响分 Wave：
+
+1. **诊断所有问题** — 逐个读代码确认根因，输出诊断报告
+2. **按优先级分 Wave** — 稳定性/性能 > 功能完善 > 架构改造
+3. **向大佬确认方案** — 展示 Wave 分批 + 理由，等确认
+4. **逐 Wave 执行** — 每 Wave 用一个 delegate_task（含所有该 Wave 的修复）
+5. **每 Wave 完成后汇报** — 让大佬决定是否继续下一 Wave
+
+**Wave 分批原则：**
+- Wave 1：性能/稳定性（影响日常使用的立即修复）
+- Wave 2：功能完善（缺失功能、UI 交互）
+- Wave 3：架构改造（适配、通用化、重构）
+
+**反例：** 7 个问题全部一起做 → context 溢出、agent 超时
+**正例：** 7 个问题分 3 Wave → 每 Wave 2-3 个问题，可控
+
 ```
 大佬反馈体验问题
   → 记录 conversation.md
-  → 评估影响范围
-  → 创建优化任务 → 派 artist
+  → 诊断所有问题（读代码确认根因）
+  → 按优先级分 Wave，向大佬确认
+  → 逐 Wave 派 artist/coder
   → tester 验证 → 汇报
 ```
 

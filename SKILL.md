@@ -1,7 +1,7 @@
 ---
 name: clsh-project
 description: "需求驱动的项目开发工作流 — 从需求澄清到设计文档到实现计划到执行。灵感来自 Kiro 的 Spec-Driven Development、Superpowers 的 Brainstorming 方法论、Phoenix 的状态机执行模式。"
-version: 5.2.0
+version: 5.3.5
 author: 灵犀
 license: MIT
 platforms: [linux, macos, windows]
@@ -28,12 +28,15 @@ metadata:
       - references/methodology/agent-skill-execution-research.md
       - references/methodology/superpowers-v5-changes.md
       - references/methodology/superpowers-architecture-analysis.md
+      - references/methodology/matt-pocock-patterns.md
       # 模板（clsh-project 流程模板，保留本地）
       - references/templates/constitution-template.md
       - references/templates/archive-workflow.md
       - references/templates/cloud-server-wireguard.md
       - references/templates/phase7-archive-checklist.md
       - references/templates/phase8-checkpoint-template.md
+      - references/templates/context-template.md
+      - references/templates/adr-template.md
       # 集成（clsh-project 工具链，保留本地）
       - references/integration/kanban-tasks-bridge.md
       - references/integration/hermes-slash-command-mechanism.md
@@ -113,6 +116,7 @@ metadata:
 9. **安全扫描** — Phase 6 每个 Task 的 review 必须包含安全扫描（硬编码密钥、SQL 注入、shell 注入等）。agent 提交前必须完成 Pre-Commit 安全自检（见 phase6-execution.md §Pre-Commit）
 10. **Auto-Fix 上限** — review 发现问题后派 fix agent 修复并重新 review，最多 2 轮后 escalate 给大佬
 11. **方案注入（2026-05-24 教训）** — Phase 6 建卡时，task body 必须注入三样东西：(1) proposal.md 的相关章节（代码/配置/路由定义，不能只写一句话描述）；(2) constitution.md 的技术约束（文件结构、禁止事项）；(3) 明确的"不在范围内"声明。缺少任一 = 流程违规。**反例：** 只写"实现 Obsidian 集成"→ coder 自行发挥 → 偏离方案。**正例：** 注入 proposal 中的完整代码示例 + 文件路径 + 禁止事项 → coder 只能照做。
+12. **代码交叉验证（2026-05-25 Matt Pocock 借鉴）** — Phase 1 中大佬描述现有系统行为时，必须检查代码验证描述是否吻合。发现矛盾时以代码为准，向大佬确认："代码显示的是 X，但你说的是 Y — 哪个对？"不盲目接受口头描述。UI 项目同理：描述页面行为时先看实际渲染。
 
 **违反以上任何一条 = 流程违规，必须记 ERRORS.md。**
 
@@ -169,33 +173,37 @@ Phase 8: 反馈循环（大佬测试后，diagnose 6 阶段）→ 回到 Phase 1
 
 ## Phase 0+1: 需求准备与澄清
 
-Phase 0 每次项目开始前内化历史教训；Phase 1 一次一个问题、多选优先、先理解目的再讨论细节。UI 项目可选 Visual Companion。含调研前置、提问模板、需求文档格式。
+Phase 0 每次项目开始前内化历史教训；Phase 1 一次一个问题、多选优先、先理解目的再讨论细节。**新增：** 代码交叉验证（大佬描述现有行为时必须查代码）+ CONTEXT.md 领域术语表（自然积累项目术语）。UI 项目可选 Visual Companion。含调研前置、提问模板、需求文档格式。
 
 📋 **详细流程:** [references/workflow/phase0-1-requirements.md](references/workflow/phase0-1-requirements.md)
+📋 **术语模板:** [references/templates/context-template.md](references/templates/context-template.md)
 
 ---
 
 ## Phase 2+2.5: 方案设计与技术验证
 
-Phase 2 提出 2-3 个方案 + 推荐理由，用对比表格呈现。Phase 2.5 Spike 仅在技术不确定时触发，快速原型验证可行性。
+Phase 2 提出 2-3 个方案 + 推荐理由，用对比表格呈现。Phase 2.5 扩展为两种模式：**技术 Spike**（验证技术可行性）+ **设计 Prototype**（可运行原型探索设计方向，分逻辑原型和 UI 原型两个分支）。Prototype 规则：一条命令运行、无持久化、做完就删。
 
 📋 **详细流程:** [references/workflow/phase2-design.md](references/workflow/phase2-design.md)
+📋 **原型借鉴:** [references/methodology/matt-pocock-patterns.md](references/methodology/matt-pocock-patterns.md) §5
 
 ---
 
 ## Phase 3+4: 设计文档与自检
 
-Phase 3 写 proposal.md + constitution.md（含轻量版和完整版模板）。UI 项目**必做设计发散**（2-3 个 HTML mockup 变体，截图发飞书供大佬选择方向）。Phase 4 流程合规检查 + 文档质量自检 + 大佬 Review Gate + 自动路径验证。
+Phase 3 写 proposal.md + constitution.md（含轻量版和完整版模板）。**新增：** 满足 3 条件（难逆转+令人意外+有取舍）的架构决策记录为 ADR。UI 项目**必做设计发散**（2-3 个 HTML mockup 变体，**交互原型优先**通过 nginx :8088 发链接，截图备选）。Phase 4 流程合规检查 + 文档质量自检 + **Module Depth 评估**（删除测试+接口深度）+ 大佬 Review Gate + 自动路径验证。
 
 📋 **详细流程:** [references/workflow/phase3-spec.md](references/workflow/phase3-spec.md)
+📋 **ADR 模板:** [references/templates/adr-template.md](references/templates/adr-template.md)
 
 ---
 
 ## Phase 5: 实现计划
 
-tasks.md 单文件 ≤3000 字，超出必须拆分。每个任务 = 一个 kanban 卡，粒度 2-5 分钟。No Placeholders + Type Consistency 必做。含文件依赖图、垂直切片策略、Self-Review 四项检查。
+tasks.md 单文件 ≤3000 字，超出必须拆分。每个任务 = 一个 kanban 卡，粒度 2-5 分钟。**新增：Vertical Slice 规范** — 每个 Task 是端到端薄切片（非水平层），完成后可独立验证。分 HITL（需人工）和 AFK（可自动）两类，优先 AFK。No Placeholders + Type Consistency 必做。含文件依赖图、垂直切片策略、Self-Review 四项检查。
 
 📋 **详细流程:** [references/workflow/phase5-tasks.md](references/workflow/phase5-tasks.md)
+📋 **Vertical Slice 借鉴:** [references/methodology/matt-pocock-patterns.md](references/methodology/matt-pocock-patterns.md) §4
 
 ---
 
@@ -209,15 +217,16 @@ tasks.md 单文件 ≤3000 字，超出必须拆分。每个任务 = 一个 kanb
 
 ## Phase 7: 完成归档与流程复盘
 
-wiki 归档检查清单（必做）+ 归档 9 步 + 流程合规复盘 7 项 + 蒸馏评估。
+wiki 归档检查清单（必做）+ 归档 9 步 + 流程合规复盘 7 项 + 蒸馏评估。**新增：** 生成 handoff.md（跨 session 续接文档，引用已有文档不重复，建议下次加载的 skills）。
 
 📋 **详细流程:** [references/workflow/phase7-archive.md](references/workflow/phase7-archive.md)
+📋 **Handoff 借鉴:** [references/methodology/matt-pocock-patterns.md](references/methodology/matt-pocock-patterns.md) §7
 
 ---
 
 ## Phase 8: 反馈循环
 
-执行规范（角色分离 + tester 浏览器验证 + 每轮归档）+ 上下文溢出防护（每轮 ≤3-4 bug）+ Diagnose 6 阶段 + Bugfix Spec + 路径 A/B/C + 反馈循环红线。
+执行规范（角色分离 + tester 浏览器验证 + 每轮归档）+ 上下文溢出防护（每轮 ≤3-4 bug）+ Diagnose 6 阶段 + Bugfix Spec + 路径 A/B/C + 反馈循环红线。**新增：诊断引擎模式** — 灵犀收到用户反馈后先自己读代码+分析根因，再写精确 bugfix spec 派 coder（spec 必须包含"根因是什么→改哪行→改成什么"）。coder 是执行器不是诊断器。详见 `references/methodology/soul-md-behavioral-enforcement.md`。**tester review spec 必须明确验证方式：** UI 项目必须写"用浏览器访问页面截图验证"，不能只写"读代码+curl"。缺少验证方式描述 = reviewer 可能只读代码就判 PASS（pitfall #34）。
 
 📋 **详细流程:** [references/workflow/phase8-feedback.md](references/workflow/phase8-feedback.md)
 
@@ -249,42 +258,46 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 ### 角色分离（铁律）
 1. **禁止灵犀直接写代码** — 即使"很快能做完"也必须派 agent
 2. **禁止 Phase 8 "顺手修了"** — 大佬反馈问题必须走完整反馈循环
-**角色分离违规** — worker 卡住时不能自己动手，创建 fix 卡或 escalate
-4. **Phase 8 必须走角色分离** — 小修复用 delegate_task，大修复用 kanban
-5. **delegate_task 不是 kanban 的替代品（2026-05-24 教训，用户明确纠正）。** 用户要求走 kanban 时，不得用 `delegate_task` 替代。两者差异见 kanban-orchestrator skill。**判断规则：** 如果任务来自 clsh-project 流程或用户明确要求 kanban → 必须用 kanban。只有纯推理子任务（代码审查、调试分析、对比）才用 delegate_task。
+3. **角色分离违规** — worker 卡住时不能自己动手，创建 fix 卡或 escalate
+4. **Phase 8 必须走角色分离** — 小修复用 kanban（非 delegate_task），大修复更要用 kanban
+5. **delegate_task 不是 kanban 的替代品（2026-05-24 教训）。** 用户要求走 kanban 时，不得用 `delegate_task` 替代。**判断规则：** clsh-project 流程或用户明确要求 kanban → 必须用 kanban。只有纯推理子任务（代码审查、调试分析、对比）才用 delegate_task。
 
 ### 流程完整性
-5. **方向变化不回 Phase 1** — 核心定位变化必须回 Phase 1，不能回 Phase 3
-6. **跳过 Phase 2.5 Spike** — 有技术不确定性的方案必须先验证
-7. **Phase 5 缺少 Self-Review** — tasks.md 写完后必须 4 项自检
-8. **Phase 6 不做 Spec-Code 同步** — 每个 Task 完成后更新 proposal.md
-9. **Phase 7 归档不完整** — 必须检查 overview.md + completion-summary + retrospective + Phase 8 归档
+6. **方向变化不回 Phase 1** — 核心定位变化必须回 Phase 1，不能回 Phase 3
+7. **跳过 Phase 2.5 Spike** — 有技术不确定性的方案必须先验证
+8. **Phase 5 缺少 Self-Review** — tasks.md 写完后必须 4 项自检
+9. **Phase 6 不做 Spec-Code 同步** — 每个 Task 完成后更新 proposal.md
+10. **Phase 7 归档不完整** — 必须检查 overview.md + completion-summary + retrospective + Phase 8 归档
 
 ### 质量保障
-10. **agent 自判完成** — 必须通过 CHECKPOINT 客观验证
-11. **Auto-Fix 无限循环** — 2 轮后必须 escalate 给大佬
-12. **Placeholder 污染 tasks.md** — TBD/TODO/similar to N = 计划缺陷
-13. **写入文件后不验证路径** — write_file 后必须 `ls` 确认
-14. **UI 项目跳过 Browser QA** — 有前端 UI 的项目，tester 必须用浏览器自动化验证，不能只读代码
-15. **Pre-Commit 自检缺失** — agent context 必须包含安全自检清单，不依赖 agent 自觉
-16. **设计发散跳过** — UI 项目且无明确设计参考时，Phase 3 应触发设计发散，不能直接画页面
-17. **html-anything 做复杂 UI mockup** — html-anything 通用模板效果差（扁平、缺乏层次感），只适合封面图/卡片。复杂 UI 必须用 Open Design 设计系统 tokens 生成
-18. **飞书发送 HTML 文件路径** — 飞书无法打开 HTML 文件。必须用 chromium-browser 截图后发送 PNG 图片
+11. **agent 自判完成** — 必须通过 CHECKPOINT 客观验证
+12. **Auto-Fix 无限循环** — 2 轮后必须 escalate 给大佬
+13. **Placeholder 污染 tasks.md** — TBD/TODO/similar to N = 计划缺陷
+14. **写入文件后不验证路径** — write_file 后必须 `ls` 确认
+15. **UI 项目跳过 Browser QA** — 有前端 UI 的项目，tester 必须用浏览器自动化验证，不能只读代码
+16. **Pre-Commit 自检缺失** — agent context 必须包含安全自检清单，不依赖 agent 自觉
+17. **设计发散跳过** — UI 项目且无明确设计参考时，Phase 3 应触发设计发散，不能直接画页面
+18. **飞书发送 HTML 文件路径** — 飞书无法打开 HTML 文件。必须用 chromium-browser 截图后发送 PNG 图片（MEDIA: 前缀）
 19. **chromium 截图路径 /tmp** — snap 版 chromium 受 AppArmor 限制，无法写入 /tmp。截图路径用 /root/mockups/ 等非受限目录
 20. **AGENTS.md 参考其他项目** — AGENTS.md 应基于本项目自身架构（architecture.md），不能照搬其他项目的文档结构
-17. **发送 HTML 路径给大佬** — 飞书无法打开 HTML 文件路径，必须用 chromium-browser 截图后发送图片（MEDIA: 前缀）
-18. **设计发散用错工具** — 不用 sketch skill（已归档），用 html-anything/Open Design 生成 HTML mockup
-20. **UI 设计跳过调研** — 大佬无明确视觉偏好时，应先调研主流设计方向再生成 mockup
-21. **通过 agent CLI 间接调自己** — Open Design 的 agent 调 hermes CLI = 冗余。直接读设计系统 tokens.css 渲染 HTML 即可，不需要绕一圈
-22. **等外部 API 生成效果图** — Stitch API 长 prompt 通过代理容易超时。用 Open Design tokens 本地渲染更快更稳定
 
 ### 执行纪律
-17. **超时后提交半成品** — 子 agent 超时后 git stash/revert
-18. **Phase 8 上下文溢出** — 每轮最多修 3-4 个 bug，用 execute_code 批量读代码
-19. **Bugfix Spec 不列出调用点** — Spec 说"修复 X 功能"但没列出所有函数/端点 → coder 只修一处漏其他。**正例：** Spec 列出 `createShare()`, `listShares()`, `findShareByPath()` 三个函数都需要传 baseUrl → coder 全部改完。**反例：** Spec 只说"修复 URL"→ coder 改了 createShare，漏了 listShares
-20. **Fastify 获取端口用 req.server.config.port** — Fastify 没有这个属性。正确方式：`req.headers.host`（包含 host:port）或 `req.hostname`（仅 host）。集成场景（旧服务合并到新服务）必须用 `req.headers.host` 才能拿到正确端口
-21. **代码分散在多个目录（2026-05-24 教训）** — 集成项目代码应集中在项目文件夹（如 `/opt/Workspace/src/projects/obsidian/`），不要分散在旧目录（如 `/opt/obsidian-workbench/src/`）。迁移步骤：(1) 备份旧目录 (2) 迁移到项目文件夹 (3) 更新导入路径为相对路径 (4) 删除旧目录 (5) 重启验证
-22. **UI 状态管理条件判断错误（2026-05-24 教训）** — 条件 `(!loading && !error && !link)` 导致元素一闪而过。**根因：** 异步操作立即设置 `link`，条件瞬间变为 false。**修复方案：** 分离"显示条件"和"操作条件"——先显示 UI 元素（让用户选择），再在按钮点击后执行异步操作。**反例：** 点击分享按钮 → 立即创建分享 → link 有值 → 期限选择器消失。**正例：** 点击分享按钮 → 显示期限选择器 → 用户选择后点击"生成链接" → 创建分享
+21. **超时后提交半成品** — 子 agent 超时后 git stash/revert
+22. **Phase 8 上下文溢出** — 每轮最多修 3-4 个 bug，用 execute_code 批量读代码
+23. **Bugfix Spec 不列出调用点** — Spec 说"修复 X 功能"但没列出所有函数/端点 → coder 只修一处漏其他。**正例：** Spec 列出 `createShare()`, `listShares()`, `findShareByPath()` 三个函数都需要传 baseUrl → coder 全部改完。**反例：** Spec 只说"修复 URL"→ coder 改了 createShare，漏了 listShares
+24. **Fastify 获取端口用 req.server.config.port** — Fastify 没有这个属性。正确方式：`req.headers.host`（包含 host:port）或 `req.hostname`（仅 host）
+25. **代码分散在多个目录（2026-05-24 教训，2026-05-25 强化）** — 集成项目代码应集中在项目文件夹（如 `/opt/Workspace/src/projects/obsidian/`），不要分散在旧目录。**前端组件同理：** agent 修改代码时可能在 `src/public/views/` 和 `src/projects/<项目>/public/` 各留一份。**判断哪个是活跃副本：** 查 `app.mjs` 的 import 路径。清理时删孤儿副本，import 路径指向项目目录。**反例：** ObsidianView.mjs 两份（views/ + projects/obsidian/public/），share.html 也是两份，用户要求清理非项目路径的副本。
+26. **UI 状态管理条件判断错误（2026-05-24 教训）** — 条件判断导致元素一闪而过。**修复：** 分离"显示条件"和"操作条件"
+27. **通过 agent CLI 间接调自己** — Open Design 的 agent 调 hermes CLI = 冗余。直接读设计系统 tokens.css 渲染 HTML 即可
+28. **等外部 API 生成效果图** — Stitch API 长 prompt 通过代理容易超时。用 Open Design tokens 本地渲染更快更稳定
+29. **CSS backdrop-filter 创建 containing block（2026-05-25 教训）** — `backdrop-filter: blur()` 根据 CSS 规范创建新 containing block，导致 `position: fixed` 子元素相对该元素而非视口。修复：移除 backdrop-filter，改用 `background: rgba()`。详见 `code-principles` skill 的 `references/css-pitfalls.md`。
+30. **清理重复文件前验证引用（2026-05-25 教训）** — 移动文件后删除旧副本前，必须验证没有 import/引用指向旧路径。案例：ObsidianView.mjs 移到项目路径后删除 views/ 副本 → 浏览器 import 404。
+31. **调研报告写入 wiki/projects/（2026-05-25 教训，第 3 次）** — 分析报告 → `wiki/syntheses/`。只有有 Phase 流程的项目才进 `wiki/projects/`。
+32. **frontmatter 版本号不更新** — 每次 patch SKILL.md 必须同步更新 frontmatter `version` 字段。版本号不一致 = 维护失职。
+31. **调研报告写入 wiki/projects/（2026-05-25 教训，第 2 次）** — 分析报告、调研结论、方法论对比 = 知识积累 → `wiki/syntheses/`。只有真正的项目（有 Phase 流程、有代码产出）才进 `wiki/projects/`。**判断规则：** 问自己"这个东西有 overview.md + constitution.md + changes/ 吗？"没有 → syntheses。
+32. **frontmatter 版本号不更新** — 每次 patch SKILL.md 必须同步更新 frontmatter `version` 字段和版本历史行。版本号不一致 = 维护失职。
+33. **CSS `backdrop-filter` 创建 containing block（2026-05-25 教训）** — 给元素加 `backdrop-filter: blur()` 会让该元素成为 `position:fixed` 子元素的 containing block，导致 fixed 定位相对于该元素而非视口。**症状：** 弹出菜单/弹窗用了 `position:fixed` + `clientX/clientY` 但位置偏移。**修复：** 移除 backdrop-filter 改用不创建 CB 的半透明背景（`background: rgba(255,255,255,0.85)`），或将弹出元素用 Teleport 渲染到 `document.body`。
+34. **tester 只读代码判 PASS（2026-05-25 教训）** — tester 读了修改后的文件就 `kanban_complete(summary="approved")`，没有用浏览器实际验证任何 UI 效果。大佬测试后发现 3/5 项未修复。**根因：** review 卡 body 写了"用 curl 验证""检查 pm2 日志"但没有强制浏览器截图。**规则：** UI 项目的 tester review spec 必须包含 `必须用浏览器工具实际访问页面，截图验证每个验收标准`。如果 tester 没有浏览器工具，escalate 给灵犀安排手动验证。review 卡 body 缺少"必须截图"= 流程违规。
 
 ## Verification Checklist（每次使用此 skill 前）
 
@@ -297,11 +310,13 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 - [ ] 确认代码任务已派给 coder/artist，不是灵犀直接写
 - [ ] 确认每个 Task 有 tester 卡
 - [ ] 确认 Phase 6 有 Security Scan 步骤
-- [ ] 确认 UI 项目 Phase 6 tester 卡包含 Browser QA 检查清单
+- [ ] 确认 UI 项目 Phase 6 tester 卡包含 Browser QA 检查清单（必须含"截图验证"字样）
 - [ ] 确认 agent 派发 context 包含 Pre-Commit 安全自检清单
 - [ ] 确认 Phase 8 反馈走流程而非"顺手修了"
 - [ ] 确认 Auto-Fix 不超过 2 轮后 escalate
 - [ ] 确认每个 kanban task body 包含 proposal 相关章节 + constitution 约束 + 不在范围内声明
+- [ ] 确认 Phase 1 中大佬描述现有行为时已代码交叉验证
+- [ ] 确认满足条件的架构决策已记录为 ADR（wiki/projects/<项目名>/docs/adr/）
 
 ---
 
@@ -309,6 +324,12 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v5.3.4 | 2026-05-25 | **Karpathy + Superpowers 行为约束融合**：新增 `references/methodology/soul-md-behavioral-enforcement.md`（交付门禁、目标转换、防辩解表）。Phase 8 新增诊断引擎模式（灵犀先诊断根因再派 coder）。所有 agent SOUL.md 已补强三板斧。 |
+| v5.3.3 | 2026-05-25 | **CSS containing block + tester 应付教训**：新增 pitfall #33（`backdrop-filter` 创建 containing block 导致 position:fixed 失效）、#34（tester 只读代码判 PASS — UI 项目 review spec 必须含"截图验证"）。Phase 8 说明强化：tester review spec 必须明确验证方式。Verification Checklist 更新：tester 卡必须含"截图验证"字样。 |
+| v5.3.2 | 2026-05-25 | **Phase 8 Wave 分批 + Pitfall #25 强化**：Phase 8 路径 B 新增 Wave 分批模式（多问题按优先级分 Wave，逐 Wave 执行）。Pitfall #25 扩展：前端组件同理会复制到多目录，以 app.mjs import 路径为准清理孤儿副本。 |
+| v5.3.2 | 2026-05-25 | **Phase 8 教训补充**：新增 #29（静态文件服务器根目录限制 — 前端文件必须留在 static root 内）、#30（清理重复文件前必须 grep 验证引用）。原 #29-30 重编号为 #31-32。 |
+| v5.3.1 | 2026-05-25 | **Review 修复**：Pitfalls 重新编号 1-30（修复缺号+重号）。新增 #29（wiki/projects vs syntheses 分类规则）、#30（frontmatter 版本号同步）。Phase 3 设计发散展示方式改为交互原型优先（nginx :8088）。 |
+| v5.3.0 | 2026-05-25 | **Matt Pocock Skills 借鉴**：引入 7 个优化模式 — 代码交叉验证（铁律 #12）、CONTEXT.md 领域术语表、ADR 架构决策记录、Vertical Slice 任务切分、Prototype 可运行原型、Module Depth 评估、Handoff 跨 session 文档。新增 2 个模板（context-template.md、adr-template.md）+ 1 个方法论参考（matt-pocock-patterns.md）。Phase 0-7 各有增量更新。Verification Checklist 新增 2 项。 |
 | v5.2.3 | 2026-05-24 | **Phase 8 派发方式纠正**：用户明确要求 clsh-project 流程必须用 kanban 派发，禁止用 delegate_task 替代。新增 pitfall #21（代码应集中在项目文件夹）、#22（UI 状态管理条件判断错误导致元素一闪而过）。 |
 | v5.2.1 | 2026-05-24 | **设计工具链补充**：新增 `stitch-mcp-workflow.md`（Stitch MCP 集成完整指南）和 `ui-prompt-frameworks.md`（RTCF/v0/Stitch/DESIGN.md 四大 prompt 框架）。更新 `ui-design-workflow.md` 工具矩阵增加 Stitch MCP 和 Open Design tokens.css 方案。 |
 | v5.2.2 | 2026-05-24 | **Phase 8 教训补充**：新增 pitfall #19（Bugfix Spec 必须列出所有调用点）、#20（Fastify 端口获取用 req.headers.host）。新增 `references/integration/fastify-url-port.md`。Phase 8 Bugfix Spec 模板增加"需要修改的函数/端点"字段。 |
@@ -332,11 +353,15 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 - `references/methodology/superpowers-v5-changes.md` — Superpowers v5 关键变更
 - `references/methodology/agent-skill-execution-research.md` — Agent 执行跑偏：根因 + 5 种方案
 - `references/methodology/superpowers-architecture-analysis.md` — Superpowers 架构拆解
+- `references/methodology/matt-pocock-patterns.md` — **Matt Pocock Skills 借鉴分析**（CONTEXT.md、ADR、Vertical Slice、Prototype、Handoff 等 7 个模式）
+- `references/methodology/soul-md-behavioral-enforcement.md` — **SOUL.md 行为约束：Karpathy + Superpowers 融合方案**（交付门禁、目标转换、防辩解表）
 
 ### 📋 模板
 - `references/templates/constitution-template.md` — Constitution 模板
 - `references/templates/archive-workflow.md` — Phase 7 归档操作手册
 - `references/templates/phase7-archive-checklist.md` — 归档快速检查清单
+- `references/templates/context-template.md` — **CONTEXT.md 领域术语表模板**（Phase 1 自然积累）
+- `references/templates/adr-template.md` — **ADR 架构决策记录模板**（Phase 3 满足 3 条件才创建）
 
 ### 🔄 流程详情（Phase 参考）
 - `references/workflow/phase0-1-requirements.md` — Phase 0+1: 需求准备与澄清

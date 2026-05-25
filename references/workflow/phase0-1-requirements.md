@@ -79,6 +79,41 @@
 
 调研结果写入 `conversation.md` 顶部，作为需求讨论的参考上下文。
 
+### 🔬 代码交叉验证（Phase 1 必做）
+
+**来源：** Matt Pocock /grill-with-docs 的 "Cross-reference with code"
+
+在需求澄清过程中，当大佬描述现有系统/功能/行为时：
+1. **先查代码验证** — 不盲目接受描述，代码是事实真相
+2. **发现矛盾立即指出** — "你说 X 功能是这样工作的，但代码显示的是 Y — 哪个是对的？"
+3. **记录验证结果** — 在 conversation.md 中标注哪些描述已验证、哪些有差异
+
+**适用场景：**
+- 大佬说"现有的系统是这样做的" → 必须查代码
+- 大佬说"这个功能应该没问题" → 检查实际状态
+- 大佬描述 API 行为 → 对照代码确认
+
+**⛔ 不适用：** 全新项目（无代码可查）、纯需求讨论（不涉及现有行为）
+
+### 📖 领域语言积累（CONTEXT.md）
+
+**来源：** Matt Pocock /grill-with-docs 的 CONTEXT-FORMAT.md
+
+Phase 1 需求澄清过程中，当出现项目特有术语时，同步记录到 context.md：
+
+1. **识别术语** — 大佬使用的项目特有词汇（不是通用编程概念）
+2. **当场定义** — 问清含义，一两句话定义"是什么"
+3. **列出 Avoid** — 同义词/容易混淆的词
+4. **写入 context.md** — 不攒到最后，边讨论边记录
+
+**文件位置：** `wiki/projects/<项目名>/source-of-truth/context.md`
+**模板：** `references/templates/context-template.md`
+
+**与其他文档的关系：**
+- conversation.md 记录 Q&A，引用 context.md 术语
+- proposal.md 使用 context.md 术语保持一致
+- constitution.md 不重复 context.md 内容
+
 ### 提问模板（按顺序探索）
 
 1. **目的和用户** — "这个功能主要是给谁用的？解决什么问题？"

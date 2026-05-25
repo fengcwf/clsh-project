@@ -83,16 +83,18 @@ project: "[项目名]"
    - 每个变体控制在单文件 HTML（<30KB），自包含（inline CSS，用 var() 引用 tokens）
    - 灵犀直接渲染（不需要派 agent），除非需要复杂交互原型才派 artist
 
-4. **截图发飞书给大佬选择**
+4. **展示给大佬选择（两种方式，优先交互原型）：**
+   - **✅ 首选：交互原型** — 生成可切换变体的单文件 HTML（N 套 CSS + 切换 JS），放到 `/opt/Workspace/test/<项目名>/`，通过 nginx :8088 发链接：`https://wptest.cwf.fengcwf.cn:10086/<项目名>/<文件>.html`。大佬直接在浏览器切换变体对比，零额外 token。
+   - **备选：截图** — 用 `chromium-browser --headless --screenshot` 截图发飞书（当大佬无法访问外网时）
    - ⛔ **禁止发送 HTML 文件路径** — 飞书无法直接打开 HTML
-   - ✅ **必须发送图片** — 用 `chromium-browser --headless --screenshot` 截图
-   - 发送方式：`send_message(target='feishu', message='描述\nMEDIA:/path/to/screenshot.png')`
-   - 截图命令：`chromium-browser --headless --disable-gpu --screenshot=/path/out.png --window-size=1440,900 --no-sandbox file:///path/to/mockup.html`
-   - ⚠️ AppArmor 限制：snap 版 chromium 无法写入 /tmp，改用 /root/mockups/ 等非受限路径
+   - 截图命令：`chromium-browser --headless --disable-gpu --screenshot=/root/mockups/out.png --window-size=1440,900 --no-sandbox file:///path/to/mockup.html`
+   - ⚠️ AppArmor 限制：snap 版 chromium 无法写入 /tmp，截图路径用 /root/mockups/
 
 5. **大佬选择方向 + 修改意见** → 将设计方向写入 constitution.md 的 UI 约束章节
 
-6. **如果大佬不满意** → 迭代修改 HTML mockup，重复 4-5
+6. **记录设计 ADR（满足条件时）** — 如果选择的设计方向满足 ADR 三条件（难逆转 + 令人意外 + 有真实取舍），记录到 `wiki/projects/<项目名>/docs/adr/`。模板：`references/templates/adr-template.md`
+
+7. **如果大佬不满意** → 迭代修改 HTML mockup，重复 4-5
 
 #### Open Design 设计系统选择表
 
@@ -148,6 +150,8 @@ project: "[项目名]"
 4. **歧义检查** — 是否有需求可被两种解读？
 5. **需求覆盖** — Phase 1 的每个需求是否都有对应设计？
 6. **Type Consistency** — 跨章节的类型/接口/命名是否一致？
+7. **Module Depth（模块深度）** — 方案中的核心模块，如果删掉它，复杂度是消失（= 透传模块，可去掉）还是扩散到 N 个调用方（= 有价值）？核心模块的接口是否比实现简单得多？（来源：Matt Pocock /improve-codebase-architecture 的删除测试）
+8. **术语一致性** — proposal.md 是否使用了 context.md 中定义的术语？有无自造新词？
 
 ### 大佬 Review Gate
 

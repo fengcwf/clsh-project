@@ -40,7 +40,14 @@ Phase 7 归档时，必须确认以下文件已写入 wiki：
    - 触发条件满足时（learnings ≥10 条 或 eval ≤2/5）执行深度蒸馏
    - **同步到 raw/**：`python3 /opt/Workspace/scripts/obsidian/learnings-to-raw.py`（遵循 raw → ingest → wiki 架构）
 8. 向大佬汇报（含 eval 结果和蒸馏发现）
-9. `ls` 验证所有归档文件存在且大小 > 0
+9. **📄 生成 Handoff 文档** — 归档时生成 `handoff.md`，方便跨 session 续接：
+   - 当前项目状态摘要（已完成/待完成）
+   - 建议下次 session 加载的 skills
+   - 引用已有文档路径（不重复内容，避免 token 浪费）
+   - 脱敏处理（删除密钥/token/密码）
+   - **文件位置：** `wiki/projects/<项目名>/changes/archive/<变更名>/handoff.md`
+   - **来源：** Matt Pocock /handoff skill
+10. `ls` 验证所有归档文件存在且大小 > 0
 
 ### ⛔ 流程合规复盘（必做）
 
