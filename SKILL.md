@@ -1,7 +1,7 @@
 ---
 name: clsh-project
 description: "需求驱动的项目开发工作流 — 从需求澄清到设计文档到实现计划到执行。灵感来自 Kiro 的 Spec-Driven Development、Superpowers 的 Brainstorming 方法论、Phoenix 的状态机执行模式。"
-version: 5.3.5
+version: 5.3.7
 author: 灵犀
 license: MIT
 platforms: [linux, macos, windows]
@@ -117,6 +117,7 @@ metadata:
 10. **Auto-Fix 上限** — review 发现问题后派 fix agent 修复并重新 review，最多 2 轮后 escalate 给大佬
 11. **方案注入（2026-05-24 教训）** — Phase 6 建卡时，task body 必须注入三样东西：(1) proposal.md 的相关章节（代码/配置/路由定义，不能只写一句话描述）；(2) constitution.md 的技术约束（文件结构、禁止事项）；(3) 明确的"不在范围内"声明。缺少任一 = 流程违规。**反例：** 只写"实现 Obsidian 集成"→ coder 自行发挥 → 偏离方案。**正例：** 注入 proposal 中的完整代码示例 + 文件路径 + 禁止事项 → coder 只能照做。
 12. **代码交叉验证（2026-05-25 Matt Pocock 借鉴）** — Phase 1 中大佬描述现有系统行为时，必须检查代码验证描述是否吻合。发现矛盾时以代码为准，向大佬确认："代码显示的是 X，但你说的是 Y — 哪个对？"不盲目接受口头描述。UI 项目同理：描述页面行为时先看实际渲染。
+13. **Context File Pattern（2026-05-26 验证通过）** — 复杂任务（body > 500 字）采用混合模式：body 放摘要（500 字），详细 spec 写到 `wiki/projects/{project}/changes/{变更名}/bugfix-spec.md`，body 中注明**绝对路径**让 worker 读取。worker SOUL.md 已注入规则。**实测：** Round 6 首次使用，coder/tester 都正确读取 spec 文件，token 节省 90%。**关键：** 路径必须是绝对路径（`/mnt/unraid_data/Obsidian/wiki/...`），相对路径可能找不到。
 
 **违反以上任何一条 = 流程违规，必须记 ERRORS.md。**
 
@@ -298,6 +299,9 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 32. **frontmatter 版本号不更新** — 每次 patch SKILL.md 必须同步更新 frontmatter `version` 字段和版本历史行。版本号不一致 = 维护失职。
 33. **CSS `backdrop-filter` 创建 containing block（2026-05-25 教训）** — 给元素加 `backdrop-filter: blur()` 会让该元素成为 `position:fixed` 子元素的 containing block，导致 fixed 定位相对于该元素而非视口。**症状：** 弹出菜单/弹窗用了 `position:fixed` + `clientX/clientY` 但位置偏移。**修复：** 移除 backdrop-filter 改用不创建 CB 的半透明背景（`background: rgba(255,255,255,0.85)`），或将弹出元素用 Teleport 渲染到 `document.body`。
 34. **tester 只读代码判 PASS（2026-05-25 教训）** — tester 读了修改后的文件就 `kanban_complete(summary="approved")`，没有用浏览器实际验证任何 UI 效果。大佬测试后发现 3/5 项未修复。**根因：** review 卡 body 写了"用 curl 验证""检查 pm2 日志"但没有强制浏览器截图。**规则：** UI 项目的 tester review spec 必须包含 `必须用浏览器工具实际访问页面，截图验证每个验收标准`。如果 tester 没有浏览器工具，escalate 给灵犀安排手动验证。review 卡 body 缺少"必须截图"= 流程违规。
+35. **tester 修改 .env 文件（2026-05-26 教训）** — tester 在验证过程中尝试登录，发现密码不对后直接修改 `.env` 文件重置密码 hash。即使 task body 写了"禁止修改 .env"，tester 仍执行了 `cat .env` + `patch .env`。**根因：** task body 的禁止规则是软约束，tester 的 SOUL.md 没有对应硬性规则。**修复：** tester SOUL.md 已添加"⛔ 绝对禁止修改 .env/config.yaml"规则。**灵犀的 post-review 检查：** tester 完成后，`grep` 检查 `.env` 文件 mtime 是否被修改。
+36. **手动改 .env 密码 hash 格式错误（2026-05-26 教训）** — 大佬手动将 `.env` 中 `ADMIN_PASSWORD_HASH` 改为 MD5 格式（`e10adc3949ba59abbe56e057f20f883e`），但代码用 `bcrypt.compare()` 验证，需要 bcrypt 格式（`$2b$10$...`，60 位）。MD5 永远无法通过 bcrypt 验证。**通用规则：** 修改 `.env` 中的密码 hash 前，先查代码确认 hash 算法（bcrypt/argon2/sha256），再用对应算法生成。**快速验证：** `node -e "import('bcrypt').then(b=>b.compare('plaintext','***'))"` 返回 `true` 才算对。
+37. **Context File Pattern 执行残留（2026-05-26 教训）** — kanban task 的 bugfix spec 文件（`TODO_SPEC.md`、`TODO_SPEC_V2.md`）写到了项目根目录（`/opt/Workspace/`），没有归档到 `wiki/projects/<项目>/changes/` 下。**根因：** spec 文件是给 coder 用的临时 context，用完后无人清理。**规则：** Phase 8 bugfix spec 完成后，灵犀必须检查项目根目录是否有 `*SPEC*`、`*TODO*`、`*bugfix*` 等临时文件残留，有则移入 `wiki/projects/<项目>/changes/<变更名>/` 归档。
 
 ## Verification Checklist（每次使用此 skill 前）
 
@@ -324,6 +328,7 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v5.3.7 | 2026-05-26 | **.env hash 格式 + spec 残留清理**：新增 pitfall #36（手动改 .env 密码 hash 必须先查代码确认算法，bcrypt vs MD5 格式不通用）和 #37（Phase 8 结束后检查项目根目录 spec 残留文件，移入 wiki 归档）。 |
 | v5.3.4 | 2026-05-25 | **Karpathy + Superpowers 行为约束融合**：新增 `references/methodology/soul-md-behavioral-enforcement.md`（交付门禁、目标转换、防辩解表）。Phase 8 新增诊断引擎模式（灵犀先诊断根因再派 coder）。所有 agent SOUL.md 已补强三板斧。 |
 | v5.3.3 | 2026-05-25 | **CSS containing block + tester 应付教训**：新增 pitfall #33（`backdrop-filter` 创建 containing block 导致 position:fixed 失效）、#34（tester 只读代码判 PASS — UI 项目 review spec 必须含"截图验证"）。Phase 8 说明强化：tester review spec 必须明确验证方式。Verification Checklist 更新：tester 卡必须含"截图验证"字样。 |
 | v5.3.2 | 2026-05-25 | **Phase 8 Wave 分批 + Pitfall #25 强化**：Phase 8 路径 B 新增 Wave 分批模式（多问题按优先级分 Wave，逐 Wave 执行）。Pitfall #25 扩展：前端组件同理会复制到多目录，以 app.mjs import 路径为准清理孤儿副本。 |
