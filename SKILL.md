@@ -1,7 +1,7 @@
 ---
 name: clsh-project
 description: "需求驱动的项目开发工作流 — 从需求澄清到设计文档到实现计划到执行。灵感来自 Kiro 的 Spec-Driven Development、Superpowers 的 Brainstorming 方法论、Phoenix 的状态机执行模式。"
-version: 5.5.2
+version: 5.5.3
 author: 灵犀
 license: MIT
 platforms: [linux, macos, windows]
@@ -410,6 +410,10 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 44. **CodeWhale ACP 写入错误路径（2026-05-27 教训）** — CodeWhale 可能读取现有文件确定"自然"位置，忽略 constitution 指定的目标路径。**案例：** constitution 定义 `src/projects/cron/CronMonitor.mjs`，但 CodeWhale 看到旧文件在 `views/CronMonitor.mjs` 就写到 views/。**规则：** context/goal 中必须显式写明**绝对输出路径**（如"创建文件：/opt/Workspace/src/projects/cron/CronMonitor.mjs"），不能只靠 constitution 引用。
 45. **CodeWhale 首轮输出功能不全 + 二轮补全模式（2026-05-27 验证）** — 第一轮 CodeWhale ACP 可能产出结构正确但关键功能缺失的文件（657 行，无 AI 徽章、无 LLM 面板、无筛选）。**根因：** context 是"设计文档风格"（描述期望效果），CodeWhale 按自己理解裁剪。**修复模式：** 首轮后 grep 验证关键功能（`grep -c "activeFilter\|aiExpanded\|● 活跃"`）；缺失时二轮用**精确 bullet-point 需求**（"添加紫色小标签 [AI]，样式: background: linear-gradient(...)"），不要用设计文档风格。比一次性写完更可靠，因为首轮暴露的变量命名和结构可以作为二轮的精确 spec。
 46. **Fastify 双静态根配置（2026-05-27 教训）** — 需要同时服务 `src/public/` 和 `src/projects/*/public/` 时，不能用 `root: [array]`（路径会 double-prefix）。正确方式：注册两次 fastifyStatic，第一个用 `decorateReply: true`（主目录），第二个用 `decorateReply: false`（项目目录）。详见 `references/workspace-sub-module-pattern.md`。
+47. **CodeWhale 部分编辑导致文件损坏（2026-05-28 教训）** — CodeWhale 超时时可能已对同一文件做了多次部分 patch，导致括号嵌套错乱。症状：`node -c` 报语法错误，但逐行括号计数显示总数平衡（opens=closes）。**根因：** 部分 patch 修改了局部结构但未同步调整周围括号。**规则：** (1) CodeWhale 超时后，先 `node -c` 检查文件是否可用；(2) 如果报错且错误位置随修改漂移（不同行号），直接 `write_file` 重写整个文件，不要逐行修补；(3) 逐行修补括号错乱是 O(n²) 陷阱，比重写慢 10 倍。**反例：** 本案中 CodeWhale 做了 69 次 API 调用，ContentView.mjs 被多次部分修改，灵犀花了 30 分钟逐行 debug 括号问题，最终还是重写了整个文件。
+48. **Vue3 CDN 组件解构完整性（2026-05-28 教训）** — 创建 Vue3 CDN 组件时，必须确保所有使用的 Vue API 都从 `Vue` 对象解构。常见遗漏：`computed`（用于派生状态）、`watch`（用于监听）。**症状：** `ReferenceError: computed is not defined`，但 `node -c` 语法检查通过（因为 `Vue.computed` 是运行时依赖）。**规则：** 新建组件时，默认解构 `const { ref, computed, watch, onMounted, onUnmounted, h, defineComponent } = Vue;`，不用的不扣分，漏了会崩。
+49. **API 数据源一致性（2026-05-28 教训）** — 不同 API 端点检查同一数据时，必须使用同一个底层函数。**反例：** overview API 用 `execSync` 调 Python 脚本检查渠道状态，channels API 用 JS 异步函数检查，导致两个 Tab 显示的状态不一致。**规则：** 提取共享的检查函数，所有端点共用。
+50. **Fastify handler 中禁止 execSync（2026-05-28 教训）** — `execSync` 会阻塞整个 Node.js 事件循环。在 Fastify 请求处理中使用 `execSync`（如调用 `channel_check.py`）会导致所有并发请求排队等待。**修复：** 改用 `execFile`（callback）或 `child_process` 的 Promise 封装 + `await`。超时设置 10-30s。
 
 ## Verification Checklist（每次使用此 skill 前）
 
@@ -437,6 +441,8 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v5.5.3 | 2026-05-28 | **内容管理子模块模式**：更新 `references/workspace-sub-module-pattern.md` 新增 clsh-content 集成案例（外部脚本集成 + 文件系统数据源 + 渐进式三 Wave 交付）。 |
+| v5.5.3 | 2026-05-28 | **CodeWhale 文件损坏 + Vue 解构 + API 一致性**：新增 pitfall #47（CodeWhale 部分编辑导致括号损坏 — 超时后直接重写不要逐行修）、#48（Vue3 CDN 组件解构完整性 — 默认解构 computed/watch）、#49（API 数据源一致性 — 多端点检查同一数据共用函数）、#50（Fastify handler 禁止 execSync — 改用 execFile+await）。更新 `references/workspace-sub-module-pattern.md` 新增内容管理子模块模式。 |
 | v5.5.2 | 2026-05-27 | **Workspace 子模块模式 + CodeWhale 二轮补全**：新增 pitfall #43（新增子模块必须先读 AGENTS.md）、#44（CodeWhale 写入错误路径 — context 必须写绝对输出路径）、#45（首轮功能不全 — 二轮用精确 bullet-point 需求补全）、#46（Fastify 双静态根配置）。新增 `references/workspace-sub-module-pattern.md`（Workspace 子模块开发完整模式）。Verification Checklist 新增 AGENTS.md 检查项。 |
 | v5.4.0 | 2026-05-27 | **CodeWhale ACP 集成**：Phase 6/8 的 coder/artist 角色使用 CodeWhale ACP 执行（`/usr/local/bin/codewhale`），tester 保持 Hermes subagent。新增 Constitution 注入机制（派发前读取 source-of-truth/constitution.md 注入 worker context）。Phase 8 Bugfix Spec 模板参考 OpenSpec Delta Spec 格式。 |
 | v5.3.7 | 2026-05-26 | **.env hash 格式 + spec 残留清理**：新增 pitfall #36（手动改 .env 密码 hash 必须先查代码确认算法，bcrypt vs MD5 格式不通用）和 #37（Phase 8 结束后检查项目根目录 spec 残留文件，移入 wiki 归档）。 |

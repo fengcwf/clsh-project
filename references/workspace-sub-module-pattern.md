@@ -1,93 +1,111 @@
-# Workspace 子模块开发模式
+# 内容管理子模块模式 — clsh-content → Workspace 集成案例
 
-> 2026-05-27 总结 — 从 cron-monitor 增强项目提炼
+> 2026-05-28 — 从 clsh-content Workspace 集成提炼
 
-## 前置检查（必须）
+## 场景
 
-1. **读 `AGENTS.md`** — 确认目录结构、命名规范、路由前缀规范
-2. **读 `config/projects.json`** — 确认项目注册格式
-3. **读现有子模块** — `src/projects/obsidian/` 是参考模板
+将已有的 Hermes 插件（clsh-content，含多个 Node.js 脚本）集成为 Workspace 子模块。
 
-## 文件结构（与 obsidian 对齐）
+## 架构
 
 ```
-src/projects/<id>/
-├── plugin.mjs          ← Fastify 路由注册 + API 实现
-└── public/
-    └── <ViewName>.mjs  ← Vue3 CDN 前端组件
+src/projects/content/
+├── plugin.mjs              ← Fastify 路由（776 行，9 个 API）
+├── api/
+│   ├── articles.mjs        ← 文章 CRUD（扫描 raw/articles/）
+│   ├── channels.mjs        ← 渠道状态 + 历史
+│   └── overview.mjs        ← KPI + 活动时间线
+├── services/
+│   ├── article-scanner.mjs ← 目录扫描 + frontmatter 解析
+│   ├── channel-checker.mjs ← 渠道健康检查
+│   └── script-runner.mjs   ← subprocess 调用封装
+├── public/
+│   └── ContentView.mjs     ← Vue3 前端（785 行，3 个 Tab）
+└── README.md
 ```
 
-**反模式：**
-- ❌ 把前端放在 `src/public/views/`（与后端分离，不利于模块内聚）
-- ❌ 把路由放在 `src/api/`（应放在 `plugin.mjs` 中）
+## 关键设计决策
 
-## Fastify 双静态根配置
+### 1. 脚本集成方式
 
-当需要同时服务 `src/public/`（主前端）和 `src/projects/*/public/`（子模块前端）时：
+不重写已有脚本，通过 `child_process.execFile` 调用：
+- `halo-publish.cjs` → Halo 发布
+- `wechat-publish.cjs` → 微信发布
+- `xhs-publish.cjs` → 小红书发布
+- `channel_check.py` → 渠道健康检查
 
-```javascript
-// ❌ 错误：root 数组会 double-prefix
-await fastify.register(fastifyStatic, {
-  root: [join(__dirname, 'public'), join(__dirname, 'projects')],
-  prefix: '/',
-});
+设置 `NODE_PATH` 让脚本找到同目录的 node_modules。
 
-// ✅ 正确：两次注册，第二次不装饰 reply
-await fastify.register(fastifyStatic, {
-  root: join(__dirname, 'public'),
-  prefix: '/',
-  decorateReply: true,
-  wildcard: true,
-});
-await fastify.register(fastifyStatic, {
-  root: join(__dirname, 'projects'),
-  prefix: '/projects/',
-  decorateReply: false,
-});
+### 2. 文件系统数据源
+
+数据来自 `/mnt/unraid_data/Obsidian/raw/articles/`（drafts/published/materials）。
+手动解析 YAML frontmatter（零依赖），提取 title/tags/status/date。
+
+### 3. 三 Tab 结构
+
+| Tab | 内容 |
+|-----|------|
+| 概览 | KPI 卡片 + 渠道健康 + 快捷操作 + 活动时间线 |
+| 文章管理 | 左侧文件夹树 + 右侧文章列表 + 发布/删除 |
+| 渠道管理 | 渠道状态卡片 + 发布历史 + 连接测试 |
+
+### 4. 渐进式交付（三 Wave）
+
+| Wave | 内容 | 耗时 |
+|------|------|------|
+| Wave 1 | 基础架构 + Tab1 概览 | ~160s |
+| Wave 2 | Tab2 文章管理 API + 前端 | ~240s |
+| Wave 3 | Tab3 渠道管理 | ~600s（超时但代码已写入） |
+
+## API 端点清单
+
+```
+GET    /api/content/overview                              → KPI 数据
+POST   /api/content/trigger/:type                         → 触发巡检
+GET    /api/content/articles?folder=&status=&search=      → 文章列表
+GET    /api/content/articles/:folder/:filename            → 文章详情
+POST   /api/content/articles/:folder/:filename/publish    → 发布
+DELETE /api/content/articles/:folder/:filename            → 删除（移至 .trash）
+GET    /api/content/channels                              → 渠道状态
+GET    /api/content/channels/:name/history                → 发布历史
+POST   /api/content/channels/:name/test                   → 测试连接
 ```
 
-**关键：** `decorateReply: false` 防止重复装饰 Fastify reply 对象。
+## 注册步骤
 
-## 前端 import 路径
+1. 创建 `src/projects/content/plugin.mjs`
+2. 更新 `config/projects.json`（添加 tabs 配置）
+3. 更新 `server.mjs`（import + register）
+4. 更新 `app.mjs`（import ContentView + 条件渲染）
+5. 删除旧视图文件（如有 `src/public/views/ClshContent.mjs`）
 
-```javascript
-// app.mjs 中导入子模块前端
-import CronMonitorView from '../projects/cron/public/CronMonitor.mjs';
+## 教训
+
+- CodeWhale ACP 处理 3+ 文件可能超时 600s，但代码通常在超时前已写入
+- **CodeWhale 超时后文件可能损坏** — 69+ API 调用可能导致多次部分 patch，括号嵌套错乱。超时后先 `node -c` 检查，损坏则直接重写
+- 文件系统 API 必须校验 `..` 路径遍历
+- 迁移到子模块后必须删除旧位置的视图文件
+- **Vue3 解构完整性** — 新组件默认 `const { ref, computed, watch, onMounted, onUnmounted, h, defineComponent } = Vue;`
+- **execSync 阻塞事件循环** — Fastify handler 中禁止用 execSync，改用 execFile + await
+- **数据源一致性** — 多个 API 检查同一数据时，共用同一个底层函数
+
+## 内容管理子模块模式（2026-05-28）
+
+将已有的 Hermes 插件（含 Node.js 脚本）集成为 Workspace 子模块的模式：
+
+**架构：** `plugin.mjs`（路由）+ `public/ContentView.mjs`（前端），通过 `child_process` 调用已有脚本
+
+**文章目录结构（文件夹=文章）：**
+```
+raw/articles/drafts/2026-05-28-主题/
+├── article.md    ← 原始素材
+├── halo.md       ← Halo 版
+├── wechat.md     ← 微信版
+├── xhs.md        ← 小红书版
+├── covers/       ← 封面图
+└── meta.json     ← 发布状态
 ```
 
-浏览器会请求 `/projects/cron/public/CronMonitor.mjs`，由第二个静态根处理。
+**前端 Tab 模式：** `props: { activeTab }` 接收工作台 tab → 组件内用 `defineComponent` 拆分子 Tab
 
-## Hermes CLI 非交互式用法
-
-```bash
-# 编辑调度
-hermes cron edit <id> --schedule "*/30 * * * *"
-
-# 创建（prompt 是位置参数，schedule 也是位置参数）
-hermes cron create "*/5 * * * *" "任务描述" --name "名称" --deliver local
-
-# 触发
-hermes cron run <id>
-
-# 暂停/恢复
-hermes cron pause <id>
-hermes cron resume <id>
-
-# 删除
-hermes cron remove <id>
-```
-
-## Cron 数据源
-
-`~/.hermes/cron/jobs.json` 包含所有 cron 任务的完整定义：
-- `id`, `name`, `schedule.expr`, `enabled`, `paused_at`
-- `prompt`, `script`, `model`, `provider`, `skills`, `deliver`
-- `repeat.completed`（执行次数）
-
-## Phase 8 反馈循环模式（多点反馈）
-
-当大佬一次提出 7+ 个反馈点时：
-1. 逐条回应（不跳过任何一条）
-2. 区分类型：分析（#3 废弃 cron）、修复（#2 文件结构）、新增（#6 #7）
-3. 修复和新增可以并行执行（自己做修复，CodeWhale 做新增）
-4. 删除操作优先（`hermes cron remove`），无依赖
+**渐进式交付：** 三 Wave（基础+Tab1 → Tab2 → Tab3），每 Wave 一个 CodeWhale ACP 任务
