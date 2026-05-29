@@ -33,6 +33,34 @@
   - 内容平台/博客 → Notion 或 Medium
   - 移动端优先 → Apple HIG 或 Tailwind UI
 
+### ⚠️ 5 步验证函数（Superpowers 移植，2026-05-29）
+
+**核心原则：没证据不许声称完成。**
+
+```
+BEFORE 声称任务完成/修复成功/测试通过：
+  Step 1: IDENTIFY — 什么命令/证据能证明声明成立？
+  Step 2: RUN — 执行验证命令（新鲜的，不复用之前的输出）
+  Step 3: READ — 完整读取输出 + exit code
+  Step 4: VERIFY — 输出是否符合预期？（逐条对照验收标准）
+  Step 5: REPORT — 带证据汇报。跳过任何一步 = 违规
+```
+
+**⛔ 防辩解表：**
+
+| 借口 | 现实 | 正确做法 |
+|------|------|---------|
+| "CodeWhale 说改好了" | CodeWhale ≠ 功能验证 | 跑验证命令 |
+| "代码看起来对" | 代码 ≠ 运行中的系统 | 浏览器/curl 实际验证 |
+| "之前测试过了" | 之前的测试 ≠ 当前的代码 | 重新执行验证 |
+| "应该可以了" | 应该 ≠ 验证过 | 走完 5 步 |
+| "这次改动很小" | 小改动也会引入回归 | 跑回归测试 |
+| "agent 自己验证过了" | 自己验自己 = 不独立 | 灵犀独立验证或派 tester |
+
+**集成位置：** Step 4 (灵犀验证 checkpoint) 和 Step 7 (Tester 验证) 必须走 5 步验证函数。
+
+详见 `references/methodology/verification-and-ratchet.md` §一、§二。
+
 ### ⚠️ Ralph Loop 执行模式（核心）
 
 **参考：** `references/methodology/ralph-loop-analysis.md`
@@ -178,6 +206,15 @@ CHECKPOINT: <任务名称>
 **两者都做，不互相替代。** Pre-Commit 减少 Security Scan 的返工率。
 
 ### 任务派发流程
+
+**⚠️ CodeWhale ACP 派发铁律（Way C）：**
+
+灵犀只给**目标 + 参考文件 + 约束 + 验收标准**，不做代码推理。CodeWhale 自己读代码、分析问题、决定方案。
+
+❌ 灵犀不应该给：具体 CSS 代码、详细实现步骤、"删 18 处 !important"、"用作用域提升优先级"
+✅ 灵犀应该给："大佬说按钮丑，重做 UI。参考 style.css 和 CronMonitor.mjs。浅色毛玻璃主题。"
+
+详见 `references/integration/codewhale-acp-integration.md` §Way C 派发模式。
 
 ```
 对于计划中的每个 Task:

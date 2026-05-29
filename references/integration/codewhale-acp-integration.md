@@ -46,23 +46,85 @@ context="""
 """
 ```
 
-## Way C 派发模式
+## Way C 派发模式（铁律）
 
-灵犀不做代码推理，只指定路径和问题：
+灵犀不做代码推理，只指定**目标 + 路径 + 约束**。CodeWhale 自己读代码、分析问题、决定方案。
+
+### ✅ 灵犀应该给的
+
+| 要素 | 说明 | 示例 |
+|------|------|------|
+| 目标 | 大佬想要什么结果 | "大佬说按钮丑，重做 UI" |
+| 参考文件 | CodeWhale 应该读的 | "读 style.css 确认设计系统" |
+| 约束 | 不可违反的限制 | "浅色毛玻璃主题，不引入新依赖" |
+| 验收标准 | 怎么算做完 | "node -c 通过 + 大佬觉得好看" |
+
+### ❌ 灵犀不应该给的
+
+| 不该给 | 原因 |
+|--------|------|
+| 具体 CSS 代码 | CodeWhale 可能有更好的方案 |
+| "删除 18 处 !important" | 这是 CodeWhale 应该自己发现的 |
+| "用作用域提升优先级" | 这是 CodeWhale 应该自己决定的 |
+| 详细实现步骤 | 越详细越限制 CodeWhale 的创造力 |
+
+### 反例（灵犀做代码推理 ❌）
+
+```python
+# ❌ 灵犀分析了 CSS，告诉 CodeWhale 怎么改
+context="""
+按钮丑的原因：18处 !important、和全局 style.css 冲突。
+修复方案：
+1. 删除 .svc-btn.green 中的 !important
+2. 用 .um-card-actions 作用域提升优先级
+3. 添加 @media (max-width: 768px) 断点
+具体代码：...
+"""
+```
+
+### 正例（给目标，CodeWhale 自己推理 ✅）
+
+```python
+# ✅ 灵犀只描述问题和目标
+context="""
+目标：大佬说 UI 丑，重做视觉效果。
+
+参考文件：
+- /opt/Workspace/src/public/style.css（全局设计系统）
+- /opt/Workspace/src/projects/cron/public/CronMonitor.mjs（参考实现）
+
+约束：浅色毛玻璃主题，不引入新依赖。
+
+验收标准：
+1. 按钮视觉效果和 CronMonitor 同等水平
+2. PC/移动端自适应
+3. node -c 语法通过
+"""
+```
 
 ```python
 delegate_task(
-    goal="修复 XXX 功能",
+    goal="重做上游监控 UI",
     acp_command="/usr/local/bin/codewhale",
     toolsets=["file", "terminal"],
     context="""
-问题描述：[大佬反馈的现象]
+目标：大佬说 UI 丑，重做视觉效果。
 
-相关文件路径：
-- 代码位置：/opt/Workspace/src/projects/<项目>/
-- wiki 项目文档：/mnt/unraid_data/Obsidian/wiki/projects/<项目>/changes/<变更名>/
+参考文件：
+- /opt/Workspace/src/public/style.css（全局设计系统）
+- /opt/Workspace/src/projects/cron/public/CronMonitor.mjs（参考实现）
+- /opt/Workspace/src/projects/upstream-monitor/public/UpstreamMonitor.mjs（当前 UI）
 
-请先读取相关代码和文档，自己分析根因并修复。
+约束：
+- 浅色毛玻璃主题（背景 #f0f2f5，卡片 rgba(255,255,255,0.65)）
+- 不引入新 npm 依赖
+- Vue3 CDN 组件，完整解构 API
+
+验收标准：
+1. 按钮有存在感（padding、hover 效果、分色）
+2. PC/移动端自适应（3断点）
+3. 检查记录支持筛选
+4. node -c 语法通过
 """
 )
 ```

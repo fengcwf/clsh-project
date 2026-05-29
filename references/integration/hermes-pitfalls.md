@@ -79,6 +79,10 @@ register_command("/mp", handler) 只拦截 /mp 前缀。纯数字消息不是斜
 ### MCP 重复调用归因错误
 是工具映射问题不是项目问题。
 
+### MCP 插件工具污染（2026-05-29 教训）
+MCP 服务器接入后，**所有工具**都作为一等公民注入函数列表。问题：(1) 工具数量膨胀浪费 token（MoviePilot 注入 80+ 工具）；(2) MCP 工具可能与 hermes 自带工具功能重叠但来源不同（`mcp_mp_browse_webpage` vs hermes browser tool），agent 会优先选择直接可见的 MCP 工具而非正确的 hermes 工具；(3) 不相关项目的工具混入（媒体管理的浏览器工具被用于 SPA 测试）。
+**规则：** (1) 低频使用的 MCP 服务器改为 skill（按需加载，零 token 开销）；(2) MCP 服务器暴露的工具如果与 hermes 自带工具重叠，必须在 skill 中明确"用 hermes 工具，不用 MCP 工具"；(3) 评估 MCP 接入时，先 `GET /tools` 看注入多少工具，>10 个考虑改为 skill。
+
 ### 大规模文件索引策略
 14229 个文件全量扫描 >120s。必须用 grep 预过滤。SQLite FTS5 trigram 分词器对中文更友好。
 

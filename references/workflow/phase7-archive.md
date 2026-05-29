@@ -48,6 +48,12 @@ Phase 7 归档时，必须确认以下文件已写入 wiki：
    - **文件位置：** `wiki/projects/<项目名>/changes/archive/<变更名>/handoff.md`
    - **来源：** Matt Pocock /handoff skill
 10. `ls` 验证所有归档文件存在且大小 > 0
+11. **📊 运行执行审计**（Darwin + ECC 融合，2026-05-29）：
+    - 运行 `references/scripts/execution-audit.py`（在 execute_code 中调用）
+    - 输出合规报告：角色分离 / 验证执行 / tester 浏览器验证 / 修复轮次 / pitfall 触发
+    - 合规率 < 75% → 写入 retrospective.md 的"改进措施"
+    - pitfall 触发次数更新 → 影响下次执行时的置信度注入
+    - **触发时机：大佬说"归档"时自动运行，不需要 cron 定时**
 
 ### ⛔ 流程合规复盘（必做）
 

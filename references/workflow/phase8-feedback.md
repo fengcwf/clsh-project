@@ -125,6 +125,33 @@ hermes kanban create "[项目名] Review: <问题简述>" \
 3. **从上次中断的 bug 继续，不重做已完成的修复**
 4. 向大佬确认恢复的上下文是否正确
 
+### ⚠️ 5 步验证函数 + 防辩解表（Phase 8 必用）
+
+**每轮修复后，必须走 5 步验证函数才能声称"修复成功"：**
+
+```
+Step 1: IDENTIFY — 什么命令能证明 bug 已修复？
+Step 2: RUN — 执行验证命令（新鲜的）
+Step 3: READ — 完整输出 + exit code
+Step 4: VERIFY — 逐条对照大佬的反馈，每条是否真的修复了？
+Step 5: REPORT — 带证据汇报给大佬
+```
+
+**⛔ Phase 8 高频借口（防辩解表）：**
+
+| 借口 | 现实 | 正确做法 |
+|------|------|---------|
+| "CodeWhale 说改好了" | CodeWhale ≠ 功能验证 | tester 浏览器截图验证 |
+| "代码看起来对" | 代码 ≠ 运行中 | `pm2 restart` + 浏览器访问 |
+| "小问题，不用测" | 小改动也引入回归 | 跑完整验证 |
+| "之前验证过了" | 之前的代码 ≠ 改完的代码 | 重新执行验证 |
+
+**⛔ Phase 8 最常见违规模式：**
+灵犀派 CodeWhale 修复 → CodeWhale 返回"已修复" → 灵犀直接汇报大佬 → 大佬测试发现没修好
+**根因：** 灵犀跳过了 Step 2-4，用 CodeWhale 的声明替代了实际验证。
+
+详见 `references/methodology/verification-and-ratchet.md` §一、§二。
+
 ### ⚠️ Diagnose 6 阶段循环
 
 **参考：** `diagnose` skill

@@ -1,7 +1,7 @@
 ---
 name: clsh-project
 description: "需求驱动的项目开发工作流 — 从需求澄清到设计文档到实现计划到执行。灵感来自 Kiro 的 Spec-Driven Development、Superpowers 的 Brainstorming 方法论、Phoenix 的状态机执行模式。"
-version: 5.5.3
+version: 5.8.0
 author: 灵犀
 license: MIT
 platforms: [linux, macos, windows]
@@ -58,6 +58,7 @@ metadata:
       - references/pitfalls/phase8-frontend-debug-patterns.md
       - references/pitfalls/memory-tool-traps-2026-05-21.md
       - references/pitfalls/technical-traps-2026-05-20.md
+      - references/pitfalls/ui-design-open-design-enforcement.md
 ---
 
 # /clsh-project — 需求驱动项目开发
@@ -120,6 +121,7 @@ metadata:
 11. **方案注入（2026-05-24 教训）** — Phase 6 建卡时，task body 必须注入三样东西：(1) proposal.md 的相关章节（代码/配置/路由定义，不能只写一句话描述）；(2) constitution.md 的技术约束（文件结构、禁止事项）；(3) 明确的"不在范围内"声明。缺少任一 = 流程违规。**反例：** 只写"实现 Obsidian 集成"→ coder 自行发挥 → 偏离方案。**正例：** 注入 proposal 中的完整代码示例 + 文件路径 + 禁止事项 → coder 只能照做。
 12. **代码交叉验证（2026-05-25 Matt Pocock 借鉴）** — Phase 1 中大佬描述现有系统行为时，必须检查代码验证描述是否吻合。发现矛盾时以代码为准，向大佬确认："代码显示的是 X，但你说的是 Y — 哪个对？"不盲目接受口头描述。UI 项目同理：描述页面行为时先看实际渲染。
 13. **Context File Pattern（2026-05-26 验证通过）** — 复杂任务（body > 500 字）采用混合模式：body 放摘要（500 字），详细 spec 写到 `wiki/projects/{project}/changes/{变更名}/bugfix-spec.md`，body 中注明**绝对路径**让 worker 读取。worker SOUL.md 已注入规则。**实测：** Round 6 首次使用，coder/tester 都正确读取 spec 文件，token 节省 90%。**关键：** 路径必须是绝对路径（`/mnt/unraid_data/Obsidian/wiki/...`），相对路径可能找不到。
+14. **5 步验证函数（2026-05-29 Superpowers 移植）** — 声称任务完成/修复成功/测试通过前，必须走完 5 步：(1) IDENTIFY 验证命令 (2) RUN 新鲜执行 (3) READ 完整输出+exit code (4) VERIFY 逐条对照验收标准 (5) REPORT 带证据汇报。跳过任何一步 = 违规。"CodeWhale 说改好了" ≠ 验证过，"代码看起来对" ≠ 运行中的系统。详见 `references/methodology/verification-and-ratchet.md` §一、§二。
 
 **违反以上任何一条 = 流程违规，必须记 ERRORS.md。**
 
@@ -352,26 +354,27 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 
 > 78 条教训已去重迁移。流程纪律保留在下方，技术陷阱→`wiki/projects/<项目>/references/pitfalls/`，工具链→`references/integration/hermes-pitfalls.md`。
 
-### 角色分离（铁律）
-1. **禁止灵犀直接写代码** — 即使"很快能做完"也必须派 agent
-2. **禁止 Phase 8 "顺手修了"** — 大佬反馈问题必须走完整反馈循环
-3. **角色分离违规** — worker 卡住时不能自己动手，创建 fix 卡或 escalate
-4. **Phase 8 必须走角色分离** — 小修复用 kanban（非 delegate_task），大修复更要用 kanban
-5. **delegate_task 不是 kanban 的替代品（2026-05-24 教训）。** 用户要求走 kanban 时，不得用 `delegate_task` 替代。**判断规则：** clsh-project 流程或用户明确要求 kanban → 必须用 kanban。只有纯推理子任务（代码审查、调试分析、对比）才用 delegate_task。
+### 角色分离（铁律，置信度 0.9）
+1. **禁止灵犀直接写代码** — 即使"很快能做完"也必须派 agent | 验证：检查是否有灵犀的 write_file/patch 操作 | 触发：任何代码修改任务
+2. **禁止 Phase 8 "顺手修了"** — 大佬反馈问题必须走完整反馈循环 | 验证：检查 Phase 8 是否有 conversation.md + diagnosis.md | 触发：大佬说"这个有问题"/"帮我改"
+3. **角色分离违规** — worker 卡住时不能自己动手，创建 fix 卡或 escalate | 验证：检查灵犀是否在 worker blocked 后直接写代码 | 触发：worker kanban_block
+4. **Phase 8 必须走角色分离** — 小修复用 kanban（非 delegate_task），大修复更要用 kanban | 验证：检查 Phase 8 是否用了 delegate_task 替代 kanban | 触发：Phase 8 修复任务
+5. **delegate_task 不是 kanban 的替代品（2026-05-24 教训）。** 用户要求走 kanban 时，不得用 `delegate_task` 替代。**判断规则：** clsh-project 流程或用户明确要求 kanban → 必须用 kanban。只有纯推理子任务（代码审查、调试分析、对比）才用 delegate_task。 | 验证：检查用户是否明确要求 kanban | 触发：用户说"用 kanban"/"走流程"
 
-### 流程完整性
+### 流程完整性（置信度 0.5-0.7）
 6. **方向变化不回 Phase 1** — 核心定位变化必须回 Phase 1，不能回 Phase 3
 7. **跳过 Phase 2.5 Spike** — 有技术不确定性的方案必须先验证
 8. **Phase 5 缺少 Self-Review** — tasks.md 写完后必须 4 项自检
 9. **Phase 6 不做 Spec-Code 同步** — 每个 Task 完成后更新 proposal.md
 10. **Phase 7 归档不完整** — 必须检查 overview.md + completion-summary + retrospective + Phase 8 归档
+55. **UI 设计跳过 Open Design 知识包加载（2026-05-29 教训）** — Phase 3 设计发散必须先读取 `/opt/open-design/design-systems/<name>/tokens.css` + `DESIGN.md` + `craft/*.md`，再渲染变体。直接手写 HTML = 跳步 = 效果差 = 返工。详见 `references/pitfalls/ui-design-open-design-enforcement.md` | 验证：检查 HTML 模板是否引用了 tokens.css 的变量 | 触发：任何 UI 项目 Phase 3
 
-### 质量保障
-11. **agent 自判完成** — 必须通过 CHECKPOINT 客观验证
+### 质量保障（置信度 0.5-0.9）
+11. **agent 自判完成（置信度 0.9）** — 必须通过 CHECKPOINT 客观验证 | 验证：检查 checkpoint 是否有客观证据（exit code/截图/ls 输出）| 触发：agent 说"已完成"/"done"/"fixed"
 12. **Auto-Fix 无限循环** — 2 轮后必须 escalate 给大佬
 13. **Placeholder 污染 tasks.md** — TBD/TODO/similar to N = 计划缺陷
 14. **写入文件后不验证路径** — write_file 后必须 `ls` 确认
-15. **UI 项目跳过 Browser QA** — 有前端 UI 的项目，tester 必须用浏览器自动化验证，不能只读代码
+15. **UI 项目跳过 Browser QA（置信度 0.9）** — tester 必须用浏览器截图验证 | 验证：检查 tester 是否有浏览器工具调用记录 | 触发：任何有 UI 的项目
 16. **Pre-Commit 自检缺失** — agent context 必须包含安全自检清单，不依赖 agent 自觉
 17. **设计发散跳过** — UI 项目且无明确设计参考时，Phase 3 应触发设计发散，不能直接画页面
 18. **飞书发送 HTML 文件路径** — 飞书无法打开 HTML 文件。必须用 chromium-browser 截图后发送 PNG 图片（MEDIA: 前缀）
@@ -399,9 +402,11 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 36. **手动改 .env 密码 hash 格式错误（2026-05-26 教训）** — 大佬手动将 `.env` 中 `ADMIN_PASSWORD_HASH` 改为 MD5 格式（`e10adc3949ba59abbe56e057f20f883e`），但代码用 `bcrypt.compare()` 验证，需要 bcrypt 格式（`$2b$10$...`，60 位）。MD5 永远无法通过 bcrypt 验证。**通用规则：** 修改 `.env` 中的密码 hash 前，先查代码确认 hash 算法（bcrypt/argon2/sha256），再用对应算法生成。**快速验证：** `node -e "import('bcrypt').then(b=>b.compare('plaintext','***'))"` 返回 `true` 才算对。
 37. **Context File Pattern 执行残留（2026-05-26 教训）** — kanban task 的 bugfix spec 文件（`TODO_SPEC.md`、`TODO_SPEC_V2.md`）写到了项目根目录（`/opt/Workspace/`），没有归档到 `wiki/projects/<项目>/changes/` 下。**根因：** spec 文件是给 coder 用的临时 context，用完后无人清理。**规则：** Phase 8 bugfix spec 完成后，灵犀必须检查项目根目录是否有 `*SPEC*`、`*TODO*`、`*bugfix*` 等临时文件残留，有则移入 `wiki/projects/<项目>/changes/<变更名>/` 归档。
 38. **CodeWhale ACP 替代 coder（2026-05-27 验证通过）** — CodeWhale ACP 可以替代 clsh-project 的 coder 角色。**集成方式：** `delegate_task(acp_command="/usr/local/bin/codewhale", toolsets=["file", "terminal"])`。**角色分工：** coder/artist → CodeWhale ACP，tester → Hermes subagent（需要浏览器工具和独立性）。**性能：** 3 个 bug 修复 = 156 秒。**注意：** task body 必须写绝对路径（wiki 路径、代码路径），不要让 CodeWhale 自己搜索（search_files 工具有局限）。详见 `codewhale-workflow` skill。
-39. **灵犀做代码推理（2026-05-27 教训）** — 灵犀是协调者，不是 coder。灵犀推理"后端期望 `{ oldPath, newPath }`"然后告诉 CodeWhale，如果灵犀推理错了，CodeWhale 照错执行。**正确做法（方式 C）：** 灵犀只指定文件路径和问题现象，CodeWhale 自己读代码、自己推理根因、自己修复。
-40. **CodeWhale 修复后跳过 tester 验证（2026-05-27 教训）** — Round 7-8 连续 2 次 CodeWhale 修复后直接汇报完成，没有让 tester 浏览器验证。大佬测试发现 4 个功能不生效。**根因：** CodeWhale 修复速度快（88-156 秒），灵犀误以为"代码改了=功能生效"。**规则：** CodeWhale ACP 修复后，必须走完整 tester 验证流程（浏览器截图），不能因为"代码看起来对"就跳过。修复速度 ≠ 修复质量。
-41. **前端 API 参数名不匹配（2026-05-27 教训）** — CodeWhale 修改前端 renameItem 发送 `{ path, newName }`，但后端期望 `{ oldPath, newPath }`。coder 没有检查后端 API 的参数签名。**规则：** 涉及 API 调用的修复，bugfix spec 必须列出后端期望的参数格式（从 plugin.mjs 路由定义中提取），coder 只能照做。
+
+### 执行纪律（置信度 0.5-0.9）
+39. **灵犀做代码推理（置信度 0.9，3 次触发）** — 灵犀是协调者，不是 coder。灵犀推理"后端期望 `{ oldPath, newPath }`"然后告诉 CodeWhale，如果灵犀推理错了，CodeWhale 照错执行。**正确做法（方式 C）：** 灵犀只指定文件路径和问题现象，CodeWhale 自己读代码、自己推理根因、自己修复。| 验证：检查 delegate_task 的 context 是否包含实现细节（CSS 代码/具体步骤/行号级指令）| 触发：delegate_task 给 CodeWhale
+40. **CodeWhale 修复后跳过 tester 验证（置信度 0.9，2 次触发）** — Round 7-8 连续 2 次 CodeWhale 修复后直接汇报完成，没有让 tester 浏览器验证。大佬测试发现 4 个功能不生效。**根因：** CodeWhale 修复速度快（88-156 秒），灵犀误以为"代码改了=功能生效"。**规则：** CodeWhale ACP 修复后，必须走完整 tester 验证流程（浏览器截图），不能因为"代码看起来对"就跳过。修复速度 ≠ 修复质量。| 验证：检查 CodeWhale 完成后是否有 tester review 卡 | 触发：CodeWhale delegate_task 返回
+49. **灵犀做代码推理再告诉 CodeWhale 怎么改（置信度 0.9，3 轮触发）** — 灵犀自己读了 800 行 CSS，分析出 `!important` 泛滥、断点不够、缺筛选功能，然后写详细 CSS 代码片段告诉 CodeWhale "照这个改"。大佬纠正："你给codewhale一个概念性的目标和关键上下文，让codewhale自己朝着这个目标实现，而不是你直接告诉他怎么改"。**根因：** 灵犀做了代码推理（pitfall #39 的变体），CodeWhale 变成照抄工具。**规则：** delegate_task 给 CodeWhale 时，只给**目标 + 参考文件 + 约束 + 验收标准**。❌ 不该给：具体 CSS 代码、"删 18 处 !important"、"用作用域提升优先级"、详细实现步骤。✅ 该给："大佬说按钮丑，重做 UI。参考 style.css 和 CronMonitor.mjs。浅色毛玻璃主题。node -c 通过。"详见 `references/integration/codewhale-acp-integration.md` §Way C。| 验证：同 #39 | 触发：同 #39
 42. **Vue 响应式数组更新（2026-05-27 教训）** — `splice` 和直接索引赋值确实触发响应式，但如果渲染条件依赖其他状态（如 `isRevoked`），需要确保状态更新后重新计算。**更可靠的方式：** 操作后调用 `openShareMgr()` 重新加载列表，而不是手动修改数组。
 43. **Workspace UI 暗色主题陷阱（2026-05-27 教训，3 轮修复）** — AI 默认生成暗色 UI（#1a1d23, #252830），但 Workspace 是**浅色毛玻璃主题**。症状：Modal 背景黑色+文字黑色=看不见。**根因：** AI 训练数据中暗色主题更常见，倾向默认暗色。**规则：** Workspace 项目必须用 `workspace-development` skill 的设计系统变量。禁止自行定义颜色。详见 `workspace-development` skill。
 44. **自定义 Tab UI 陷阱（2026-05-27 教训）** — AI 会创建 `viewMode` ref + 自定义 tab 切换 UI，但 Workspace 有自带的 QuickNavComponent（通过 `projects.json` tabs 配置）。**规则：** 前端组件用 `props: { activeTab: { type: String } }` 接收工作台 tab，不渲染任何 tab 切换 UI。
@@ -412,11 +417,26 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 46. **Fastify 双静态根配置（2026-05-27 教训）** — 需要同时服务 `src/public/` 和 `src/projects/*/public/` 时，不能用 `root: [array]`（路径会 double-prefix）。正确方式：注册两次 fastifyStatic，第一个用 `decorateReply: true`（主目录），第二个用 `decorateReply: false`（项目目录）。详见 `references/workspace-sub-module-pattern.md`。
 47. **CodeWhale 部分编辑导致文件损坏（2026-05-28 教训）** — CodeWhale 超时时可能已对同一文件做了多次部分 patch，导致括号嵌套错乱。症状：`node -c` 报语法错误，但逐行括号计数显示总数平衡（opens=closes）。**根因：** 部分 patch 修改了局部结构但未同步调整周围括号。**规则：** (1) CodeWhale 超时后，先 `node -c` 检查文件是否可用；(2) 如果报错且错误位置随修改漂移（不同行号），直接 `write_file` 重写整个文件，不要逐行修补；(3) 逐行修补括号错乱是 O(n²) 陷阱，比重写慢 10 倍。**反例：** 本案中 CodeWhale 做了 69 次 API 调用，ContentView.mjs 被多次部分修改，灵犀花了 30 分钟逐行 debug 括号问题，最终还是重写了整个文件。
 48. **Vue3 CDN 组件解构完整性（2026-05-28 教训）** — 创建 Vue3 CDN 组件时，必须确保所有使用的 Vue API 都从 `Vue` 对象解构。常见遗漏：`computed`（用于派生状态）、`watch`（用于监听）。**症状：** `ReferenceError: computed is not defined`，但 `node -c` 语法检查通过（因为 `Vue.computed` 是运行时依赖）。**规则：** 新建组件时，默认解构 `const { ref, computed, watch, onMounted, onUnmounted, h, defineComponent } = Vue;`，不用的不扣分，漏了会崩。
-49. **API 数据源一致性（2026-05-28 教训）** — 不同 API 端点检查同一数据时，必须使用同一个底层函数。**反例：** overview API 用 `execSync` 调 Python 脚本检查渠道状态，channels API 用 JS 异步函数检查，导致两个 Tab 显示的状态不一致。**规则：** 提取共享的检查函数，所有端点共用。
+49. **灵犀做代码推理再告诉 CodeWhale 怎么改（2026-05-29 教训，3 轮）** — 灵犀自己读了 800 行 CSS，分析出 `!important` 泛滥、断点不够、缺筛选功能，然后写详细 CSS 代码片段告诉 CodeWhale "照这个改"。大佬纠正："你给codewhale一个概念性的目标和关键上下文，让codewhale自己朝着这个目标实现，而不是你直接告诉他怎么改"。**根因：** 灵犀做了代码推理（pitfall #39 的变体），CodeWhale 变成照抄工具。**规则：** delegate_task 给 CodeWhale 时，只给**目标 + 参考文件 + 约束 + 验收标准**。❌ 不该给：具体 CSS 代码、"删 18 处 !important"、"用作用域提升优先级"、详细实现步骤。✅ 该给："大佬说按钮丑，重做 UI。参考 style.css 和 CronMonitor.mjs。浅色毛玻璃主题。node -c 通过。"详见 `references/integration/codewhale-acp-integration.md` §Way C。
+50. **API 数据源一致性（2026-05-28 教训）** — 不同 API 端点检查同一数据时，必须使用同一个底层函数。**反例：** overview API 用 `execSync` 调 Python 脚本检查渠道状态，channels API 用 JS 异步函数检查，导致两个 Tab 显示的状态不一致。**规则：** 提取共享的检查函数，所有端点共用。
+51. **灵犀做浏览器测试（2026-05-29 教训）** — 灵犀直接调 MCP 的 `browse_webpage` 测试 SPA 渲染，发现 Vue hydration 问题后甩锅给"Playwright 已知行为"。**根因：** (1) 用了 MCP 附带的浏览器工具（MoviePilot CloakBrowser）而非 hermes browser tool；(2) 灵犀不该做浏览器测试，这是 tester 的活。**规则：** UI/SPA 测试必须 `delegate_task` 给 tester 子 agent（有 agent-browser/camofox），灵犀只协调不测试。即使"只是想快速看一下"也不能自己动手。| 验证：检查灵犀是否有 `browse_webpage`/`screenshot` 等浏览器工具调用 | 触发：任何 UI 验证需求
 50. **Fastify handler 中禁止 execSync（2026-05-28 教训）** — `execSync` 会阻塞整个 Node.js 事件循环。在 Fastify 请求处理中使用 `execSync`（如调用 `channel_check.py`）会导致所有并发请求排队等待。**修复：** 改用 `execFile`（callback）或 `child_process` 的 Promise 封装 + `await`。超时设置 10-30s。
+
+### 自进化机制（置信度 0.5-0.7）
+51. **LLM 自评不可靠（2026-05-29 SkillLens 论文）** — 单 LLM 评委评估 skill 质量准确率仅 46.4%（接近随机）。加 meta-skill 维度后提升到 73.8%。**规则：** SKILL.md 评分必须用独立子 agent（不是灵犀自己），且每轮换新评委（避免锚定效应）。**验证：** 检查评分是否由独立 agent 完成 | **触发：** 任何 Darwin 优化循环
+52. **维度关联簇（2026-05-29 花叔 40 次实验）** — 改一个评分维度时，关联维度会意外提升。Dim2/3/4 是结构簇（工作流清晰度/失败模式编码/检查点设计），Dim5/9 是具体性簇。**规则：** 优化时先改簇内最低维度，带动其他维度一起涨。不要一轮改多个维度（反模式 #5）。**验证：** 检查是否只改了一个维度 | **触发：** Darwin 优化循环
+53. **Skill 是可训练的外部状态（2026-05-29 SkillOpt 论文）** — SKILL.md 不是"写完就完了"的静态文本，而是 LLM 的可训练外部状态（类似神经网络权重）。每次优化 = 一次训练步，必须通过验证（test-prompts）才能保留。**规则：** 修改 SKILL.md 前必须有验证机制（Darwin 棘轮或执行审计），不能凭感觉改 | **触发：** 任何 SKILL.md 修改
+54. **执行审计应在归档时运行（2026-05-29 教训）** — 执行审计器（grep session 日志检查合规率）不需要 cron 定时，应该在大佬说"归档"时自动运行（Phase 7 步骤 11）。原因：工作流优化不需要实时反馈，每个项目结束后看一次就够了。**规则：** Phase 7 归档时必须运行 `references/scripts/execution-audit.py` | **触发：** 大佬说"归档"
+51. **文件卫生陷阱（2026-05-29 Darwin+ECC 调研教训）** — 用"文件是否存在""链接是否断""编号是否连续"来评估 SKILL.md 质量 = 文件卫生检查，对工作流进化**没用**。Darwin v2.0 + SkillLens 论文证明：真正重要的是 Dim5 可执行具体性（17 分，禁止模糊词）、Dim3 失败模式编码（12 分，"如果 X 失败 → Y"）、Dim8 实测表现（23 分，跑 test-prompts）。**规则：** 评估 SKILL.md 质量时，用 Darwin 9 维 rubric（见 `references/methodology/verification-and-ratchet.md`），不用文件结构检查脚本。同理，ECC 证明确定性检查（grep session 日志 + exit code）比 LLM 判断可靠得多（LLM 自评准确率仅 46.4%，SkillLens 实证）。
+55. **跳过 Phase 3 设计发散直接手写 HTML（2026-05-29 教训）** — UI 项目中灵犀手写 HTML 模板（自定义 CSS 变量、自己排版），没有加载 Open Design 知识包（tokens.css + DESIGN.md + craft 规则）。大佬反馈"效果一般"。**正确流程：** Phase 3 设计发散 → 读取 `/opt/open-design/design-systems/<name>/tokens.css` → 读取 DESIGN.md + craft/anti-ai-slop.md → 渲染 2-3 个变体 → 大佬选择。**规则：** UI 项目禁止灵犀手写 CSS，必须用 Open Design tokens。详见 `references/workflow/phase3-spec.md` §设计发散。
+56. **delegate_task 并行子 agent 互相覆盖文件（2026-05-29 教训）** — 3 个子 agent 并行创建 HTML 模板，每个都重写了共享的 tokens.css（各自风格不同：一个暗色、一个浅色、一个空壳）。**规则：** 共享资源文件（CSS、配置）由灵犀直接写入/管理，子 agent 只写各自独立的产出物。在 task context 中明确写"只写 <文件名>，不要修改其他文件"。 — 执行审计器（`references/scripts/execution-audit.py`）应该在大佬说"归档"时触发（Phase 7 步骤 11），不需要 cron 定时。原因：审计需要完整的 session 数据，只有项目结束时才有。Phase 8 的修复轮次也是评分标准（修复轮次越多，说明流程越不稳定）。**触发关键词：** "归档"/"wrap up"/"做完了吧"。
+51. **Patch 编号列表时意外删除条目（2026-05-29 教训）** — 用 `patch` 工具替换包含编号列表的文本段时，如果 old_string 包含 #37-#49 但 new_string 只写了 #39-#49 的修改版，#38 会被静默删除。**根因：** patch 是整段替换，不在 old_string 中出现的行会被丢弃。**规则：** (1) 替换编号列表段时，new_string 必须包含 old_string 中的所有条目，不能只写"要改的几条"；(2) patch 后必须 `grep -c` 验证条目数量不变（或按预期增减）；(3) 对于 10+ 条的编号列表，优先用 `replace_all=false` + 精确匹配单条，不要整段替换。**反例：** 本案中 old_string 匹配了 #38-#49 整段，new_string 只升级了 #39/#40/#49 但漏了 #38，导致 CodeWhale ACP 集成说明丢失。
+52. **跳过 Phase 3 设计发散直接手写 HTML（2026-05-29 教训）** — 灵犀创建 MoviePilot HTML 模板时没有加载 open-design 知识包，手写了"自己觉得可以"的 HTML。大佬反馈"效果一般"。**正确流程（Phase 3）：** (1) 加载 `/opt/open-design/design-systems/<name>/tokens.css` + `DESIGN.md`；(2) 加载 `craft/anti-ai-slop.md` + `craft/state-coverage.md` 质量标准；(3) 渲染 2-3 个变体供用户选择；(4) 用户确认后写入 constitution。**反例：** 手写 CSS 变量（颜色/间距自编）→ 用户说"效果一般"。**正例：** 加载 Glassmorphism tokens → 3 套变体对比 → 用户选 Glass → 效果显著提升。**规则：** 任何 UI 项目必须走 Phase 3 设计发散，禁止跳过直接写 HTML。
+53. **子 agent 并行写共享文件导致冲突（2026-05-29 教训）** — 3 个 delegate_task 子 agent 并行创建 HTML 模板时，每个都重写了 tokens.css（各自风格不同：暗色/亮色/自定义），导致最终文件被覆盖为错误版本。**规则：** 共享资源文件（tokens.css、公共样式）由灵犀直接写入，不在子 agent 的 task 范围内。子 agent 只写各自独立的文件。**验证：** 子 agent 完成后检查共享文件的 mtime 和内容是否被修改。
 
 ## Verification Checklist（每次使用此 skill 前）
 
+### 流程合规
 - [ ] 确认不是简单查询/单步操作（否则不应触发 clsh-project）
 - [ ] 确认 Phase 1 已执行调研前置（调研摘要已写入 conversation.md 或大佬明确跳过）
 - [ ] 确认 Phase 1-3 已完成且有文档产出（conversation.md / proposal.md / constitution.md）
@@ -435,12 +455,21 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 - [ ] 确认满足条件的架构决策已记录为 ADR（wiki/projects/<项目名>/docs/adr/）
 - [ ] 确认新增子模块已读 AGENTS.md 并按其目录结构规范创建文件（pitfall #43）
 
+### 验证合规（Layer 2 — 2026-05-29 新增）
+- [ ] 确认声称"完成/修复/通过"前已走完 5 步验证函数（铁律 #14）
+- [ ] 确认验证命令是新鲜执行的，不是复用之前的输出
+- [ ] 确认 CodeWhale 修复后已走独立 tester 验证（不是只看 CodeWhale 的声明）
+- [ ] 确认没有使用防辩解表中的借口跳过验证
+
 ---
 
 ## 版本历史
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v5.8.0 | 2026-05-29 | **自进化方法论落地**：新增 `references/methodology/darwin-ecc-evolution.md`（Darwin 9 维 rubric + 维度关联簇 + ECC 执行验证 + 反模式黑名单）。新增 pitfalls #51-54（LLM 自评不可靠/维度关联簇/Skill 可训练状态/执行审计触发时机）。SKILL.md 新增 4 条自进化机制 pitfalls。 |
+| v5.7.0 | 2026-05-29 | **自进化方案 Layer 1+2 落地**：新增铁律 #14（5 步验证函数）。新增 `references/methodology/verification-and-ratchet.md`（验证框架 + 防辩解表 + 置信度评分 + 棘轮机制 + 结构评分器）。Phase 6/8 workflow 注入 5 步验证函数 + 防辩解表。Verification Checklist 分"流程合规"+"验证合规"两部分，新增 4 项验证检查。 |
+| v5.6.0 | 2026-05-29 | **Way C 派发铁律强化**：更新 `references/integration/codewhale-acp-integration.md` 新增 Way C 详细规范（灵犀给目标+约束，不做代码推理）。更新 `references/workflow/phase6-execution.md` 任务派发流程新增 Way C 铁律引用。教训来源：上游监控 UI 迭代中灵犀连续 3 轮自己分析 CSS 再告诉 CodeWhale 怎么改，违反角色分离。 |
 | v5.5.3 | 2026-05-28 | **内容管理子模块模式**：更新 `references/workspace-sub-module-pattern.md` 新增 clsh-content 集成案例（外部脚本集成 + 文件系统数据源 + 渐进式三 Wave 交付）。 |
 | v5.5.3 | 2026-05-28 | **CodeWhale 文件损坏 + Vue 解构 + API 一致性**：新增 pitfall #47（CodeWhale 部分编辑导致括号损坏 — 超时后直接重写不要逐行修）、#48（Vue3 CDN 组件解构完整性 — 默认解构 computed/watch）、#49（API 数据源一致性 — 多端点检查同一数据共用函数）、#50（Fastify handler 禁止 execSync — 改用 execFile+await）。更新 `references/workspace-sub-module-pattern.md` 新增内容管理子模块模式。 |
 | v5.5.2 | 2026-05-27 | **Workspace 子模块模式 + CodeWhale 二轮补全**：新增 pitfall #43（新增子模块必须先读 AGENTS.md）、#44（CodeWhale 写入错误路径 — context 必须写绝对输出路径）、#45（首轮功能不全 — 二轮用精确 bullet-point 需求补全）、#46（Fastify 双静态根配置）。新增 `references/workspace-sub-module-pattern.md`（Workspace 子模块开发完整模式）。Verification Checklist 新增 AGENTS.md 检查项。 |
@@ -477,6 +506,9 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 - `references/methodology/superpowers-architecture-analysis.md` — Superpowers 架构拆解
 - `references/methodology/matt-pocock-patterns.md` — **Matt Pocock Skills 借鉴分析**（CONTEXT.md、ADR、Vertical Slice、Prototype、Handoff 等 7 个模式）
 - `references/methodology/soul-md-behavioral-enforcement.md` — **SOUL.md 行为约束：Karpathy + Superpowers 融合方案**（交付门禁、目标转换、防辩解表）
+- `references/methodology/verification-and-ratchet.md` — **验证框架与棘轮机制**（5步验证函数、防辩解表、置信度评分、质量评分器）
+- `references/methodology/darwin-ecc-evolution.md` — **Darwin + ECC 自进化方法论**（9 维 rubric、维度关联簇、执行审计器、反模式黑名单）
+- `references/methodology/evolution-log.md` — **棘轮进化日志**（每次 patch 后的结构评分记录）
 
 ### 📋 模板
 - `references/templates/constitution-template.md` — Constitution 模板
@@ -496,6 +528,7 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 
 ### 🔌 集成
 - `references/integration/hermes-pitfalls.md` — **Hermes 工具链陷阱**（从 Common Pitfalls 迁移）
+- `references/integration/codewhale-acp-integration.md` — **CodeWhale ACP 集成**（Way A/B/C 详细规范）
 - `references/integration/image-generation-api-notes.md` — **图片生成 API 调用笔记**（OpenRouter/Gemini/fal.ai 实测）
 - `references/integration/stitch-mcp-workflow.md` — **Stitch MCP 集成**（连接、prompt、已知限制、替代方案）
 - `references/integration/ui-prompt-frameworks.md` — **UI 设计 Prompt 框架**（RTCF/v0/Stitch/DESIGN.md）
