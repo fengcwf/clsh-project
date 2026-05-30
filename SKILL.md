@@ -422,6 +422,9 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 51. **灵犀做浏览器测试（2026-05-29 教训）** — 灵犀直接调 MCP 的 `browse_webpage` 测试 SPA 渲染，发现 Vue hydration 问题后甩锅给"Playwright 已知行为"。**根因：** (1) 用了 MCP 附带的浏览器工具（MoviePilot CloakBrowser）而非 hermes browser tool；(2) 灵犀不该做浏览器测试，这是 tester 的活。**规则：** UI/SPA 测试必须 `delegate_task` 给 tester 子 agent（有 agent-browser/camofox），灵犀只协调不测试。即使"只是想快速看一下"也不能自己动手。| 验证：检查灵犀是否有 `browse_webpage`/`screenshot` 等浏览器工具调用 | 触发：任何 UI 验证需求
 50. **Fastify handler 中禁止 execSync（2026-05-28 教训）** — `execSync` 会阻塞整个 Node.js 事件循环。在 Fastify 请求处理中使用 `execSync`（如调用 `channel_check.py`）会导致所有并发请求排队等待。**修复：** 改用 `execFile`（callback）或 `child_process` 的 Promise 封装 + `await`。超时设置 10-30s。
 
+### UI 设计（置信度 0.9）
+55. **跳过 Open Design 知识包加载（2026-05-29 教训）** — 灵犀手写 HTML 颜色/间距/排版，没有加载 `/opt/open-design/design-systems/<name>/tokens.css` 的设计变量。大佬对比后确认 Open Design 版本远优于手写版。**根因：** 灵犀觉得"简单任务不需要加载设计系统"。**规则：** Phase 3 设计发散流程中，加载 Open Design 知识包是**强制步骤**，不论项目大小。至少读取 `tokens.css`（CSS 变量）和 `craft/anti-ai-slop.md`（质量底线）。**验证：** 检查 HTML 文件中是否有 `var(--*)` 引用，是否有硬编码颜色值 | **触发：** 任何 UI 项目 Phase 3
+
 ### 自进化机制（置信度 0.5-0.7）
 51. **LLM 自评不可靠（2026-05-29 SkillLens 论文）** — 单 LLM 评委评估 skill 质量准确率仅 46.4%（接近随机）。加 meta-skill 维度后提升到 73.8%。**规则：** SKILL.md 评分必须用独立子 agent（不是灵犀自己），且每轮换新评委（避免锚定效应）。**验证：** 检查评分是否由独立 agent 完成 | **触发：** 任何 Darwin 优化循环
 52. **维度关联簇（2026-05-29 花叔 40 次实验）** — 改一个评分维度时，关联维度会意外提升。Dim2/3/4 是结构簇（工作流清晰度/失败模式编码/检查点设计），Dim5/9 是具体性簇。**规则：** 优化时先改簇内最低维度，带动其他维度一起涨。不要一轮改多个维度（反模式 #5）。**验证：** 检查是否只改了一个维度 | **触发：** Darwin 优化循环

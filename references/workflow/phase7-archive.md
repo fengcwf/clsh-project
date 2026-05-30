@@ -34,10 +34,10 @@ Phase 7 归档时，必须确认以下文件已写入 wiki：
 5. 写入完成摘要 + 流程复盘
 6. 同步 wiki + GitHub（见 `clsh-content/references/integration/github-sync-guide.md`）
 7. **🔬 运行蒸馏评估**（加载 `project-wrap-up` skill）：
-   - 执行 eval.json 5 项 binary 评估（30 秒）
+   - 执行 eval.json 8 项 binary 评估（30 秒）
    - 对 FAIL 项做故障分类（FLOW/AGENT/TOOL/KNOWLEDGE）
    - 结果 append 到 learnings.md
-   - 触发条件满足时（learnings ≥10 条 或 eval ≤2/5）执行深度蒸馏
+   - 触发条件满足时（learnings ≥10 条 或 eval ≤3/8）执行深度蒸馏
    - **同步到 raw/**：`python3 /opt/Workspace/scripts/obsidian/learnings-to-raw.py`（遵循 raw → ingest → wiki 架构）
 8. 向大佬汇报（含 eval 结果和蒸馏发现）
 9. **📄 生成 Handoff 文档** — 归档时生成 `handoff.md`，方便跨 session 续接：

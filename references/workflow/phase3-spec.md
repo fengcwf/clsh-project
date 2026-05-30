@@ -70,6 +70,7 @@ project: "[项目名]"
    - 将 tokens 注入 HTML mockup 的 `:root` 块
 
 3. **读取 Open Design 知识包 → 本地渲染 2-3 个 HTML mockup 变体**
+   - **⛔ 跳过此步骤 = 流程违规（2026-05-29 教训）** — 灵犀曾手写 HTML 颜色/间距，效果远差于 Open Design tokens。大佬确认："glass布局+配色，比你之前自己生成的好很多"。知识包加载是强制步骤，不是可选
    - **⛔ 禁止用 html-anything 通用模板做复杂 UI mockup** — 效果差、缺乏层次感、扁平化。html-anything 只适合封面图/卡片，不适合 Dashboard/管理后台等复杂 UI
    - **⛔ 禁止通过 Open Design API 调 hermes CLI**（自己调自己，浪费 token + 时间）
    - **✅ 读取完整知识包后直接渲染**（质量 70 分→90 分）：
@@ -84,7 +85,7 @@ project: "[项目名]"
    - 灵犀直接渲染（不需要派 agent），除非需要复杂交互原型才派 artist
 
 4. **展示给大佬选择（两种方式，优先交互原型）：**
-   - **✅ 首选：交互原型** — 生成可切换变体的单文件 HTML（N 套 CSS + 切换 JS），放到 `/opt/Workspace/test/<项目名>/`，通过 nginx :8088 发链接：`https://wptest.cwf.fengcwf.cn:10086/<项目名>/<文件>.html`。大佬直接在浏览器切换变体对比，零额外 token。
+   - **✅ 首选：交互原型** — 生成可切换变体的单文件 HTML（N 套 CSS + 切换 JS），放到 `/opt/Workspace/src/public/test/<项目名>/`，通过 Fastify 发链接：`https://wp.www.fengcwf.cn/test/<项目名>/<文件>.html`。大佬直接在浏览器切换变体对比，零额外 token。
    - **备选：截图** — 用 `chromium-browser --headless --screenshot` 截图发飞书（当大佬无法访问外网时）
    - ⛔ **禁止发送 HTML 文件路径** — 飞书无法直接打开 HTML
    - 截图命令：`chromium-browser --headless --disable-gpu --screenshot=/root/mockups/out.png --window-size=1440,900 --no-sandbox file:///path/to/mockup.html`
