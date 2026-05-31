@@ -1,7 +1,7 @@
 ---
 name: clsh-project
 description: "需求驱动的项目开发工作流 — 从需求澄清到设计文档到实现计划到执行。灵感来自 Kiro 的 Spec-Driven Development、Superpowers 的 Brainstorming 方法论、Phoenix 的状态机执行模式。"
-version: 5.8.0
+version: 5.10.0
 author: 灵犀
 license: MIT
 platforms: [linux, macos, windows]
@@ -436,6 +436,11 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 51. **Patch 编号列表时意外删除条目（2026-05-29 教训）** — 用 `patch` 工具替换包含编号列表的文本段时，如果 old_string 包含 #37-#49 但 new_string 只写了 #39-#49 的修改版，#38 会被静默删除。**根因：** patch 是整段替换，不在 old_string 中出现的行会被丢弃。**规则：** (1) 替换编号列表段时，new_string 必须包含 old_string 中的所有条目，不能只写"要改的几条"；(2) patch 后必须 `grep -c` 验证条目数量不变（或按预期增减）；(3) 对于 10+ 条的编号列表，优先用 `replace_all=false` + 精确匹配单条，不要整段替换。**反例：** 本案中 old_string 匹配了 #38-#49 整段，new_string 只升级了 #39/#40/#49 但漏了 #38，导致 CodeWhale ACP 集成说明丢失。
 52. **跳过 Phase 3 设计发散直接手写 HTML（2026-05-29 教训）** — 灵犀创建 MoviePilot HTML 模板时没有加载 open-design 知识包，手写了"自己觉得可以"的 HTML。大佬反馈"效果一般"。**正确流程（Phase 3）：** (1) 加载 `/opt/open-design/design-systems/<name>/tokens.css` + `DESIGN.md`；(2) 加载 `craft/anti-ai-slop.md` + `craft/state-coverage.md` 质量标准；(3) 渲染 2-3 个变体供用户选择；(4) 用户确认后写入 constitution。**反例：** 手写 CSS 变量（颜色/间距自编）→ 用户说"效果一般"。**正例：** 加载 Glassmorphism tokens → 3 套变体对比 → 用户选 Glass → 效果显著提升。**规则：** 任何 UI 项目必须走 Phase 3 设计发散，禁止跳过直接写 HTML。
 53. **子 agent 并行写共享文件导致冲突（2026-05-29 教训）** — 3 个 delegate_task 子 agent 并行创建 HTML 模板时，每个都重写了 tokens.css（各自风格不同：暗色/亮色/自定义），导致最终文件被覆盖为错误版本。**规则：** 共享资源文件（tokens.css、公共样式）由灵犀直接写入，不在子 agent 的 task 范围内。子 agent 只写各自独立的文件。**验证：** 子 agent 完成后检查共享文件的 mtime 和内容是否被修改。
+57. **Skill 删除会连带删除 scripts/ 目录（2026-05-31 教训）** — `skill_manage(action='delete')` 会删除整个 skill 目录，包括 `scripts/`、`references/` 等子目录。如果脚本被其他组件（如插件）引用，删除 skill 会导致脚本丢失。**反例：** 删除 moviepilot skill 时，mp_render.py 脚本被一起删除，mp-command 插件调用失败。**规则：** 删除 skill 前，必须检查是否有脚本/文件被其他组件引用，有则先备份/迁移。**验证：** 删除后 `find ~/.hermes -name "<script_name>"` 确认脚本是否还在。**补充：** `skill_manage(action='delete', absorbed_into=<target>)` 的 target 必须是已存在的 skill，不能是 plugin。
+59. **Phase 8 每轮必须记录测试结果（2026-05-31 教训）** — 大佬测试反馈后，必须在 `wiki/projects/<项目>/changes/<变更名>/test-log.md` 中记录：(1) 测试结果列表 (2) 根因分析 (3) 修复内容 (4) 流程违规（如有）。Round 1 测试未记录 → Round 3 大佬问"有没有记录每次测试结果" → 才开始写。**规则：** 每轮 Phase 8 反馈的第一件事是更新 test-log.md，不是分析代码。| 验证：检查 test-log.md 是否有本轮记录 | 触发：大佬说"测试结果"/"反馈"
+60. **Phase 8 禁止灵犀分析根因再告诉 CodeWhale（2026-05-31 教训）** — 灵犀分析了 tab 状态管理、Bearer token、cookie domain 等根因，然后写具体修改方案给 CodeWhale。大佬指出"违规直接分析让coder修复，不是定目标和上下文发送路径给codewhale分析修复"。**规则（Way C 铁律）：** delegate_task 给 CodeWhale 时只给：(1) 大佬反馈的现象（1-2 句话）(2) 相关文件路径 (3) bugfix spec 路径 (4) 验证命令。❌ 不该给：根因分析、具体修改方案、行号级指令。✅ 该给："大佬说 tab 点击没反应，显示未知标签页。相关文件：/opt/Workspace/src/projects/moviepilot/public/MovieView.mjs。请先读代码自己分析根因。" | 验证：delegate_task context 是否包含实现细节 | 触发：Phase 8 派 CodeWhale 修复
+61. **外部 API 集成必须先查 OpenAPI spec（2026-05-31 教训）** — 代理调 MoviePilot API 返回 404。灵犀假设端点是 `/api/v1/tools/call`，实际 MoviePilot 的 OpenAPI spec 在 `http://host:port/api/v1/openapi.json`，确认端点是 `/api/v1/mcp/tools/call`，推荐用 `/api/v1/recommend/tmdb_movies` 等 REST 端点。认证方式也不是 JWT，而是 `X-API-KEY` header。**规则：** 集成外部 API 时，第一步是 `curl http://host:port/api/v1/openapi.json` 获取完整端点列表和认证方式。不要假设端点路径。| 验证：检查代理是否调了正确的端点 | 触发：外部 API 集成
+58. **Phase 1 需求澄清必须先捋清使用场景（2026-05-31 教训）** — 灵犀在 Phase 1 直接问 UI 风格偏好，大佬纠正"不应该先捋清楚使用场景，才好定义交互操作和 UI 优化方向吗"。**规则：** Phase 1 需求澄清顺序：(1) 使用场景（谁用、什么设备、什么场景）→ (2) 核心功能（优先级排序）→ (3) 交互操作（怎么操作）→ (4) UI 风格（怎么展示）。**禁止：** 跳过使用场景直接问 UI 风格/技术方案。**反例：** 直接问"你希望什么风格？"→ 大佬纠正。**正例：** 先问"你主要在什么设备上用？手机还是电脑？"→ 再问"最常用的场景是什么？"→ 最后问"UI 风格偏好？"
 
 ## Verification Checklist（每次使用此 skill 前）
 
@@ -470,6 +475,8 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v5.10.0 | 2026-05-31 | **Phase 8 测试记录 + Way C 铁律 + 外部 API 集成**：新增 pitfall #59（Phase 8 每轮必须记录测试结果到 wiki test-log.md）、#60（禁止灵犀分析根因再告诉 CodeWhale，必须给目标+路径让 CodeWhale 自己分析）、#61（外部 API 集成必须先查 OpenAPI spec 确认端点和认证方式）。 |
+| v5.9.0 | 2026-05-31 | **Skill 删除陷阱 + 需求澄清顺序**：新增 pitfall #57（skill_manage delete 会连带删除 scripts/ 目录，删除前必须检查脚本是否被其他组件引用）和 #58（Phase 1 需求澄清必须先捋清使用场景再问 UI 风格，顺序：使用场景→核心功能→交互操作→UI 风格）。 |
 | v5.8.0 | 2026-05-29 | **自进化方法论落地**：新增 `references/methodology/darwin-ecc-evolution.md`（Darwin 9 维 rubric + 维度关联簇 + ECC 执行验证 + 反模式黑名单）。新增 pitfalls #51-54（LLM 自评不可靠/维度关联簇/Skill 可训练状态/执行审计触发时机）。SKILL.md 新增 4 条自进化机制 pitfalls。 |
 | v5.7.0 | 2026-05-29 | **自进化方案 Layer 1+2 落地**：新增铁律 #14（5 步验证函数）。新增 `references/methodology/verification-and-ratchet.md`（验证框架 + 防辩解表 + 置信度评分 + 棘轮机制 + 结构评分器）。Phase 6/8 workflow 注入 5 步验证函数 + 防辩解表。Verification Checklist 分"流程合规"+"验证合规"两部分，新增 4 项验证检查。 |
 | v5.6.0 | 2026-05-29 | **Way C 派发铁律强化**：更新 `references/integration/codewhale-acp-integration.md` 新增 Way C 详细规范（灵犀给目标+约束，不做代码推理）。更新 `references/workflow/phase6-execution.md` 任务派发流程新增 Way C 铁律引用。教训来源：上游监控 UI 迭代中灵犀连续 3 轮自己分析 CSS 再告诉 CodeWhale 怎么改，违反角色分离。 |

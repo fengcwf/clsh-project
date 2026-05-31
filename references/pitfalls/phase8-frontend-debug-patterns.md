@@ -9,6 +9,82 @@ Phase 8 大量 bug 修复时的节奏控制：
 3. **每批修完先重启测试** — 确认无回归再继续下一批
 4. **agent 超时后缩小任务** — 不要全量 fallback 到自修
 
+## Token→Session 免登录架构（2026-05-31）
+
+实现"点击链接免登录进入 embed 模式"的完整架构：
+
+### 后端
+```
+POST /api/auto-login
+  → 验证 token（Map 存储，24h 过期，一次性销毁）
+  → 创建 session（request.session.user = { username, role: 'embed' }）
+  → 返回 user 对象
+```
+
+### 前端（app.mjs onMounted）
+```
+1. 读 URL 参数: ?token=xxx&embed=moviepilot
+2. 优先设置 embed.value（不等 auth）
+3. 如果有 token → 调 POST /api/auto-login
+4. 成功 → user.value = data.user, authChecked.value = true
+5. 清理 URL 参数（replaceState）
+6. 如果有 embed → activeProject = embed, loading = false（不等 loadProjects）
+7. 渲染：embed 模式 → 全屏无侧边栏
+```
+
+### 关键 Pitfalls
+- session cookie 必须 `sameSite: 'lax'`（允许从飞书等外部链接设置 cookie）
+- auto-login 成功后必须立即设 `authChecked = true`（否则渲染函数卡在 loading spinner）
+- 移除前端 Bearer token 依赖（已有 session cookie 认证）
+- embed 模式不等 `loadProjects()`，直接设 `activeProject` 和 `loading=false`（避免阻塞渲染）
+
+## Vue3 CDN 组件 Tab 状态管理（2026-05-31）
+
+### 错误模式
+```javascript
+// ❌ onClick 只 dispatch event，不更新内部状态
+const active = props.activeTab || 'recommend';
+tabs.map(t => h('button', {
+  onClick: () => window.dispatchEvent(new CustomEvent('tab', { detail: t.key }))
+}))
+// 结果：点击 tab 无反应，active 永远是 props 的值
+```
+
+### 正确模式
+```javascript
+// ✅ 创建内部 ref，onClick 直接更新
+const VALID_TABS = ['recommend', 'search', 'download', 'subscribe'];
+const activeTab = ref(
+  VALID_TABS.includes(props.activeTab) ? props.activeTab : 'recommend'
+);
+
+tabs.map(t => h('button', {
+  class: `mp-tab ${activeTab.value === t.key ? 'mp-tab--active' : ''}`,
+  onClick: () => { activeTab.value = t.key; }
+}))
+
+// 渲染用内部 ref
+const active = activeTab.value;
+```
+
+### 关键点
+- 验证 props.activeTab 是否是有效 tab key，无效值 fallback 到默认
+- 用 VALID_TABS 数组做验证，不要硬编码 if-else
+- 内部 ref 优先于 props（props 只作初始值）
+
+## Workspace 子模块 CSS 加载（2026-05-31）
+
+子模块的 CSS 不会自动加载到 Workspace 主应用。
+
+**规则：** 子模块的 CSS 必须在 `src/public/index.html` 的 `<head>` 中添加 `<link>` 引用。
+
+```html
+<!-- src/public/index.html -->
+<link rel="stylesheet" href="/projects/moviepilot/public/tokens.css">
+```
+
+**验证：** 浏览器 F12 → Network → 检查 CSS 文件是否返回 200。
+
 ## ESM 变量遮蔽（2026-05-21）
 
 ```javascript
@@ -74,50 +150,17 @@ Toast 需要 `pointer-events: none` 避免遮挡交互。
 
 **症状：** 弹出菜单用了 `position:fixed` + `e.clientX/clientY` 但位置偏移（相对于父容器而非鼠标位置）。
 
-```css
-/* ❌ 这会导致子元素的 position:fixed 失效 */
-.obs-layout {
-  backdrop-filter: blur(16px);
-}
-.obs-ctx-menu {
-  position: fixed; /* 相对于 .obs-layout，不是视口 */
-}
-
-/* ✅ 修复方案 1：不用 backdrop-filter */
-.obs-layout {
-  background: rgba(255,255,255,0.85); /* 半透明但不创建 CB */
-}
-
-/* ✅ 修复方案 2：用 Teleport 渲染弹出元素到 body */
-/* Vue3: h(Teleport, { to: "body" }, [menuEl]) */
-```
-
 **同理会影响的 CSS 属性：** `transform`、`filter`、`will-change: transform`、`contain: layout` 等也会创建 containing block。
 
 ## CSS 重复定义导致样式冲突（2026-05-25）
 
 多个文件或同一文件内出现同一个选择器的两次定义，后定义的覆盖前一个，导致部分样式丢失。
 
-```css
-/* line 779: 第一次定义（缺少 position） */
-.obs-ctx-menu {
-  background: white;
-  border-radius: 10px;
-}
-
-/* line 1088: 第二次定义（有 position） */
-.obs-ctx-menu {
-  position: fixed;
-  z-index: 100;
-  background: white;
-}
-```
-
 **修复：** 删除重复定义，保留完整的一个。用 `grep -c '选择器' 文件` 检查是否有重复。
 
 ## 仅读代码不等于 UI 验证（2026-05-25 教训）
 
-**问题：** tester 读了修改后的源码文件，检查 CSS 属性和 JS 逻辑正确，就判定"全部 PASS"。但实际浏览器中效果完全不同（CSS 层叠、浏览器渲染差异、运行时状态等）。
+**问题：** tester 读了修改后的源码文件，检查 CSS 属性和 JS 逻辑正确，就判定"全部 PASS"。但实际浏览器中效果完全不同。
 
 **规则：** UI 项目的 review 必须包含浏览器实际验证，不能只做代码审查。
 - ✅ 用浏览器打开页面 + 截图 + 交互测试

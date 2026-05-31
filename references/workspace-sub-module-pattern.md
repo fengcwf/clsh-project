@@ -89,6 +89,44 @@ POST   /api/content/channels/:name/test                   → 测试连接
 - **execSync 阻塞事件循环** — Fastify handler 中禁止用 execSync，改用 execFile + await
 - **数据源一致性** — 多个 API 检查同一数据时，共用同一个底层函数
 
+## 外部 API 代理模式（MoviePilot 案例，2026-05-31）
+
+当子模块需要代理外部 API（如 MoviePilot 192.168.0.71:3001）时：
+
+### 认证方式探索
+
+```bash
+# 第一步：获取 OpenAPI spec
+curl -s http://host:port/api/v1/openapi.json | python3 -c "
+import sys,json; spec=json.load(sys.stdin)
+for p in sorted(spec.get('paths',{})): print(f'  {p} [{\"|\".join(spec[\"paths\"][p])}]')
+"
+
+# 第二步：测试认证方式
+curl -s -H "X-API-KEY: $KEY" http://host:port/api/v1/xxx  # API Key
+curl -s -H "Authorization: Bearer $TOKEN" http://host:port/api/v1/xxx  # JWT
+```
+
+### 代理架构
+
+```
+前端 callTool() → POST /api/moviepilot/recommend
+  → plugin.mjs proxyToMp()
+  → GET http://192.168.0.71:3001/api/v1/recommend/tmdb_movies
+  → Header: X-API-KEY: $MP_API_KEY
+```
+
+### 环境变量传递
+
+pm2 进程读的是项目 `.env`（`/opt/Workspace/.env`），不是 shell 环境变量。
+如果 API key 在 Hermes `.env` 中，需要手动复制到 Workspace `.env`。
+
+### 教训
+
+- 不要假设认证方式（JWT vs API Key vs session），先查 OpenAPI spec
+- 不要假设端点路径（`/tools/call` vs `/mcp/tools/call` vs `/recommend`）
+- 代理层处理认证，前端只调 Workspace API（session cookie 已够）
+
 ## 内容管理子模块模式（2026-05-28）
 
 将已有的 Hermes 插件（含 Node.js 脚本）集成为 Workspace 子模块的模式：
