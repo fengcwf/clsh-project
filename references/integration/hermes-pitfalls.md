@@ -71,6 +71,9 @@ register_command("/mp", handler) 只拦截 /mp 前缀。纯数字消息不是斜
 ### 调研时不要反复重启 gateway
 每次重启中断 session 导致重复分析。调研阶段只读文档和搜索，不修改运行中的代码。
 
+### Python urllib 默认 GET 陷阱（2026-06-01 教训，pitfall #64）
+`urllib.request.Request(url)` 默认 method 是 **GET**。如果后端 endpoint 只注册了 POST handler（如 Fastify `fastify.post(...)`），urllib 会收到 404，走错误处理分支返回兜底 URL。症状：curl -X POST 正常但 Python 代码永远返回错误。**根因：** 没人检查 Python HTTP client 的默认 method。**修复：** `urllib.request.Request(url, method='POST')`。**通用规则：** 调用 POST-only API 时，必须显式设置 `method='POST'`（urllib、requests、fetch 都需要验证）。**验证：** `print(req.method)` 确认是 POST 不是 GET。**关联：** pitfall #62（GET vs POST handler 不匹配）的客户端变体。
+
 ## 其他工具
 
 ### delegation-protocol 重复加载浪费 token

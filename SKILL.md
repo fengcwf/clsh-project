@@ -1,7 +1,7 @@
 ---
 name: clsh-project
 description: "需求驱动的项目开发工作流 — 从需求澄清到设计文档到实现计划到执行。灵感来自 Kiro 的 Spec-Driven Development、Superpowers 的 Brainstorming 方法论、Phoenix 的状态机执行模式。"
-version: 5.10.0
+version: 5.11.0
 author: 灵犀
 license: MIT
 platforms: [linux, macos, windows]
@@ -440,6 +440,12 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 59. **Phase 8 每轮必须记录测试结果（2026-05-31 教训）** — 大佬测试反馈后，必须在 `wiki/projects/<项目>/changes/<变更名>/test-log.md` 中记录：(1) 测试结果列表 (2) 根因分析 (3) 修复内容 (4) 流程违规（如有）。Round 1 测试未记录 → Round 3 大佬问"有没有记录每次测试结果" → 才开始写。**规则：** 每轮 Phase 8 反馈的第一件事是更新 test-log.md，不是分析代码。| 验证：检查 test-log.md 是否有本轮记录 | 触发：大佬说"测试结果"/"反馈"
 60. **Phase 8 禁止灵犀分析根因再告诉 CodeWhale（2026-05-31 教训）** — 灵犀分析了 tab 状态管理、Bearer token、cookie domain 等根因，然后写具体修改方案给 CodeWhale。大佬指出"违规直接分析让coder修复，不是定目标和上下文发送路径给codewhale分析修复"。**规则（Way C 铁律）：** delegate_task 给 CodeWhale 时只给：(1) 大佬反馈的现象（1-2 句话）(2) 相关文件路径 (3) bugfix spec 路径 (4) 验证命令。❌ 不该给：根因分析、具体修改方案、行号级指令。✅ 该给："大佬说 tab 点击没反应，显示未知标签页。相关文件：/opt/Workspace/src/projects/moviepilot/public/MovieView.mjs。请先读代码自己分析根因。" | 验证：delegate_task context 是否包含实现细节 | 触发：Phase 8 派 CodeWhale 修复
 61. **外部 API 集成必须先查 OpenAPI spec（2026-05-31 教训）** — 代理调 MoviePilot API 返回 404。灵犀假设端点是 `/api/v1/tools/call`，实际 MoviePilot 的 OpenAPI spec 在 `http://host:port/api/v1/openapi.json`，确认端点是 `/api/v1/mcp/tools/call`，推荐用 `/api/v1/recommend/tmdb_movies` 等 REST 端点。认证方式也不是 JWT，而是 `X-API-KEY` header。**规则：** 集成外部 API 时，第一步是 `curl http://host:port/api/v1/openapi.json` 获取完整端点列表和认证方式。不要假设端点路径。| 验证：检查代理是否调了正确的端点 | 触发：外部 API 集成
+62. **GET vs POST handler 不匹配（2026-06-01 教训，5 轮排查）** — token URL 是浏览器 GET 请求，但 plugin 只有 POST handler。症状是"点击链接后仍然显示登录页"，所有周边修复（cookie/domain/API）都无效。**根因：** 没人检查"GET 请求是否有对应的 handler"。**规则：** 端到端调试时，第一步验证"请求是否到达了 handler"（`grep -n "fastify.get\|fastify.post" plugin.mjs`），而不是"handler 内部逻辑是否正确"。浏览器点击 = GET，API 调用 = POST，两者需要分别有 handler。| 验证：curl -v 检查 HTTP method 和响应状态码 | 触发：token/链接/深链接类功能
+64. **fetch 缺少 credentials 导致 session cookie 丢失（2026-06-01 教训）** — Workspace 子模块的 Vue 前端用 `fetch()` 调用同域 Fastify API，但没加 `credentials: 'include'`。token 自动登录成功设置了 session cookie，但后续 API 请求不带 cookie → authGuard 返回 401 "未登录" → UI 无内容。**症状：** "API 通了但界面没有内容"，curl 带 cookie 能拿到数据。**根因：** 默认 `fetch` 的 `credentials` 是 `same-origin`，但某些浏览器/场景下（跨子路径、非简单请求）仍不自动发送 cookie。**规则：** Workspace 子模块的前端 `apiGet`/`apiPost`/`apiDelete` helper 必须加 `credentials: 'include'`。**验证：** 浏览器 DevTools → Network → 检查请求头是否带 `Cookie` | **触发：** 任何 Fastify session 认证 + 前端 fetch 的组合
+65. **自构造 URL 忽略 API 返回的 url 字段（2026-06-01 教训）** — `/mp` 命令插件调 token API 获取 token 后，自己拼 URL 为 `{BASE_URL}/?token={token}`，但 token API 返回了正确的 `url` 字段（`/api/moviepilot?token=xxx`）。自构造的根路径没有 token handler → 点击链接仍显示登录页。**规则：** 生成带 token/参数的 URL 时，优先使用 API 响应中的 `url` 字段拼接 `BASE_URL`，不要自己构造路径。自构造只在 API 不返回 url 时作为 fallback。**验证：** 对比生成的 URL 和实际 handler 注册路径（`grep fastify.get plugin.mjs`）| **触发：** 任何"调 API 获取 token → 生成链接"的流程
+64. **fetch 缺少 credentials 导致 session cookie 丢失（2026-06-01 教训）** — Workspace 子模块的 Vue 前端用 `fetch()` 调用同域 Fastify API，但没加 `credentials: 'include'`。token 自动登录成功设置了 session cookie，但后续 API 请求不带 cookie → authGuard 返回 401 "未登录" → UI 无内容。**症状：** "API 通了但界面没有内容"，curl 带 cookie 能拿到数据。**根因：** 默认 `fetch` 的 `credentials` 是 `same-origin`，但某些浏览器/场景下（跨子路径、非简单请求）仍不自动发送 cookie。**规则：** Workspace 子模块的前端 `apiGet`/`apiPost`/`apiDelete` helper 必须加 `credentials: 'include'`。**验证：** 浏览器 DevTools → Network → 检查请求头是否带 `Cookie` | **触发：** 任何 Fastify session 认证 + 前端 fetch 的组合
+65. **自构造 URL 忽略 API 返回的 url 字段（2026-06-01 教训）** — `/mp` 命令插件调 token API 获取 token 后，自己拼 URL 为 `{BASE_URL}/?token={token}`，但 token API 返回了正确的 `url` 字段（`/api/moviepilot?token=xxx`）。自构造的根路径没有 token handler → 点击链接仍显示登录页。**规则：** 生成带 token/参数的 URL 时，优先使用 API 响应中的 `url` 字段拼接 `BASE_URL`，不要自己构造路径。自构造只在 API 不返回 url 时作为 fallback。**验证：** 对比生成的 URL 和实际 handler 注册路径（`grep fastify.get plugin.mjs`）| **触发：** 任何"调 API 获取 token → 生成链接"的流程
+63. **CodWhale 网络请求超时模式（2026-06-01 教训）** — CodWhale 在 curl 到局域网 IP（如 192.168.0.71:3001）时反复超时 600s，即使 ping 可达。**规则：** (1) 代码修改和网络测试必须分开派发，不要让 CodWhale 做"读代码 + curl 测试 + 修复"一体化任务；(2) 网络验证用主 agent 的 terminal 或 Hermes subagent；(3) CodWhale 擅长纯代码修改（读文件→patch），不擅长需要网络验证的任务。| 验证：检查 delegate_task 是否包含 curl 到外部 IP 的命令 | 触发：Phase 8 派 CodWhale 修复含网络调用的任务
 58. **Phase 1 需求澄清必须先捋清使用场景（2026-05-31 教训）** — 灵犀在 Phase 1 直接问 UI 风格偏好，大佬纠正"不应该先捋清楚使用场景，才好定义交互操作和 UI 优化方向吗"。**规则：** Phase 1 需求澄清顺序：(1) 使用场景（谁用、什么设备、什么场景）→ (2) 核心功能（优先级排序）→ (3) 交互操作（怎么操作）→ (4) UI 风格（怎么展示）。**禁止：** 跳过使用场景直接问 UI 风格/技术方案。**反例：** 直接问"你希望什么风格？"→ 大佬纠正。**正例：** 先问"你主要在什么设备上用？手机还是电脑？"→ 再问"最常用的场景是什么？"→ 最后问"UI 风格偏好？"
 
 ## Verification Checklist（每次使用此 skill 前）
@@ -475,6 +481,9 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v5.11.0 | 2026-06-01 | **fetch credentials + URL 自构造陷阱**：新增 pitfall #64（fetch 缺少 `credentials: 'include'` 导致 session cookie 丢失，API 返回 401 但 UI 无报错）和 #65（自构造 URL 忽略 API 返回的 url 字段，导致 token 链接指向无 handler 的路径）。两坑均来自 MoviePilot Phase 8 Round 2。 |
+| v5.11.0 | 2026-06-01 | **fetch credentials + URL 自构造陷阱**：新增 pitfall #64（fetch 缺少 `credentials: 'include'` 导致 session cookie 丢失，API 返回 401 但 UI 无报错）和 #65（自构造 URL 忽略 API 返回的 url 字段，导致 token 链接指向无 handler 的路径）。两坑均来自 MoviePilot Phase 8 Round 2。更新 workspace-sub-module-pattern.md 新增 credentials 注意事项。 |
+| v5.10.1 | 2026-06-01 | **GET handler 缺失 + CodWhale 网络超时**：新增 pitfall #62（GET vs POST handler 不匹配，5 轮排查才找到）和 #63（CodWhale curl 到局域网 IP 超时 600s，必须拆分代码修改和网络测试）。 |
 | v5.10.0 | 2026-05-31 | **Phase 8 测试记录 + Way C 铁律 + 外部 API 集成**：新增 pitfall #59（Phase 8 每轮必须记录测试结果到 wiki test-log.md）、#60（禁止灵犀分析根因再告诉 CodeWhale，必须给目标+路径让 CodeWhale 自己分析）、#61（外部 API 集成必须先查 OpenAPI spec 确认端点和认证方式）。 |
 | v5.9.0 | 2026-05-31 | **Skill 删除陷阱 + 需求澄清顺序**：新增 pitfall #57（skill_manage delete 会连带删除 scripts/ 目录，删除前必须检查脚本是否被其他组件引用）和 #58（Phase 1 需求澄清必须先捋清使用场景再问 UI 风格，顺序：使用场景→核心功能→交互操作→UI 风格）。 |
 | v5.8.0 | 2026-05-29 | **自进化方法论落地**：新增 `references/methodology/darwin-ecc-evolution.md`（Darwin 9 维 rubric + 维度关联簇 + ECC 执行验证 + 反模式黑名单）。新增 pitfalls #51-54（LLM 自评不可靠/维度关联簇/Skill 可训练状态/执行审计触发时机）。SKILL.md 新增 4 条自进化机制 pitfalls。 |

@@ -91,6 +91,22 @@ BEFORE 声称完成/修复/通过：
 
 建议在 KANBAN_GUIDANCE 中加 review 专用门禁，或在 kanban_complete() 工具层加 metadata 验证检查。
 
+## 案例：CodWhale 超时后的违规模式（2026-06-01）
+
+**场景：** Phase 8 Round 3，CodWhale 连续超时未完成任务。灵犀"顺手"自己分析 4 个根因并修复。
+
+**违规行为：**
+- 大佬明确说"让 CodWhale 分析修复"（Way C）
+- CodWhale 超时后，灵犀没有重新派发或汇报，而是自己分析了 cookie domain、API 路径、X-API-KEY、trustProxy 4 个根因
+- 灵犀直接 patch 了 3 个文件
+
+**正确行为：**
+1. CodWhale 超时 → 拆分更小任务重新派发
+2. 如果仍超时 → 汇报大佬请求决策
+3. 绝对不允许灵犀"顺手"分析 + 修复，即使"看起来只是简单诊断"
+
+**教训：** Way C 规范在每个 Phase 的每个 Round 都必须遵守，不存在例外。"CodWhale 不行所以我来"不是合规路径。
+
 ## 参考
 
 - https://github.com/multica-ai/andrej-karpathy-skills — Karpathy CLAUDE.md
