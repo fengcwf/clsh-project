@@ -52,12 +52,12 @@ tester 验证时：
 toolsets: ["terminal", "file", "web", "browser"]
 ```
 
-#### 3. 每轮必须归档 wiki
+#### 3. 每轮必须归档 wiki + 写 raw fix 记录
 
 **每轮 Phase 8 修复完成后，必须创建变更目录并归档：**
 
 ```
-wiki/projects/<项目名>/changes/round<N>-feedback/
+raw/projects/<项目名>/changes/round<N>-feedback/
 ├── conversation.md    ← 大佬反馈的问题列表
 ├── diagnosis.md       ← diagnose 6 阶段记录
 ├── fixes.md           ← 每个问题的修复方案 + 派发记录
@@ -66,8 +66,11 @@ wiki/projects/<项目名>/changes/round<N>-feedback/
 
 **全部修复完成后，归档到 archive/：**
 ```
-wiki/projects/<project>/changes/archive/round<N>-feedback/
+raw/projects/<project>/changes/archive/round<N>-feedback/
 ```
+
+**🔬 知识复利（每个非平凡修复后必做）：**
+对每个技术类修复，写 raw fix 记录到 `raw/projects/<项目名>/YYYY-MM-DD-<简述>.md`（格式见 `references/templates/raw-fix-template.md`）。流程纪律类问题不写 raw。
 
 **⛔ 禁止只在对话中修复，不写 wiki 记录。**
 
@@ -154,7 +157,9 @@ Step 5: REPORT — 带证据汇报给大佬
 
 ### ⚠️ Diagnose 6 阶段循环
 
-**参考：** `diagnose` skill
+**⚠️ 必须加载 `diagnose` skill 执行。** 不加载 skill 只凭记忆走流程 = 漏步骤。
+
+**参考：** `diagnose` skill（加载后按其 Phase 0-5 执行，以下为 clsh-project 集成映射）
 
 每个阶段有明确入口/出口条件。不满足出口条件不能进入下一阶段。
 
@@ -227,7 +232,7 @@ Stage 6: 复盘（Retrospect）
 大佬反馈 bug
   → 记录 conversation.md
   → 写 Bugfix Spec（当前行为/期望行为/复现命令/影响范围）
-  → diagnose 6 阶段（Stage 1-6）
+  → 加载 `diagnose` skill 执行 6 阶段诊断（Stage 1-6）
   → 创建修复任务 → 派 coder/artist
   → tester 验证 → 汇报
 ```

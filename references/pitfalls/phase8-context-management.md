@@ -118,7 +118,7 @@ print("Tree API: ✅ 返回 16 项")
 
 2. **如果 checkpoint 不存在**，从项目文档恢复
    ```bash
-   cat /mnt/unraid_data/Obsidian/wiki/projects/<项目名>/changes/<变更名>/completion-summary.md
+   cat /mnt/unraid_data/Obsidian/raw/projects/<项目名>/changes/<变更名>/completion-summary.md
    ```
 
 3. **从上次中断的 bug 继续**，不重做已完成的修复

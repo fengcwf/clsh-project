@@ -6,7 +6,19 @@
 
 ## Phase 0: 内化历史教训
 
-**每次项目开始前必做。** 读取 `~/.hermes/skills/productivity/project-wrap-up/learnings.md`，提取与当前项目类型相关的教训，在后续 Phase 中主动应用。不产生输出文件，仅影响灵犀行为。
+**每次项目开始前必做。** 
+
+### Step A — 快速参考
+读取 `~/.hermes/skills/productivity/project-wrap-up/learnings.md`，提取与当前项目类型相关的教训，在后续 Phase 中主动应用。
+
+### Step B — 跨项目知识复利
+读取 `wiki/solutions/INDEX.md`，按当前项目的 tech/domain 匹配 `reusability: cross-project` 的条目：
+1. 从大佬的需求描述中提取 tech 标签（如 vue、fastify、css）和 domain 标签（如 frontend、auth）
+2. 在 INDEX.md 中查找匹配的 solutions
+3. 最多注入 5 条最相关的条目摘要到本轮上下文
+4. 无匹配 → 跳过（不强制）
+
+**不产生输出文件，仅影响灵犀行为。**
 
 ---
 
@@ -55,7 +67,7 @@
 
 1. `session_search` 搜索最近 3 个 session，关键词用项目名
 2. 读取历史 session 的 summary，恢复上下文
-3. 检查 `wiki/projects/<项目名>/` 是否已有文档产出
+3. 检查 `raw/projects/<项目名>/` 是否已有文档产出
 4. 从上次中断的 Phase 继续，**不要重复已完成的工作**
 5. 向大佬确认恢复的上下文是否正确，再继续提问
 
@@ -106,7 +118,7 @@ Phase 1 需求澄清过程中，当出现项目特有术语时，同步记录到
 3. **列出 Avoid** — 同义词/容易混淆的词
 4. **写入 context.md** — 不攒到最后，边讨论边记录
 
-**文件位置：** `wiki/projects/<项目名>/source-of-truth/context.md`
+**文件位置：** `raw/projects/<项目名>/source-of-truth/context.md`
 **模板：** `references/templates/context-template.md`
 
 **与其他文档的关系：**
@@ -125,4 +137,4 @@ Phase 1 需求澄清过程中，当出现项目特有术语时，同步记录到
 
 ### 需求文档格式
 
-**文件位置：** `wiki/projects/<项目名>/changes/YYYY-MM-DD-<变更名>/conversation.md`
+**文件位置：** `raw/projects/<项目名>/changes/YYYY-MM-DD-<变更名>/conversation.md`

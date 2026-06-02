@@ -6,7 +6,7 @@
 
 ## Phase 5: 写实现计划
 
-**文件位置：** `wiki/projects/<项目名>/changes/YYYY-MM-DD-<变更名>/tasks.md`
+**文件位置：** `raw/projects/<项目名>/changes/YYYY-MM-DD-<变更名>/tasks.md`
 
 **参考：** `plan` skill（前身 writing-plans）
 

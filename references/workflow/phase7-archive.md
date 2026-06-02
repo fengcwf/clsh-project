@@ -11,17 +11,17 @@
 Phase 7 归档时，必须确认以下文件已写入 wiki：
 
 **项目文档：**
-- [ ] `wiki/projects/<项目名>/overview.md` → 更新 status 为 `done`
-- [ ] `wiki/projects/<项目名>/changes/archive/<变更名>/completion-summary.md` → 完成摘要
-- [ ] `wiki/projects/<项目名>/changes/archive/<变更名>/retrospective.md` → 流程复盘
-- [ ] `wiki/projects/<项目名>/changes/archive/<变更名>/conversation.md` → 需求对话
-- [ ] `wiki/projects/<项目名>/changes/archive/<变更名>/proposal.md` → 设计提案
-- [ ] `wiki/projects/<项目名>/changes/archive/<变更名>/tasks.md` → 实现计划
-- [ ] `wiki/projects/<项目名>/source-of-truth/constitution.md` → 项目约束
+- [ ] `raw/projects/<项目名>/overview.md` → 更新 status 为 `done`
+- [ ] `raw/projects/<项目名>/changes/archive/<变更名>/completion-summary.md` → 完成摘要
+- [ ] `raw/projects/<项目名>/changes/archive/<变更名>/retrospective.md` → 流程复盘
+- [ ] `raw/projects/<项目名>/changes/archive/<变更名>/conversation.md` → 需求对话
+- [ ] `raw/projects/<项目名>/changes/archive/<变更名>/proposal.md` → 设计提案
+- [ ] `raw/projects/<项目名>/changes/archive/<变更名>/tasks.md` → 实现计划
+- [ ] `raw/projects/<项目名>/source-of-truth/constitution.md` → 项目约束
 
 **Phase 8 各轮归档（每轮必须）：**
-- [ ] `wiki/projects/<项目名>/changes/archive/round<N>-feedback/conversation.md` → 测试反馈记录
-- [ ] `wiki/projects/<项目名>/changes/archive/round<N>-feedback/fixes.md` → 修复方案记录
+- [ ] `raw/projects/<项目名>/changes/archive/round<N>-feedback/conversation.md` → 测试反馈记录
+- [ ] `raw/projects/<项目名>/changes/archive/round<N>-feedback/fixes.md` → 修复方案记录
 
 **⛔ 如果 Phase 8 已完成多轮测试，必须将每轮的 feedback 目录归档到 archive/，不能只保留在 changes/ 下。**
 
@@ -40,12 +40,21 @@ Phase 7 归档时，必须确认以下文件已写入 wiki：
    - 触发条件满足时（learnings ≥10 条 或 eval ≤3/8）执行深度蒸馏
    - **同步到 raw/**：`python3 /opt/Workspace/scripts/obsidian/learnings-to-raw.py`（遵循 raw → ingest → wiki 架构）
 8. 向大佬汇报（含 eval 结果和蒸馏发现）
-9. **📄 生成 Handoff 文档** — 归档时生成 `handoff.md`，方便跨 session 续接：
+9. **🔄 触发 Solutions Ingest**（知识复利编译）：
+   - 检查 `raw/projects/<项目名>/` 下是否有新的 raw fix 记录（`.md` 文件，非 changes/ 目录）
+   - 有新文件 → 按 `llm-wiki` skill 的 ingest 流程编译为 `wiki/solutions/` 页面：
+     a. 读取 raw fix 记录内容
+     b. LLM 判断 track（bug/knowledge）+ reusability（cross-project/project-specific）
+     c. 搜索 `wiki/solutions/INDEX.md` 检查是否与已有方案重叠
+     d. 重叠 → 更新现有方案；不重叠 → 创建新方案页面
+     e. 更新 `wiki/solutions/INDEX.md` 索引
+   - 无新文件 → 跳过
+10. **📄 生成 Handoff 文档** — 归档时生成 `handoff.md`，方便跨 session 续接：
    - 当前项目状态摘要（已完成/待完成）
    - 建议下次 session 加载的 skills
    - 引用已有文档路径（不重复内容，避免 token 浪费）
    - 脱敏处理（删除密钥/token/密码）
-   - **文件位置：** `wiki/projects/<项目名>/changes/archive/<变更名>/handoff.md`
+   - **文件位置：** `raw/projects/<项目名>/changes/archive/<变更名>/handoff.md`
    - **来源：** Matt Pocock /handoff skill
 10. `ls` 验证所有归档文件存在且大小 > 0
 11. **📊 运行执行审计**（Darwin + ECC 融合，2026-05-29）：

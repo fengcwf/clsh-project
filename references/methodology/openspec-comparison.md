@@ -36,14 +36,14 @@ clsh-project v2.0 借鉴了 OpenSpec 的 Delta Spec 模式，但做了以下关�
 
 | OpenSpec 概念 | clsh-project 映射 |
 |--------------|------------------|
-| openspec/project.md | wiki/projects/<project>/overview.md |
-| openspec/specs/ | wiki/projects/<project>/source-of-truth/ |
-| openspec/changes/<name>/ | wiki/projects/<project>/changes/<name>/ |
+| openspec/project.md | raw/projects/<project>/overview.md |
+| openspec/specs/ | raw/projects/<project>/source-of-truth/ |
+| openspec/changes/<name>/ | raw/projects/<project>/changes/<name>/ |
 | openspec/changes/<name>/proposal.md | 同上 |
-| openspec/changes/<name>/specs/ | wiki/projects/<project>/changes/<name>/delta-specs/ |
+| openspec/changes/<name>/specs/ | raw/projects/<project>/changes/<name>/delta-specs/ |
 | openspec/changes/<name>/tasks.md | 同上 |
 | openspec/changes/<name>/conversation.md | 同上 |
-| openspec/changes/archive/ | wiki/projects/<project>/changes/archive/ |
+| openspec/changes/archive/ | raw/projects/<project>/changes/archive/ |
 | openspec view (dashboard) | kanban list + INDEX.md |
 
 ## 参考链接

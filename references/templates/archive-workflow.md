@@ -17,7 +17,7 @@ updated: YYYY-MM-DD  # 更新日期
 
 ### 2. 创建最终 completion-summary.md
 
-**位置：** `wiki/projects/<项目名>/changes/archive/<变更名>/completion-summary.md`
+**位置：** `raw/projects/<项目名>/changes/archive/<变更名>/completion-summary.md`
 
 **内容模板：**
 
@@ -65,7 +65,7 @@ updated: YYYY-MM-DD  # 更新日期
 
 ### 3. 创建 retrospective.md
 
-**位置：** `wiki/projects/<项目名>/changes/archive/<变更名>/retrospective.md`
+**位置：** `raw/projects/<项目名>/changes/archive/<变更名>/retrospective.md`
 
 **必含章节：**
 1. 流程合规总览（表格）
@@ -80,7 +80,7 @@ updated: YYYY-MM-DD  # 更新日期
 
 ```bash
 # 将 changes/ 下的变更目录复制到 archive/
-cd wiki/projects/<项目名>
+cd raw/projects/<项目名>
 mkdir -p changes/archive/<变更名>
 cp -r changes/<变更名>/* changes/archive/<变更名>/
 ```

@@ -2,7 +2,7 @@
 
 **来源：** https://github.com/mattpocock/skills (103k ⭐, MIT)
 **分析日期：** 2026-05-24
-**分析文档：** `wiki/projects/clsh-project-analysis-mattpocock-skills.md`
+**分析文档：** `raw/projects/clsh-project-analysis-mattpocock-skills.md`
 
 ## 项目概述
 
@@ -70,7 +70,7 @@ Matt Pocock 的 Skills 是面向 Claude Code 的工程 skill 集合，核心理�
 
 ## 参考资料
 
-- 原始分析文档：`wiki/projects/clsh-project-analysis-mattpocock-skills.md`
+- 原始分析文档：`raw/projects/clsh-project-analysis-mattpocock-skills.md`
 - CONTEXT-FORMAT.md：https://github.com/mattpocock/skills/blob/main/skills/engineering/grill-with-docs/CONTEXT-FORMAT.md
 - ADR-FORMAT.md：https://github.com/mattpocock/skills/blob/main/skills/engineering/grill-with-docs/ADR-FORMAT.md
 - prototype skill：https://github.com/mattpocock/skills/tree/main/skills/engineering/prototype

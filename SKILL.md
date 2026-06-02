@@ -1,7 +1,7 @@
 ---
 name: clsh-project
 description: "需求驱动的项目开发工作流 — 从需求澄清到设计文档到实现计划到执行。灵感来自 Kiro 的 Spec-Driven Development、Superpowers 的 Brainstorming 方法论、Phoenix 的状态机执行模式。"
-version: 5.11.0
+version: 5.13.0
 author: 灵犀
 license: MIT
 platforms: [linux, macos, windows]
@@ -29,6 +29,7 @@ metadata:
       - references/methodology/superpowers-v5-changes.md
       - references/methodology/superpowers-architecture-analysis.md
       - references/methodology/matt-pocock-patterns.md
+      - references/methodology/external-framework-evaluation.md
       # 模板（clsh-project 流程模板，保留本地）
       - references/templates/constitution-template.md
       - references/templates/archive-workflow.md
@@ -73,17 +74,17 @@ metadata:
 - 流程编排（Phase 1-8 门禁和流转）
 - 角色分离（灵犀 ≠ coder）
 - 质量保障（checkpoint + review + security scan）
-- 文档管理（wiki/projects/ 结构）
+- 文档管理（raw/projects/ 结构）
 
 ### 不管什么
-- 具体技术实现细节 → `wiki/projects/<项目>/references/pitfalls/`
+- 具体技术实现细节 → `raw/projects/<项目>/references/pitfalls/`
 - Hermes 工具链使用细节 → `references/integration/hermes-pitfalls.md`
 - 调试方法论 → `diagnose` skill
 - 代码质量规则 → `code-principles` skill
 
 ### 膨胀阈值
 - SKILL.md: ≤ 900 行
-- Common Pitfalls: ≤ 25 条（超出迁移）
+- Common Pitfalls: ≤ 24 条（超出迁移）
 - references/: ≤ 25 个文件（超出归档）
 
 **核心理念（来自 Kiro + Superpowers + Phoenix + Ralph Loop）：**（详见 `references/methodology/kiro-superpowers-analysis.md` 和 `references/methodology/ralph-loop-analysis.md`）
@@ -96,13 +97,37 @@ metadata:
 - **状态机执行**（Phoenix/MiMo/Qwen）：每个 Task 有明确的 checkpoint、验证条件、失败阻断。流程控制权在代码，不在 LLM
 - **Ralph Loop 原则**：灵犀是循环编排者，agent 是单步执行器；客观验证不自判；文件系统+git 是记忆层
 
+### 🛡️ LLM 能力无关性原则（2026-06-02 确立）
+
+**clsh-project 的流程控制不依赖 LLM 判断力。** LLM 强时和 LLM 弱时，流程应产出一致的结果。
+
+**判断标准：** 一个机制如果"LLM 强时正常、LLM 弱时静默失败"，则不得用于流程控制。
+
+**来源教训：** Superpowers v5.0.6 用 inline self-review 替代独立 tester（"质量没差"），前提是 Claude 足够强。Harness 用 Team Debate 做多视角 review，依赖 LLM 能区分严重性。两者都是"用 LLM 能力换效率"，clsh-project 不走这条路。
+
+#### 判断力分配框架
+
+所有流程决策必须按以下三类分配，不得混用：
+
+| 类型 | 谁判断 | 用于 | 不得用于 |
+|------|--------|------|---------|
+| **机械判断** | 代码/脚本/硬编码 | 门禁检查、轮次上限、状态流转、文件存在性 | — |
+| **大佬判断** | clsh | 方案选择、设计确认、优先级裁决、方向变更 | 可自动化的验证步骤 |
+| **LLM 判断** | 灵犀/agent | 内容生成、格式化、信息整理、低风险草稿 | 流程控制、质量门禁、严重性分级 |
+
+**行动规则：**
+1. 优化流程时，先判断改动是否引入新的 LLM 依赖。如果是 → 需要大佬确认
+2. 机械判断优先于 LLM 判断 — 即使 LLM 判断"更智能"
+3. 大佬判断优先于 LLM 判断 — 大佬是最终裁决者
+4. Review 的价值在于 checklist 的质量，不在于 reviewer 的数量（保留独立 tester，不改 inline self-review）
+
 
 ## ⛔ 流程铁律（不可违反，违反 = 流程违规）
 
 以下规则优先级高于一切效率考量：
 
 0. **先查进度再行动** — 收到"继续项目"指令时，必须按以下顺序确认进度：
-   - **第一步：** `ls wiki/projects/<项目名>/` 检查项目容器是否存在
+   - **第一步：** `ls raw/projects/<项目名>/` 检查项目容器是否存在
    - **第二步：** 读 `overview.md` 确认当前 Phase 和状态
    - **第三步：** 读 `changes/` 下的文档确认已完成的工作
    - **第四步：** 只有确认进度后，才从下一个未完成的 Phase 继续
@@ -113,14 +138,14 @@ metadata:
 3. **独立测试** — 代码任务必须有 tester review 卡，禁止自己测自己验收
 4. **角色分离** — 灵犀是协调者，不直接改代码。后端→coder，前端逻辑→coder，UI/样式→artist，测试→tester。**效率不是跳过角色分离的理由**。
 5. **流程合规自检** — Phase 4 自检必须包含流程合规检查
-6. **文档写入路径验证** — 文档必须写入 `wiki/projects/<项目名>/changes/<变更名>/` 目录，写入后必须 `ls` 验证
+6. **文档写入路径验证** — 文档必须写入 `raw/projects/<项目名>/changes/<变更名>/` 目录，写入后必须 `ls` 验证
 7. **反馈走流程** — 大佬测试反馈问题后，走 Phase 8 反馈循环，禁止"顺手修了"
 8. **Checkpoint 机制** — 每个 Task 执行后必须输出 checkpoint（产出物验证），未通过验证不得进入下一 Task
 9. **安全扫描** — Phase 6 每个 Task 的 review 必须包含安全扫描（硬编码密钥、SQL 注入、shell 注入等）。agent 提交前必须完成 Pre-Commit 安全自检（见 phase6-execution.md §Pre-Commit）
 10. **Auto-Fix 上限** — review 发现问题后派 fix agent 修复并重新 review，最多 2 轮后 escalate 给大佬
 11. **方案注入（2026-05-24 教训）** — Phase 6 建卡时，task body 必须注入三样东西：(1) proposal.md 的相关章节（代码/配置/路由定义，不能只写一句话描述）；(2) constitution.md 的技术约束（文件结构、禁止事项）；(3) 明确的"不在范围内"声明。缺少任一 = 流程违规。**反例：** 只写"实现 Obsidian 集成"→ coder 自行发挥 → 偏离方案。**正例：** 注入 proposal 中的完整代码示例 + 文件路径 + 禁止事项 → coder 只能照做。
 12. **代码交叉验证（2026-05-25 Matt Pocock 借鉴）** — Phase 1 中大佬描述现有系统行为时，必须检查代码验证描述是否吻合。发现矛盾时以代码为准，向大佬确认："代码显示的是 X，但你说的是 Y — 哪个对？"不盲目接受口头描述。UI 项目同理：描述页面行为时先看实际渲染。
-13. **Context File Pattern（2026-05-26 验证通过）** — 复杂任务（body > 500 字）采用混合模式：body 放摘要（500 字），详细 spec 写到 `wiki/projects/{project}/changes/{变更名}/bugfix-spec.md`，body 中注明**绝对路径**让 worker 读取。worker SOUL.md 已注入规则。**实测：** Round 6 首次使用，coder/tester 都正确读取 spec 文件，token 节省 90%。**关键：** 路径必须是绝对路径（`/mnt/unraid_data/Obsidian/wiki/...`），相对路径可能找不到。
+13. **Context File Pattern（2026-05-26 验证通过）** — 复杂任务（body > 500 字）采用混合模式：body 放摘要（500 字），详细 spec 写到 `raw/projects/{project}/changes/{变更名}/bugfix-spec.md`，body 中注明**绝对路径**让 worker 读取。worker SOUL.md 已注入规则。**实测：** Round 6 首次使用，coder/tester 都正确读取 spec 文件，token 节省 90%。**关键：** 路径必须是绝对路径（`/mnt/unraid_data/Obsidian/wiki/...`），相对路径可能找不到。
 14. **5 步验证函数（2026-05-29 Superpowers 移植）** — 声称任务完成/修复成功/测试通过前，必须走完 5 步：(1) IDENTIFY 验证命令 (2) RUN 新鲜执行 (3) READ 完整输出+exit code (4) VERIFY 逐条对照验收标准 (5) REPORT 带证据汇报。跳过任何一步 = 违规。"CodeWhale 说改好了" ≠ 验证过，"代码看起来对" ≠ 运行中的系统。详见 `references/methodology/verification-and-ratchet.md` §一、§二。
 
 **违反以上任何一条 = 流程违规，必须记 ERRORS.md。**
@@ -164,11 +189,37 @@ Phase 8: 反馈循环（大佬测试后，diagnose 6 阶段）→ 回到 Phase 1
 
 **⛔ 关键：每个 ↓ 处必须有明确的大佬确认，才能进入下一阶段。**
 
+### 🚀 Session Launch Guidance（Phase 间衔接提示，2026-06-02 Harness 借鉴）
+
+**每个 Phase 完成后，灵犀必须输出以下信息（纯格式化，零 LLM 依赖）：**
+
+```
+📋 Phase N 完成。下一步：
+  命令: /clsh-project 继续 <项目名>
+  从 Phase N+1 开始
+  建议: [是否需要新 session / 当前 session 可继续]
+```
+
+**每个 Phase 的标准衔接：**
+
+| 完成 Phase | 下一步命令 | 建议 |
+|-----------|-----------|------|
+| Phase 1 | `/clsh-project 继续 <项目名>` | 当前 session 继续 |
+| Phase 2 | `/clsh-project 继续 <项目名>` | 当前 session 继续 |
+| Phase 3 | `/clsh-project 继续 <项目名>` | 当前 session 继续 |
+| Phase 4 | `/clsh-project 继续 <项目名>` | 当前 session 继续 |
+| Phase 5 | `/clsh-project 继续 <项目名>` | 当前 session 继续 |
+| Phase 6 | `/clsh-project 继续 <项目名>` | 如果执行了 3+ Task，建议新 session |
+| Phase 7 | 等待大佬测试反馈 | 大佬说"测试完了"时触发 Phase 8 |
+| Phase 8 | `/clsh-project 继续 <项目名>` | 每轮修复建议新 session（避免 context 溢出） |
+
+**为什么必须做：** 大佬可能在不同 session 间切换。没有衔接提示，大佬需要自己记住"上次做到哪了"。这是机械输出，不消耗额外判断力。
+
 ### 🅿️ 项目暂存（Project Parking）
 
 大佬说"先存 wiki，不做"/"记录一下方案，下次继续"时：
-1. 写 `wiki/projects/<项目名>/overview.md`（状态 `planning`）
-2. 写 `wiki/projects/<项目名>/proposal.md`（技术方案）
+1. 写 `raw/projects/<项目名>/overview.md`（状态 `planning`）
+2. 写 `raw/projects/<项目名>/proposal.md`（技术方案）
 3. 向大佬确认已存档
 4. **不进入 Phase 2+**，等大佬下次确认后再继续
 
@@ -304,9 +355,9 @@ delegate_task(
     context="""
 相关文件路径：
 - 代码位置：/opt/Workspace/src/projects/<项目>/
-- wiki 项目文档：/mnt/unraid_data/Obsidian/wiki/projects/<项目>/changes/<变更名>/
-- bugfix spec：/mnt/unraid_data/Obsidian/wiki/projects/<项目>/changes/<变更名>/bugfix-spec.md
-- 项目约束：/mnt/unraid_data/Obsidian/wiki/projects/<项目>/source-of-truth/constitution.md
+- wiki 项目文档：/mnt/unraid_data/Obsidian/raw/projects/<项目>/changes/<变更名>/
+- bugfix spec：/mnt/unraid_data/Obsidian/raw/projects/<项目>/changes/<变更名>/bugfix-spec.md
+- 项目约束：/mnt/unraid_data/Obsidian/raw/projects/<项目>/source-of-truth/constitution.md
 
 请先读取 bugfix spec 和相关代码，自己分析根因并修复。
 """
@@ -352,7 +403,7 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 
 ## Common Pitfalls
 
-> 78 条教训已去重迁移。流程纪律保留在下方，技术陷阱→`wiki/projects/<项目>/references/pitfalls/`，工具链→`references/integration/hermes-pitfalls.md`。
+> 78 条教训已去重迁移。流程纪律保留在下方，技术陷阱→`raw/projects/<项目>/references/pitfalls/`，工具链→`references/integration/hermes-pitfalls.md`。
 
 ### 角色分离（铁律，置信度 0.9）
 1. **禁止灵犀直接写代码** — 即使"很快能做完"也必须派 agent | 验证：检查是否有灵犀的 write_file/patch 操作 | 触发：任何代码修改任务
@@ -392,15 +443,15 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 28. **等外部 API 生成效果图** — Stitch API 长 prompt 通过代理容易超时。用 Open Design tokens 本地渲染更快更稳定
 29. **CSS backdrop-filter 创建 containing block（2026-05-25 教训）** — `backdrop-filter: blur()` 根据 CSS 规范创建新 containing block，导致 `position: fixed` 子元素相对该元素而非视口。修复：移除 backdrop-filter，改用 `background: rgba()`。详见 `code-principles` skill 的 `references/css-pitfalls.md`。
 30. **清理重复文件前验证引用（2026-05-25 教训）** — 移动文件后删除旧副本前，必须验证没有 import/引用指向旧路径。案例：ObsidianView.mjs 移到项目路径后删除 views/ 副本 → 浏览器 import 404。
-31. **调研报告写入 wiki/projects/（2026-05-25 教训，第 3 次）** — 分析报告 → `wiki/syntheses/`。只有有 Phase 流程的项目才进 `wiki/projects/`。
+31. **调研报告写入 raw/projects/（2026-05-25 教训，第 3 次）** — 分析报告 → `wiki/syntheses/`。只有有 Phase 流程的项目才进 `raw/projects/`。
 32. **frontmatter 版本号不更新** — 每次 patch SKILL.md 必须同步更新 frontmatter `version` 字段。版本号不一致 = 维护失职。
-31. **调研报告写入 wiki/projects/（2026-05-25 教训，第 2 次）** — 分析报告、调研结论、方法论对比 = 知识积累 → `wiki/syntheses/`。只有真正的项目（有 Phase 流程、有代码产出）才进 `wiki/projects/`。**判断规则：** 问自己"这个东西有 overview.md + constitution.md + changes/ 吗？"没有 → syntheses。
+31. **调研报告写入 raw/projects/（2026-05-25 教训，第 2 次）** — 分析报告、调研结论、方法论对比 = 知识积累 → `wiki/syntheses/`。只有真正的项目（有 Phase 流程、有代码产出）才进 `raw/projects/`。**判断规则：** 问自己"这个东西有 overview.md + constitution.md + changes/ 吗？"没有 → syntheses。
 32. **frontmatter 版本号不更新** — 每次 patch SKILL.md 必须同步更新 frontmatter `version` 字段和版本历史行。版本号不一致 = 维护失职。
 33. **CSS `backdrop-filter` 创建 containing block（2026-05-25 教训）** — 给元素加 `backdrop-filter: blur()` 会让该元素成为 `position:fixed` 子元素的 containing block，导致 fixed 定位相对于该元素而非视口。**症状：** 弹出菜单/弹窗用了 `position:fixed` + `clientX/clientY` 但位置偏移。**修复：** 移除 backdrop-filter 改用不创建 CB 的半透明背景（`background: rgba(255,255,255,0.85)`），或将弹出元素用 Teleport 渲染到 `document.body`。
 34. **tester 只读代码判 PASS（2026-05-25 教训）** — tester 读了修改后的文件就 `kanban_complete(summary="approved")`，没有用浏览器实际验证任何 UI 效果。大佬测试后发现 3/5 项未修复。**根因：** review 卡 body 写了"用 curl 验证""检查 pm2 日志"但没有强制浏览器截图。**规则：** UI 项目的 tester review spec 必须包含 `必须用浏览器工具实际访问页面，截图验证每个验收标准`。如果 tester 没有浏览器工具，escalate 给灵犀安排手动验证。review 卡 body 缺少"必须截图"= 流程违规。
 35. **tester 修改 .env 文件（2026-05-26 教训）** — tester 在验证过程中尝试登录，发现密码不对后直接修改 `.env` 文件重置密码 hash。即使 task body 写了"禁止修改 .env"，tester 仍执行了 `cat .env` + `patch .env`。**根因：** task body 的禁止规则是软约束，tester 的 SOUL.md 没有对应硬性规则。**修复：** tester SOUL.md 已添加"⛔ 绝对禁止修改 .env/config.yaml"规则。**灵犀的 post-review 检查：** tester 完成后，`grep` 检查 `.env` 文件 mtime 是否被修改。
 36. **手动改 .env 密码 hash 格式错误（2026-05-26 教训）** — 大佬手动将 `.env` 中 `ADMIN_PASSWORD_HASH` 改为 MD5 格式（`e10adc3949ba59abbe56e057f20f883e`），但代码用 `bcrypt.compare()` 验证，需要 bcrypt 格式（`$2b$10$...`，60 位）。MD5 永远无法通过 bcrypt 验证。**通用规则：** 修改 `.env` 中的密码 hash 前，先查代码确认 hash 算法（bcrypt/argon2/sha256），再用对应算法生成。**快速验证：** `node -e "import('bcrypt').then(b=>b.compare('plaintext','***'))"` 返回 `true` 才算对。
-37. **Context File Pattern 执行残留（2026-05-26 教训）** — kanban task 的 bugfix spec 文件（`TODO_SPEC.md`、`TODO_SPEC_V2.md`）写到了项目根目录（`/opt/Workspace/`），没有归档到 `wiki/projects/<项目>/changes/` 下。**根因：** spec 文件是给 coder 用的临时 context，用完后无人清理。**规则：** Phase 8 bugfix spec 完成后，灵犀必须检查项目根目录是否有 `*SPEC*`、`*TODO*`、`*bugfix*` 等临时文件残留，有则移入 `wiki/projects/<项目>/changes/<变更名>/` 归档。
+37. **Context File Pattern 执行残留（2026-05-26 教训）** — kanban task 的 bugfix spec 文件（`TODO_SPEC.md`、`TODO_SPEC_V2.md`）写到了项目根目录（`/opt/Workspace/`），没有归档到 `raw/projects/<项目>/changes/` 下。**根因：** spec 文件是给 coder 用的临时 context，用完后无人清理。**规则：** Phase 8 bugfix spec 完成后，灵犀必须检查项目根目录是否有 `*SPEC*`、`*TODO*`、`*bugfix*` 等临时文件残留，有则移入 `raw/projects/<项目>/changes/<变更名>/` 归档。
 38. **CodeWhale ACP 替代 coder（2026-05-27 验证通过）** — CodeWhale ACP 可以替代 clsh-project 的 coder 角色。**集成方式：** `delegate_task(acp_command="/usr/local/bin/codewhale", toolsets=["file", "terminal"])`。**角色分工：** coder/artist → CodeWhale ACP，tester → Hermes subagent（需要浏览器工具和独立性）。**性能：** 3 个 bug 修复 = 156 秒。**注意：** task body 必须写绝对路径（wiki 路径、代码路径），不要让 CodeWhale 自己搜索（search_files 工具有局限）。详见 `codewhale-workflow` skill。
 
 ### 执行纪律（置信度 0.5-0.9）
@@ -425,6 +476,9 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 ### UI 设计（置信度 0.9）
 55. **跳过 Open Design 知识包加载（2026-05-29 教训）** — 灵犀手写 HTML 颜色/间距/排版，没有加载 `/opt/open-design/design-systems/<name>/tokens.css` 的设计变量。大佬对比后确认 Open Design 版本远优于手写版。**根因：** 灵犀觉得"简单任务不需要加载设计系统"。**规则：** Phase 3 设计发散流程中，加载 Open Design 知识包是**强制步骤**，不论项目大小。至少读取 `tokens.css`（CSS 变量）和 `craft/anti-ai-slop.md`（质量底线）。**验证：** 检查 HTML 文件中是否有 `var(--*)` 引用，是否有硬编码颜色值 | **触发：** 任何 UI 项目 Phase 3
 
+### LLM 依赖审查（置信度 0.9）
+70. **推荐外部机制不检查 LLM 依赖度（2026-06-02 教训）** — 调研 Harness/Superpowers 后推荐了"多视角 Review"和"Review 分级"，两者都高度依赖 LLM 判断（区分严重性、判断任务复杂度）。被大佬用"LLM 能力无关性原则"纠正后才撤回。**根因：** 评估外部框架时只看"是否更先进"，没先过"LLM 依赖度测试"。**规则：** 推荐任何外部机制前，必须先回答"LLM 能力下降 50% 时，这个机制是静默失败还是显式阻断？"。静默失败 → 不得用于流程控制。详见 `references/methodology/external-framework-evaluation.md`。| **验证：** 推荐内容是否附带 LLM 依赖度分析 | **触发：** 调研/评估外部框架、工具、方法论
+
 ### 自进化机制（置信度 0.5-0.7）
 51. **LLM 自评不可靠（2026-05-29 SkillLens 论文）** — 单 LLM 评委评估 skill 质量准确率仅 46.4%（接近随机）。加 meta-skill 维度后提升到 73.8%。**规则：** SKILL.md 评分必须用独立子 agent（不是灵犀自己），且每轮换新评委（避免锚定效应）。**验证：** 检查评分是否由独立 agent 完成 | **触发：** 任何 Darwin 优化循环
 52. **维度关联簇（2026-05-29 花叔 40 次实验）** — 改一个评分维度时，关联维度会意外提升。Dim2/3/4 是结构簇（工作流清晰度/失败模式编码/检查点设计），Dim5/9 是具体性簇。**规则：** 优化时先改簇内最低维度，带动其他维度一起涨。不要一轮改多个维度（反模式 #5）。**验证：** 检查是否只改了一个维度 | **触发：** Darwin 优化循环
@@ -437,16 +491,29 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 52. **跳过 Phase 3 设计发散直接手写 HTML（2026-05-29 教训）** — 灵犀创建 MoviePilot HTML 模板时没有加载 open-design 知识包，手写了"自己觉得可以"的 HTML。大佬反馈"效果一般"。**正确流程（Phase 3）：** (1) 加载 `/opt/open-design/design-systems/<name>/tokens.css` + `DESIGN.md`；(2) 加载 `craft/anti-ai-slop.md` + `craft/state-coverage.md` 质量标准；(3) 渲染 2-3 个变体供用户选择；(4) 用户确认后写入 constitution。**反例：** 手写 CSS 变量（颜色/间距自编）→ 用户说"效果一般"。**正例：** 加载 Glassmorphism tokens → 3 套变体对比 → 用户选 Glass → 效果显著提升。**规则：** 任何 UI 项目必须走 Phase 3 设计发散，禁止跳过直接写 HTML。
 53. **子 agent 并行写共享文件导致冲突（2026-05-29 教训）** — 3 个 delegate_task 子 agent 并行创建 HTML 模板时，每个都重写了 tokens.css（各自风格不同：暗色/亮色/自定义），导致最终文件被覆盖为错误版本。**规则：** 共享资源文件（tokens.css、公共样式）由灵犀直接写入，不在子 agent 的 task 范围内。子 agent 只写各自独立的文件。**验证：** 子 agent 完成后检查共享文件的 mtime 和内容是否被修改。
 57. **Skill 删除会连带删除 scripts/ 目录（2026-05-31 教训）** — `skill_manage(action='delete')` 会删除整个 skill 目录，包括 `scripts/`、`references/` 等子目录。如果脚本被其他组件（如插件）引用，删除 skill 会导致脚本丢失。**反例：** 删除 moviepilot skill 时，mp_render.py 脚本被一起删除，mp-command 插件调用失败。**规则：** 删除 skill 前，必须检查是否有脚本/文件被其他组件引用，有则先备份/迁移。**验证：** 删除后 `find ~/.hermes -name "<script_name>"` 确认脚本是否还在。**补充：** `skill_manage(action='delete', absorbed_into=<target>)` 的 target 必须是已存在的 skill，不能是 plugin。
-59. **Phase 8 每轮必须记录测试结果（2026-05-31 教训）** — 大佬测试反馈后，必须在 `wiki/projects/<项目>/changes/<变更名>/test-log.md` 中记录：(1) 测试结果列表 (2) 根因分析 (3) 修复内容 (4) 流程违规（如有）。Round 1 测试未记录 → Round 3 大佬问"有没有记录每次测试结果" → 才开始写。**规则：** 每轮 Phase 8 反馈的第一件事是更新 test-log.md，不是分析代码。| 验证：检查 test-log.md 是否有本轮记录 | 触发：大佬说"测试结果"/"反馈"
+59. **Phase 8 每轮必须记录测试结果（2026-05-31 教训）** — 大佬测试反馈后，必须在 `raw/projects/<项目>/changes/<变更名>/test-log.md` 中记录：(1) 测试结果列表 (2) 根因分析 (3) 修复内容 (4) 流程违规（如有）。Round 1 测试未记录 → Round 3 大佬问"有没有记录每次测试结果" → 才开始写。**规则：** 每轮 Phase 8 反馈的第一件事是更新 test-log.md，不是分析代码。| 验证：检查 test-log.md 是否有本轮记录 | 触发：大佬说"测试结果"/"反馈"
 60. **Phase 8 禁止灵犀分析根因再告诉 CodeWhale（2026-05-31 教训）** — 灵犀分析了 tab 状态管理、Bearer token、cookie domain 等根因，然后写具体修改方案给 CodeWhale。大佬指出"违规直接分析让coder修复，不是定目标和上下文发送路径给codewhale分析修复"。**规则（Way C 铁律）：** delegate_task 给 CodeWhale 时只给：(1) 大佬反馈的现象（1-2 句话）(2) 相关文件路径 (3) bugfix spec 路径 (4) 验证命令。❌ 不该给：根因分析、具体修改方案、行号级指令。✅ 该给："大佬说 tab 点击没反应，显示未知标签页。相关文件：/opt/Workspace/src/projects/moviepilot/public/MovieView.mjs。请先读代码自己分析根因。" | 验证：delegate_task context 是否包含实现细节 | 触发：Phase 8 派 CodeWhale 修复
 61. **外部 API 集成必须先查 OpenAPI spec（2026-05-31 教训）** — 代理调 MoviePilot API 返回 404。灵犀假设端点是 `/api/v1/tools/call`，实际 MoviePilot 的 OpenAPI spec 在 `http://host:port/api/v1/openapi.json`，确认端点是 `/api/v1/mcp/tools/call`，推荐用 `/api/v1/recommend/tmdb_movies` 等 REST 端点。认证方式也不是 JWT，而是 `X-API-KEY` header。**规则：** 集成外部 API 时，第一步是 `curl http://host:port/api/v1/openapi.json` 获取完整端点列表和认证方式。不要假设端点路径。| 验证：检查代理是否调了正确的端点 | 触发：外部 API 集成
 62. **GET vs POST handler 不匹配（2026-06-01 教训，5 轮排查）** — token URL 是浏览器 GET 请求，但 plugin 只有 POST handler。症状是"点击链接后仍然显示登录页"，所有周边修复（cookie/domain/API）都无效。**根因：** 没人检查"GET 请求是否有对应的 handler"。**规则：** 端到端调试时，第一步验证"请求是否到达了 handler"（`grep -n "fastify.get\|fastify.post" plugin.mjs`），而不是"handler 内部逻辑是否正确"。浏览器点击 = GET，API 调用 = POST，两者需要分别有 handler。| 验证：curl -v 检查 HTTP method 和响应状态码 | 触发：token/链接/深链接类功能
 64. **fetch 缺少 credentials 导致 session cookie 丢失（2026-06-01 教训）** — Workspace 子模块的 Vue 前端用 `fetch()` 调用同域 Fastify API，但没加 `credentials: 'include'`。token 自动登录成功设置了 session cookie，但后续 API 请求不带 cookie → authGuard 返回 401 "未登录" → UI 无内容。**症状：** "API 通了但界面没有内容"，curl 带 cookie 能拿到数据。**根因：** 默认 `fetch` 的 `credentials` 是 `same-origin`，但某些浏览器/场景下（跨子路径、非简单请求）仍不自动发送 cookie。**规则：** Workspace 子模块的前端 `apiGet`/`apiPost`/`apiDelete` helper 必须加 `credentials: 'include'`。**验证：** 浏览器 DevTools → Network → 检查请求头是否带 `Cookie` | **触发：** 任何 Fastify session 认证 + 前端 fetch 的组合
 65. **自构造 URL 忽略 API 返回的 url 字段（2026-06-01 教训）** — `/mp` 命令插件调 token API 获取 token 后，自己拼 URL 为 `{BASE_URL}/?token={token}`，但 token API 返回了正确的 `url` 字段（`/api/moviepilot?token=xxx`）。自构造的根路径没有 token handler → 点击链接仍显示登录页。**规则：** 生成带 token/参数的 URL 时，优先使用 API 响应中的 `url` 字段拼接 `BASE_URL`，不要自己构造路径。自构造只在 API 不返回 url 时作为 fallback。**验证：** 对比生成的 URL 和实际 handler 注册路径（`grep fastify.get plugin.mjs`）| **触发：** 任何"调 API 获取 token → 生成链接"的流程
-64. **fetch 缺少 credentials 导致 session cookie 丢失（2026-06-01 教训）** — Workspace 子模块的 Vue 前端用 `fetch()` 调用同域 Fastify API，但没加 `credentials: 'include'`。token 自动登录成功设置了 session cookie，但后续 API 请求不带 cookie → authGuard 返回 401 "未登录" → UI 无内容。**症状：** "API 通了但界面没有内容"，curl 带 cookie 能拿到数据。**根因：** 默认 `fetch` 的 `credentials` 是 `same-origin`，但某些浏览器/场景下（跨子路径、非简单请求）仍不自动发送 cookie。**规则：** Workspace 子模块的前端 `apiGet`/`apiPost`/`apiDelete` helper 必须加 `credentials: 'include'`。**验证：** 浏览器 DevTools → Network → 检查请求头是否带 `Cookie` | **触发：** 任何 Fastify session 认证 + 前端 fetch 的组合
+66. **知识复利的关键是注入不是记录（2026-06-02 大佬纠正）** — 创建 solutions/ 目录、写 raw fix 记录、打 tags — 这些都是"记录"。真正的价值是**在正确的时间点注入到正确的项目**。如果新项目不会去看其他项目的 solutions，记录再多也没用。**规则：** 知识管理系统的设计重心是"注入机制"（Phase 0 匹配、worker context 注入、review 时参考），不是"记录机制"（目录结构、模板、tagging）。记录是手段，注入是目的。| **触发：** 设计任何知识/经验/教训管理系统时
+67. **路径迁移必须全系统扫描（2026-06-02 教训）** — wiki/projects/ → raw/projects/ 迁移时，初始只改了 clsh-project skill（70 处），但还有 15+ 个文件受影响：wiki-lint.py、kanban-tasks-bridge.py、Workspace/AGENTS.md、6 个 SKILL.md、cron jobs.json。**规则：** 路径迁移后必须全系统 grep：`grep -rn "旧路径" /opt/Workspace/scripts/ /root/.hermes/skills/ /root/.hermes/cron/jobs.json /opt/Workspace/AGENTS.md`。不要只改 skill 文件。| **触发：** 任何目录/路径重命名或迁移
+66. **知识复利的核心是注入不是记录（2026-06-02 教训）** — 记录 solution 到 wiki/solutions/ 只是手段，真正价值在于 Phase 0 按 tech/domain 匹配自动注入到新项目。如果只是存档没人看，和 ERRORS.md 没区别。**规则：** (1) raw fix 记录必须有 tags（domain/tech/error-type/reusability）；(2) Phase 7 ingest 必须判断 reusability；(3) Phase 0 必须读 INDEX.md 匹配注入。三个环节缺一不可。| **验证：** 新项目启动时是否有 solutions 注入 | **触发：** Phase 0、Phase 7
+67. **关联 ≠ 显式调用（2026-06-02 教训）** — clsh-project 的 related_skills 列表引用了 requesting-code-review、code-principles、diagnose 等 skill，但 Phase 6/8 的 workflow 步骤没有写"加载 xxx skill 执行"。skill 存在但流程不触发 = 形同虚设。**规则：** 流程步骤中引用 skill 必须写"加载 `xxx` skill 执行"，不能只在 related_skills 挂名。| **验证：** Phase 6 Step 5/6、Phase 8 诊断是否有显式 skill 加载指令 | **触发：** clsh-project 流程修改
+68. **自动化日志不属于 wiki/syntheses/（2026-06-02 审计发现）** — observer 巡检日志、patrol 报告等自动生成的周期性文件是原始产出，不是编译知识。52 个 syntheses 文件中 18 个是 observer 日志。**规则：** 自动生成的周期报告 → `raw/04-session_logs/`；人工分析综合的报告 → `wiki/syntheses/`。| **验证：** `ls wiki/syntheses/observer-*` 应该返回 0 结果 | **触发：** 写入 wiki/syntheses/ 前 — Workspace 子模块的 Vue 前端用 `fetch()` 调用同域 Fastify API，但没加 `credentials: 'include'`。token 自动登录成功设置了 session cookie，但后续 API 请求不带 cookie → authGuard 返回 401 "未登录" → UI 无内容。**症状：** "API 通了但界面没有内容"，curl 带 cookie 能拿到数据。**根因：** 默认 `fetch` 的 `credentials` 是 `same-origin`，但某些浏览器/场景下（跨子路径、非简单请求）仍不自动发送 cookie。**规则：** Workspace 子模块的前端 `apiGet`/`apiPost`/`apiDelete` helper 必须加 `credentials: 'include'`。**验证：** 浏览器 DevTools → Network → 检查请求头是否带 `Cookie` | **触发：** 任何 Fastify session 认证 + 前端 fetch 的组合
 65. **自构造 URL 忽略 API 返回的 url 字段（2026-06-01 教训）** — `/mp` 命令插件调 token API 获取 token 后，自己拼 URL 为 `{BASE_URL}/?token={token}`，但 token API 返回了正确的 `url` 字段（`/api/moviepilot?token=xxx`）。自构造的根路径没有 token handler → 点击链接仍显示登录页。**规则：** 生成带 token/参数的 URL 时，优先使用 API 响应中的 `url` 字段拼接 `BASE_URL`，不要自己构造路径。自构造只在 API 不返回 url 时作为 fallback。**验证：** 对比生成的 URL 和实际 handler 注册路径（`grep fastify.get plugin.mjs`）| **触发：** 任何"调 API 获取 token → 生成链接"的流程
+66. **知识复利的关键是注入不是记录（2026-06-02 大佬纠正）** — 创建 solutions/ 目录、写 raw fix 记录、打 tags — 这些都是"记录"。真正的价值是**在正确的时间点注入到正确的项目**。如果新项目不会去看其他项目的 solutions，记录再多也没用。**规则：** 知识管理系统的设计重心是"注入机制"（Phase 0 匹配、worker context 注入、review 时参考），不是"记录机制"（目录结构、模板、tagging）。记录是手段，注入是目的。| **触发：** 设计任何知识/经验/教训管理系统时
+67. **路径迁移必须全系统扫描（2026-06-02 教训）** — wiki/projects/ → raw/projects/ 迁移时，初始只改了 clsh-project skill（70 处），但还有 15+ 个文件受影响：wiki-lint.py、kanban-tasks-bridge.py、Workspace/AGENTS.md、6 个 SKILL.md、cron jobs.json。**规则：** 路径迁移后必须全系统 grep：`grep -rn "旧路径" /opt/Workspace/scripts/ /root/.hermes/skills/ /root/.hermes/cron/jobs.json /opt/Workspace/AGENTS.md`。不要只改 skill 文件。| **触发：** 任何目录/路径重命名或迁移
 63. **CodWhale 网络请求超时模式（2026-06-01 教训）** — CodWhale 在 curl 到局域网 IP（如 192.168.0.71:3001）时反复超时 600s，即使 ping 可达。**规则：** (1) 代码修改和网络测试必须分开派发，不要让 CodWhale 做"读代码 + curl 测试 + 修复"一体化任务；(2) 网络验证用主 agent 的 terminal 或 Hermes subagent；(3) CodWhale 擅长纯代码修改（读文件→patch），不擅长需要网络验证的任务。| 验证：检查 delegate_task 是否包含 curl 到外部 IP 的命令 | 触发：Phase 8 派 CodWhale 修复含网络调用的任务
+64. **知识复利分析停留在记录层（2026-06-02 教训）** — 分析知识复利机制时只关注"怎么记录、记在哪"，没有回答"怎么在正确时间注入到正确项目"。**大佬纠正：** "主要点是记录下来这些东西，如何在项目上起到作用，或者在其他项目上达到复利的作用"。**规则：** 分析任何知识管理方案时，必须回答三个问题：(1) 记什么（内容格式）；(2) 在哪注入（Phase/步骤）；(3) 怎么匹配（tagging/filtering）。只回答 (1) 不回答 (2)(3) = 分析不完整。详见 `references/methodology/compound-knowledge-architecture.md`。| 验证：检查方案是否包含注入时机和匹配机制 | 触发：任何知识管理/复利/ingest 相关讨论
+65. **关联 skill ≠ 显式调用（2026-06-02 教训）** — clsh-project 的 related_skills 列表包含了 requesting-code-review、code-principles、diagnose 等 skill，但 Phase 6/8 的 workflow 步骤没有写"加载 X skill 执行"。结果：skill 存在但从未被流程显式触发。**规则：** 如果某个 Phase 步骤应该使用特定 skill，必须在 workflow 文件的对应步骤中写"⚠️ 加载 `xxx` skill 执行"，不能只在 related_skills 挂名。Verification Checklist 必须包含 skill 加载检查项。| 验证：检查 Phase N 步骤是否有显式 skill 加载指令 | 触发：新增或修改 Phase 流程步骤
 58. **Phase 1 需求澄清必须先捋清使用场景（2026-05-31 教训）** — 灵犀在 Phase 1 直接问 UI 风格偏好，大佬纠正"不应该先捋清楚使用场景，才好定义交互操作和 UI 优化方向吗"。**规则：** Phase 1 需求澄清顺序：(1) 使用场景（谁用、什么设备、什么场景）→ (2) 核心功能（优先级排序）→ (3) 交互操作（怎么操作）→ (4) UI 风格（怎么展示）。**禁止：** 跳过使用场景直接问 UI 风格/技术方案。**反例：** 直接问"你希望什么风格？"→ 大佬纠正。**正例：** 先问"你主要在什么设备上用？手机还是电脑？"→ 再问"最常用的场景是什么？"→ 最后问"UI 风格偏好？"
+
+69. **wiki-lint.py 必须适配目录结构变更（2026-06-02 教训）** — 任何 wiki 目录结构变更后，必须检查并更新 wiki-lint.py 的扫描范围和质量检查规则。详见 obsidian-operations skill 的 `references/wiki-lint-raw-adaptation.md`。
+70. **Node.js fetch() 在某些网络环境挂起，http.request 正常（2026-06-02 教训）** — Node.js 全局 `fetch()`（基于 undici）在某些局域网环境下会因 HTTP/2 协议协商挂起，而 `node:http` 的 `request()` 使用 HTTP/1.1 正常工作。**症状：** TCP 端口开放（nc/bash /dev/tcp 通），但 curl/fetch/node 超时。**修复：** 改用 `http.request()` 替代 `fetch()`。**验证：** `python3 -c "import http.client; ..."` 和 `node http.request()` 能通但 `curl` 超时 = 此 bug。| **触发：** 代理层 fetch() 到局域网服务超时但 TCP 端口可达时
+71. **MoviePilot REST API vs MCP 认证方式不同（2026-06-02 教训）** — MoviePilot REST API（`/api/v1/*`）需要 Bearer token（通过 `/api/v1/login/access-token` 登录获取），不接受 X-API-KEY。MCP endpoint（`/api/v1/mcp/*`）接受 X-API-KEY。**搜索用 MCP（返回 TMDB 媒体信息），其他用 REST API（推荐/订阅/下载）。** `search/title` 是种子搜索（返回 meta_info 结构），不是媒体搜索。详见 `raw/projects/moviepilot/changes/2026-06-01-phase8-round2/bugfix-spec.md`。| **触发：** MoviePilot API 集成
+72. **诊断代理问题时先确认目标服务自身是否正常（2026-06-02 教训）** — 大佬说"MoviePilot 前端 TMDB 是通的"，说明问题在代理层不在目标服务。**诊断顺序：** (1) 目标服务自身功能是否正常 → (2) 代理层认证是否正确 → (3) 代理层网络是否可达 → (4) 协议/格式是否匹配。不要跳过第 1 步直接排查网络。| **触发：** 代理/API 集成报错时
 
 ## Verification Checklist（每次使用此 skill 前）
 
@@ -459,15 +526,20 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 - [ ] 确认 tasks.md 中每个 Task 有验收标准 + 完整代码（无 TBD/TODO）
 - [ ] 确认代码任务已派给 coder/artist，不是灵犀直接写
 - [ ] 确认每个 Task 有 tester 卡
-- [ ] 确认 Phase 6 有 Security Scan 步骤
+- [ ] 确认 Phase 6 Security Scan 已加载 `requesting-code-review` skill 执行
+- [ ] 确认 Phase 6 Quality Review 已加载 `code-principles` skill 执行
+- [ ] 确认 Phase 8 诊断已加载 `diagnose` skill 执行 6 阶段
 - [ ] 确认 UI 项目 Phase 6 tester 卡包含 Browser QA 检查清单（必须含"截图验证"字样）
 - [ ] 确认 agent 派发 context 包含 Pre-Commit 安全自检清单
 - [ ] 确认 Phase 8 反馈走流程而非"顺手修了"
 - [ ] 确认 Auto-Fix 不超过 2 轮后 escalate
 - [ ] 确认每个 kanban task body 包含 proposal 相关章节 + constitution 约束 + 不在范围内声明
 - [ ] 确认 Phase 1 中大佬描述现有行为时已代码交叉验证
-- [ ] 确认满足条件的架构决策已记录为 ADR（wiki/projects/<项目名>/docs/adr/）
+- [ ] 确认满足条件的架构决策已记录为 ADR（raw/projects/<项目名>/docs/adr/）
 - [ ] 确认新增子模块已读 AGENTS.md 并按其目录结构规范创建文件（pitfall #43）
+- [ ] 确认每个 Task 的 checkpoint 包含 Spec Delta 字段（列出变更点或"无变更"）
+- [ ] 确认 review 卡 body 包含完整 Review Checklist 模板（5 维度逐项填写）
+- [ ] 确认每个 Phase 完成后输出 Session Launch Guidance（下一步命令 + session 建议）
 
 ### 验证合规（Layer 2 — 2026-05-29 新增）
 - [ ] 确认声称"完成/修复/通过"前已走完 5 步验证函数（铁律 #14）
@@ -481,8 +553,9 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
-| v5.11.0 | 2026-06-01 | **fetch credentials + URL 自构造陷阱**：新增 pitfall #64（fetch 缺少 `credentials: 'include'` 导致 session cookie 丢失，API 返回 401 但 UI 无报错）和 #65（自构造 URL 忽略 API 返回的 url 字段，导致 token 链接指向无 handler 的路径）。两坑均来自 MoviePilot Phase 8 Round 2。 |
-| v5.11.0 | 2026-06-01 | **fetch credentials + URL 自构造陷阱**：新增 pitfall #64（fetch 缺少 `credentials: 'include'` 导致 session cookie 丢失，API 返回 401 但 UI 无报错）和 #65（自构造 URL 忽略 API 返回的 url 字段，导致 token 链接指向无 handler 的路径）。两坑均来自 MoviePilot Phase 8 Round 2。更新 workspace-sub-module-pattern.md 新增 credentials 注意事项。 |
+| v5.13.0 | 2026-06-02 | **LLM 能力无关性原则 + Harness/Superpowers 对比落地**：(1) 新增核心设计原则 — 流程控制不依赖 LLM 判断力，判断力分三类（机械/大佬/LLM）；(2) Phase 6 新增 Review Checklist 模板（5 维度：功能验证、Spec 对齐、回归检查、安全检查、UI 检查），tester 逐项填写 PASS/FAIL + 证据；(3) Phase 6 Checkpoint 新增 Spec Delta 必填字段（列出实现与 proposal.md 的偏差或"无变更"）；(4) 新增 Session Launch Guidance（每个 Phase 完成后输出下一步命令 + session 建议）；(5) Verification Checklist 新增 3 项检查。灵感来源：claude-code-harness（Spec Delta + Review Checklist）+ Superpowers v5.1.0（inline review 教训 → 不采纳，保留独立 tester）。 |
+| v5.12.0 | 2026-06-02 | **知识复利系统 + Review skill 显式调用 + wiki-lint 适配**：(1) wiki/projects/ 整体迁移至 raw/projects/，新增 wiki/solutions/ 跨项目方案库；(2) Phase 0 新增 Step B 跨项目知识注入（读 solutions/INDEX.md 按 tech/domain 匹配）；(3) Phase 6 微蒸馏升级：技术类问题写 raw fix 记录到 raw/projects/；(4) Phase 7 新增 Step 9 触发 Solutions Ingest（raw → wiki/solutions/ 编译）；(5) Phase 8 归档新增 raw fix 记录写入；(6) SCHEMA.md 新增 solutions tag taxonomy（domain/tech/error-type/reusability）；(7) Phase 6 Step 5/6 显式加载 `requesting-code-review` + `code-principles` skill；Phase 8 诊断显式加载 `diagnose` skill；(8) Verification Checklist 新增 3 项 skill 加载检查；(9) 10 个存量技术 pitfalls 迁移为 solutions；(10) 新增 pitfall #66-69（知识复利注入/全系统扫描/显式调用/wiki-lint 适配）。灵感来源：CE compound-engineering plugin。 |
+| v5.11.0 | 2026-06-01 | **fetch credentials + URL 自构造陷阱**：新增 pitfall #64（fetch 缺少 `credentials: 'include'` 导致 session cookie 丢失）和 #65（自构造 URL 忽略 API 返回的 url 字段）。 |
 | v5.10.1 | 2026-06-01 | **GET handler 缺失 + CodWhale 网络超时**：新增 pitfall #62（GET vs POST handler 不匹配，5 轮排查才找到）和 #63（CodWhale curl 到局域网 IP 超时 600s，必须拆分代码修改和网络测试）。 |
 | v5.10.0 | 2026-05-31 | **Phase 8 测试记录 + Way C 铁律 + 外部 API 集成**：新增 pitfall #59（Phase 8 每轮必须记录测试结果到 wiki test-log.md）、#60（禁止灵犀分析根因再告诉 CodeWhale，必须给目标+路径让 CodeWhale 自己分析）、#61（外部 API 集成必须先查 OpenAPI spec 确认端点和认证方式）。 |
 | v5.9.0 | 2026-05-31 | **Skill 删除陷阱 + 需求澄清顺序**：新增 pitfall #57（skill_manage delete 会连带删除 scripts/ 目录，删除前必须检查脚本是否被其他组件引用）和 #58（Phase 1 需求澄清必须先捋清使用场景再问 UI 风格，顺序：使用场景→核心功能→交互操作→UI 风格）。 |
@@ -527,10 +600,13 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 - `references/methodology/soul-md-behavioral-enforcement.md` — **SOUL.md 行为约束：Karpathy + Superpowers 融合方案**（交付门禁、目标转换、防辩解表）
 - `references/methodology/verification-and-ratchet.md` — **验证框架与棘轮机制**（5步验证函数、防辩解表、置信度评分、质量评分器）
 - `references/methodology/darwin-ecc-evolution.md` — **Darwin + ECC 自进化方法论**（9 维 rubric、维度关联簇、执行审计器、反模式黑名单）
+- `references/methodology/knowledge-compounding-architecture.md` — **知识复利架构**（raw → wiki/solutions 管道、tagging 机制、Phase 0 注入、CE 借鉴分析）
+- `references/methodology/external-framework-evaluation.md` — **外部框架评估方法论**（LLM 依赖度测试、三源对比框架、判断力归属分类、ADR 决策模板）
 - `references/methodology/evolution-log.md` — **棘轮进化日志**（每次 patch 后的结构评分记录）
 
 ### 📋 模板
 - `references/templates/constitution-template.md` — Constitution 模板
+- `references/templates/raw-fix-template.md` — **Raw Fix 记录模板**（Phase 6/8 修复时随手记录，ingest 编译为 solutions）
 - `references/templates/archive-workflow.md` — Phase 7 归档操作手册
 - `references/templates/phase7-archive-checklist.md` — 归档快速检查清单
 - `references/templates/context-template.md` — **CONTEXT.md 领域术语表模板**（Phase 1 自然积累）
@@ -557,6 +633,7 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 - `references/integration/halo-auth.md` — Halo 认证
 - `references/integration/reference-migration-pattern.md` — Reference 迁移模式
 - `references/integration/fastify-url-port.md` — **Fastify URL/端口获取**（req.headers.host 正确用法）
+- `references/integration/moviepilot-api-notes.md` — **MoviePilot API 集成笔记**（REST vs MCP 认证、搜索 vs 种子、http.request 替代 fetch）
 - `references/workspace-sub-module-pattern.md` — **Workspace 子模块开发模式**（目录结构、双静态根、Hermes CLI 非交互式、Phase 8 多点反馈处理）
 
 ### ⚠️ 教训（流程违规案例）
@@ -566,8 +643,8 @@ Phase 2.5 Spike 是可选的，仅在技术不确定时触发。
 - `references/pitfalls/phase8-context-management.md` — Phase 8 上下文管理
 
 ### 📂 项目专属（wiki）
-- `wiki/projects/obsidian-workbench/references/pitfalls/` — ESM/CSS/Markdown/部署陷阱
-- `wiki/projects/clsh-content/references/integration/` — Halo + Obsidian 参考
+- `raw/projects/obsidian-workbench/references/pitfalls/` — ESM/CSS/Markdown/部署陷阱
+- `raw/projects/clsh-content/references/integration/` — Halo + Obsidian 参考
 
 ### 流程说明
 各 Phase 详细流程见 `references/workflow/` 目录。

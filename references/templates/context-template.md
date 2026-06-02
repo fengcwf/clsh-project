@@ -34,7 +34,7 @@ _Avoid_: {同义词}
 
 ## 文件位置
 
-`wiki/projects/<项目名>/source-of-truth/context.md`
+`raw/projects/<项目名>/source-of-truth/context.md`
 
 ## 与其他文档的关系
 

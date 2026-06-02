@@ -11,7 +11,7 @@
 ### 文件位置
 
 ```
-wiki/projects/<项目名>/
+raw/projects/<项目名>/
 ├── overview.md
 ├── source-of-truth/
 │   ├── constitution.md
@@ -93,7 +93,7 @@ project: "[项目名]"
 
 5. **大佬选择方向 + 修改意见** → 将设计方向写入 constitution.md 的 UI 约束章节
 
-6. **记录设计 ADR（满足条件时）** — 如果选择的设计方向满足 ADR 三条件（难逆转 + 令人意外 + 有真实取舍），记录到 `wiki/projects/<项目名>/docs/adr/`。模板：`references/templates/adr-template.md`
+6. **记录设计 ADR（满足条件时）** — 如果选择的设计方向满足 ADR 三条件（难逆转 + 令人意外 + 有真实取舍），记录到 `raw/projects/<项目名>/docs/adr/`。模板：`references/templates/adr-template.md`
 
 7. **如果大佬不满意** → 迭代修改 HTML mockup，重复 4-5
 
@@ -158,7 +158,7 @@ project: "[项目名]"
 
 自检通过后，向大佬确认：
 
-> "设计文档已写入 `wiki/projects/<项目名>/changes/<变更名>/`，请 review。确认无误后我开始写实现计划。"
+> "设计文档已写入 `raw/projects/<项目名>/changes/<变更名>/`，请 review。确认无误后我开始写实现计划。"
 
 **等待大佬确认后才进入 Phase 5。**
 
@@ -173,8 +173,8 @@ ls -la <声明路径>
 ```
 
 **Phase 3 写入验证清单：**
-- [ ] `proposal.md` 已写入 `wiki/projects/<项目名>/changes/<变更名>/` → `ls` 验证
-- [ ] `constitution.md` 已写入 `wiki/projects/<项目名>/source-of-truth/` → `ls` 验证
+- [ ] `proposal.md` 已写入 `raw/projects/<项目名>/changes/<变更名>/` → `ls` 验证
+- [ ] `constitution.md` 已写入 `raw/projects/<项目名>/source-of-truth/` → `ls` 验证
 - [ ] 文件大小 > 0（非空文件）
 
 **Phase 6 产出物验证清单：**
@@ -184,4 +184,4 @@ ls -la <声明路径>
 
 **⛔ 路径错误 = 流程违规，必须记 ERRORS.md**
 
-> ⚠️ **教训（2026-05-15）：** write_file 使用相对路径，文件落到 skill references/ 目录而不是 wiki/projects/ 目录。写入后未 `ls` 验证，导致虚假汇报。
+> ⚠️ **教训（2026-05-15）：** write_file 使用相对路径，文件落到 skill references/ 目录而不是 raw/projects/ 目录。写入后未 `ls` 验证，导致虚假汇报。

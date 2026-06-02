@@ -6,7 +6,7 @@
 
 **灵感来源：** Spec-Kit 的 CONSTITUTION.md + gstack 的角色约束
 
-**文件位置：** `wiki/projects/<项目名>/source-of-truth/constitution.md`
+**文件位置：** `raw/projects/<项目名>/source-of-truth/constitution.md`
 
 ## 何时创建
 

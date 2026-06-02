@@ -17,8 +17,8 @@
 
 ## 已迁移到 wiki 的文件（2026-05-21）
 以下文件已迁移到项目专属目录，不再存在于本地：
-- `trap-case-2026-05-20-share-html-and-emit.md` → `wiki/projects/obsidian-workbench/references/pitfalls/`
-- `trap-case-2026-05-21-round6-frontend-patterns.md` → `wiki/projects/obsidian-workbench/references/pitfalls/`
-- `trap-case-2026-05-21-round7-regex-dom-css.md` → `wiki/projects/obsidian-workbench/references/pitfalls/`
+- `trap-case-2026-05-20-share-html-and-emit.md` → `raw/projects/obsidian-workbench/references/pitfalls/`
+- `trap-case-2026-05-21-round6-frontend-patterns.md` → `raw/projects/obsidian-workbench/references/pitfalls/`
+- `trap-case-2026-05-21-round7-regex-dom-css.md` → `raw/projects/obsidian-workbench/references/pitfalls/`
 
 迁移模式详见：`references/integration/reference-migration-pattern.md`

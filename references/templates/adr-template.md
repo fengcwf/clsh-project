@@ -24,7 +24,7 @@
 
 ## 编号规则
 
-ADR 存放在 `wiki/projects/<项目名>/docs/adr/` 目录，按顺序编号：
+ADR 存放在 `raw/projects/<项目名>/docs/adr/` 目录，按顺序编号：
 - `0001-slug.md`
 - `0002-slug.md`
 

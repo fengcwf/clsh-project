@@ -64,7 +64,7 @@
 - ...
 ```
 
-**文件位置：** `wiki/projects/<项目名>/changes/<变更名>/spikes/NNN-question/`
+**文件位置：** `raw/projects/<项目名>/changes/<变更名>/spikes/NNN-question/`
 
 ### ⛔ Spike 铁律
 - **快速原型 ≠ 生产代码** — spike 代码写完就扔，不要"顺手合并"

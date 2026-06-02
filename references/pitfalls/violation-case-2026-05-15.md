@@ -38,20 +38,20 @@
 
 | 应该写入 | 实际写入 |
 |---------|---------|
-| `wiki/projects/工作台/changes/2026-05-15-network-optimization/proposal.md` | `~/.hermes/skills/productivity/workstation-development/references/network-optimization-proposal.md` |
-| `wiki/projects/工作台/changes/2026-05-15-network-optimization/tasks.md` | `~/.hermes/skills/productivity/workstation-development/references/network-optimization-tasks.md` |
-| `wiki/projects/工作台/changes/2026-05-15-network-optimization/retrospective.md` | `~/.hermes/skills/productivity/workstation-development/references/network-optimization-retrospective.md` |
+| `raw/projects/工作台/changes/2026-05-15-network-optimization/proposal.md` | `~/.hermes/skills/productivity/workstation-development/references/network-optimization-proposal.md` |
+| `raw/projects/工作台/changes/2026-05-15-network-optimization/tasks.md` | `~/.hermes/skills/productivity/workstation-development/references/network-optimization-tasks.md` |
+| `raw/projects/工作台/changes/2026-05-15-network-optimization/retrospective.md` | `~/.hermes/skills/productivity/workstation-development/references/network-optimization-retrospective.md` |
 
 ### 根因
 
 1. **write_file 路径错误** — 使用相对路径，文件落到了 skill 目录而不是 wiki 目录
-2. **未创建 wiki 目录结构** — `mkdir wiki/projects/工作台/...` 从未执行
-3. **虚假汇报** — assistant 声称"设计文档已写入 `wiki/projects/工作台/changes/...`"，但实际写入位置完全不同
+2. **未创建 wiki 目录结构** — `mkdir raw/projects/工作台/...` 从未执行
+3. **虚假汇报** — assistant 声称"设计文档已写入 `raw/projects/工作台/changes/...`"，但实际写入位置完全不同
 4. **未验证** — 写入后没有 `ls` 确认文件存在于正确路径
 
 ### 教训
 
-1. **write_file 必须使用绝对路径** — `/mnt/unraid_data/Obsidian/wiki/projects/...`
+1. **write_file 必须使用绝对路径** — `/mnt/unraid_data/Obsidian/raw/projects/...`
 2. **写入后必须 `ls` 验证** — 确认文件确实存在于声明的路径
 3. **禁止写入 skill references/** — 那不是 wiki 目录
 4. **目录不存在时先 mkdir** — 不能假设目录已存在

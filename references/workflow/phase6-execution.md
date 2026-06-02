@@ -87,12 +87,14 @@ Step 4: 灵犀验证 checkpoint
   └─ PASS ↓
   ↓
 Step 5: Security Scan（安全扫描）
-  硬编码密钥、SQL 注入、shell 注入、eval/pickle、路径遍历
+  ⚠️ 加载 `requesting-code-review` skill 执行安全扫描
+  检查项：硬编码密钥、SQL 注入、shell 注入、eval/pickle、路径遍历
   ├─ 有问题 → 派 fix agent → 重新 Step 5（最多 2 轮）
   └─ PASS ↓
   ↓
 Step 6: Quality Review（代码质量）
-  命名、DRY、错误处理、测试覆盖
+  ⚠️ 加载 `code-principles` skill 执行质量审查
+  检查项：命名、DRY、错误处理、测试覆盖、架构合理性
   ├─ 有问题 → 派 fix agent → 重新 Step 6（最多 2 轮）
   └─ PASS ↓
   ↓
@@ -143,12 +145,26 @@ Step B4: 创建 fix 卡（如需要）
 CHECKPOINT: <任务名称>
 产出物: <文件路径/内容摘要>
 自检: <是否满足验收标准>
+Spec Delta: <本 Task 是否改变了 proposal.md 中的定义？列出变更点或写"无变更">
 状态: PASS / FAIL
 如 FAIL: <具体问题描述>
 ```
 
+**Spec Delta 说明（2026-06-02 Harness 借鉴）：**
+- 这是**必填字段**，不得省略
+- "无变更" = 实现完全符合 proposal.md 设计
+- 有变更 = 列出具体变更点（如"接口签名从 GET 改为 POST"、"新增了 proposal.md 未定义的端点"）
+- 如果有变更，**必须同步更新 proposal.md**（不是"后面再补"）
+- 这是机械填空题 — 列出事实，不做"是否合理"的评估
+
 **🔬 微蒸馏（checkpoint 后必做，10 秒）：**
-回答三个问题，有任何"是"就 append 到 `~/.hermes/skills/productivity/project-wrap-up/learnings.md`（每 Task 最多 1 条，可操作措辞，格式：`- [日期 Task N] 内容`）：
+回答三个问题，有任何"是"就执行两步写入：
+
+**Step A — 快速参考**：append 到 `~/.hermes/skills/productivity/project-wrap-up/learnings.md`（每 Task 最多 1 条，可操作措辞，格式：`- [日期 Task N] 内容`）
+
+**Step B — 知识复利**：如果是**技术类**非平凡问题（非 typo/配置错误），写 raw fix 记录到 `raw/projects/<项目名>/YYYY-MM-DD-<简述>.md`（格式见 `references/templates/raw-fix-template.md`）。流程纪律类问题只写 learnings.md，不写 raw。
+
+三个问题：
 - 这个 Task 有什么出乎意料的？
 - 如果重来一次，会怎么做不同？
 - 有没有发现新的陷阱/模式？
@@ -231,7 +247,7 @@ CHECKPOINT: <任务名称>
   8. kanban_create 创建 review 卡（assignee=tester, parents=[实现卡]）
      ⚠️ Review 卡必须在 Step 7 验证 PASS 后才能创建
   9. dispatcher 自动派发 review 卡
-  10. tester 执行 Security Scan + Quality Review
+  10. tester 执行验证（加载 `requesting-code-review` 做安全扫描 + 加载 `code-principles` 做质量审查）
   11. PASS → 标记 Task 完成
   12. FAIL → 创建 fix 卡（不是实现者本人）→ 重新 review（max 2轮）
   13. 全部 Task 完成 → Final Integration Review
@@ -249,6 +265,48 @@ PASS/FAIL 输出要求..." \
 - Review 卡依赖实现卡（parents），实现卡完成后自动 promoted → ready
 - Review 卡 body 必须包含：审查维度 + PASS/FAIL 输出格式 + 上下文（实现卡ID）
 - **UI 项目：** Review 卡 body 必须包含「Browser QA 检查清单」（见上方 §Browser QA）
+
+#### 📋 Review Checklist 模板（tester 必须逐项填写，2026-06-02 Harness 借鉴）
+
+**所有 review 卡的 body 必须包含以下 checklist。每个条目是预定义的机械检查项，tester 逐项填写 PASS/FAIL + 证据，不得跳过任何一项。**
+
+```
+## Review Checklist（逐项填写，不得跳过）
+
+### 一、功能验证（传统 tester 职责）
+- [ ] 验收标准 #1: [PASS/FAIL] — 证据: [命令输出/截图路径]
+- [ ] 验收标准 #2: [PASS/FAIL] — 证据: [命令输出/截图路径]
+- [ ] ...（逐条列出 task body 中的验收标准）
+
+### 二、Spec 对齐检查（Harness 借鉴 — 机械对比，不靠 LLM 判断）
+- [ ] 读取 proposal.md 中该 Task 对应的设计描述
+- [ ] 对比实际代码实现，列出偏差（无偏差写"无"）
+- [ ] 接口签名与 proposal.md 一致？[是/否]
+- [ ] 文件路径与 constitution.md 指定的一致？[是/否]
+- [ ] 如有偏差，是否已更新 proposal.md？[是/否/不适用]
+
+### 三、回归检查（Harness 借鉴 — 机械执行，不靠 LLM 判断）
+- [ ] 已运行 `node -c` / 类型检查（无语法错误）[PASS/FAIL]
+- [ ] 已运行项目测试套件（如有）[PASS/FAIL]
+- [ ] 项目可正常启动（`pm2 restart` / `npm start`）[PASS/FAIL]
+- [ ] 未修改 task scope 之外的文件 [是/否 — 列出意外修改]
+
+### 四、安全检查（已有 Security Scan 的 checklist 化）
+- [ ] 无硬编码密钥/token/password [PASS/FAIL]
+- [ ] 无 eval()/exec()/pickle.loads() 等危险调用 [PASS/FAIL]
+- [ ] SQL 查询使用参数化 [PASS/FAIL/不适用]
+- [ ] 用户输入有验证/转义 [PASS/FAIL/不适用]
+
+### 五、UI 检查（仅 UI 项目）
+- [ ] 浏览器访问页面截图 [截图路径]
+- [ ] 核心交互可操作 [PASS/FAIL]
+- [ ] 无明显视觉错位/溢出 [PASS/FAIL]
+```
+
+**判断规则：**
+- 任何一项 FAIL → review 结果为 FAIL，创建 fix 卡
+- 二/三/四部分的检查项全部是**机械操作**（读文件对比、跑命令、grep 检查），不依赖 tester 的"判断"
+- 即使 task 改动很小，checklist 也不得精简 — 每项都必须填写
 
 **Wave 并行派发策略（Kiro Specs 模式）：**
 

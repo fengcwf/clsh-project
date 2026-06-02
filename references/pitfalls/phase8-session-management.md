@@ -29,7 +29,7 @@ CHECKPOINT: Phase 8 批次 N
 ```
 
 ### Session 断开恢复
-1. 读 wiki/projects/<项目名>/overview.md 确认进度
+1. 读 raw/projects/<项目名>/overview.md 确认进度
 2. 读 last checkpoint 确认已修复项
 3. 从下一个未修复项继续
 
