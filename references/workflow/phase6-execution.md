@@ -50,7 +50,7 @@ BEFORE 声称任务完成/修复成功/测试通过：
 
 | 借口 | 现实 | 正确做法 |
 |------|------|---------|
-| "CodeWhale 说改好了" | CodeWhale ≠ 功能验证 | 跑验证命令 |
+| "worker 说改好了" | worker ≠ 功能验证 | 跑验证命令 |
 | "代码看起来对" | 代码 ≠ 运行中的系统 | 浏览器/curl 实际验证 |
 | "之前测试过了" | 之前的测试 ≠ 当前的代码 | 重新执行验证 |
 | "应该可以了" | 应该 ≠ 验证过 | 走完 5 步 |
@@ -223,14 +223,14 @@ Spec Delta: <本 Task 是否改变了 proposal.md 中的定义？列出变更点
 
 ### 任务派发流程
 
-**⚠️ CodeWhale ACP 派发铁律（Way C）：**
+**⚠️ Way C 铁律（kanban task body 规范）：**
 
-灵犀只给**目标 + 参考文件 + 约束 + 验收标准**，不做代码推理。CodeWhale 自己读代码、分析问题、决定方案。
+灵犀只给**目标 + 参考文件 + 约束 + 验收标准**，不做代码推理。worker 自己读代码、分析问题、决定方案。
 
 ❌ 灵犀不应该给：具体 CSS 代码、详细实现步骤、"删 18 处 !important"、"用作用域提升优先级"
 ✅ 灵犀应该给："大佬说按钮丑，重做 UI。参考 style.css 和 CronMonitor.mjs。浅色毛玻璃主题。"
 
-详见 `references/integration/codewhale-acp-integration.md` §Way C 派发模式。
+详见 Phase 6 SKILL.md "Kanban 派发执行器" 章节。
 
 ```
 对于计划中的每个 Task:
@@ -308,6 +308,55 @@ PASS/FAIL 输出要求..." \
 - 二/三/四部分的检查项全部是**机械操作**（读文件对比、跑命令、grep 检查），不依赖 tester 的"判断"
 - 即使 task 改动很小，checklist 也不得精简 — 每项都必须填写
 
+### ⚠️ Tester 卡优化（2026-06-03 教训 — 迭代预算耗尽）
+
+**问题：** 一个 tester 卡覆盖所有功能（平台分类 + 封面 + 元数据 + 回归），迭代预算 90 耗尽 12 轮未完成。根因：Review Checklist 太重（4 大类 10+ 项）+ 浏览器验证与代码审查混在一起。
+
+**优化方案（三选一或组合）：**
+
+#### 方案 1: 拆分 tester 卡（推荐）
+
+和 coder 卡一样，每个 tester 卡只验证一个功能点，5 分钟内能完成：
+
+```
+❌ 一个卡：验证平台分类 + 封面缩略图 + 元数据标识 + 回归
+✅ 拆成：
+  - tester-UI: 浏览器截图验证 UI 渲染（30 迭代）
+  - tester-API: curl 验证 API 响应结构（20 迭代）
+  - tester-回归: 核心功能不 break（30 迭代）
+```
+
+#### 方案 2: 灵犀做机械预检，tester 只做浏览器
+
+| 检查类型 | 谁做 | 方式 | 为什么 |
+|---------|------|------|--------|
+| 语法检查 | 灵犀 | `node -c` / `python3 -c` | 机械操作，不需要 tester |
+| 关键字段存在 | 灵犀 | `grep` | 机械操作 |
+| API 响应结构 | 灵犀 | `curl` + JSON 解析 | 机械操作 |
+| UI 渲染效果 | tester | 浏览器截图 | 需要视觉判断 |
+| 功能交互 | tester | 浏览器操作 | 需要用户视角 |
+
+**派发前灵犀先做预检，预检通过再创建 tester 卡。** 这样 tester 卡 body 可以精简为"浏览器打开 X 页面，截图验证 Y 功能"。
+
+#### 方案 3: 精简 Review Checklist
+
+简单验证卡不需要完整 4 大类。按任务复杂度分级：
+
+| 级别 | 适用场景 | Checklist |
+|------|---------|-----------|
+| **Lite** | 单功能验证、小改动 | 验收标准逐条对照 + 语法检查 |
+| **Standard** | 多功能、中等改动 | + Spec 对齐 + 安全检查 |
+| **Full** | 架构改动、跨模块 | 完整 4 大类 |
+
+**Lite Checklist 模板：**
+```
+## Review Checklist（Lite — 单功能验证）
+- [ ] 验收标准 #1: [PASS/FAIL] — 证据: [截图/命令输出]
+- [ ] 验收标准 #2: [PASS/FAIL] — 证据: [截图/命令输出]
+- [ ] 语法检查: node -c / python3 -c [PASS/FAIL]
+- [ ] 核心功能回归: [PASS/FAIL]
+```
+
 **Wave 并行派发策略（Kiro Specs 模式）：**
 
 基于依赖图将任务分层（Wave），同层任务并行，跨层串行：
@@ -336,6 +385,7 @@ hermes kanban swarm "项目目标" \
 适合：3+ 个独立任务 + 需要 verifier + 需要 synthesizer 汇总。
 
 **进展监控：**
+
 ```bash
 hermes kanban list --json | python3 -c "
 import json, sys
@@ -345,6 +395,44 @@ for t in data:
         print(f\"{t['id']} | {t['status']} | {t['title'][:60]}\")
 "
 ```
+
+### ⚠️ 派发后追踪协议（Post-Dispatch Tracking — 2026-06-03 教训）
+
+**问题：** kanban 派发是 fire-and-forget — 灵犀创建任务后转头做别的，任务完成无人知晓，依赖卡无人解 block。实测案例：coder 任务完成 ~1.5 小时后大佬才发现，tester 卡在 blocked 状态无人解除。
+
+**铁律：派发 ≠ 结束。灵犀必须追踪到任务完成 + 依赖解除 + 大佬知晓。**
+
+**追踪机制（三选一，按场景选择）：**
+
+| 方式 | 适用场景 | 实现 |
+|------|---------|------|
+| **cron 轮询** | 3+ 任务 / 长时间执行 / 跨 session | `cronjob(action='create')` 每 5 分钟检查，完成后通知 + 解 block + 自删 |
+| **session 内轮询** | 1-2 任务 / 当前 session 等待 | 派发后等 2-3 分钟，`hermes kanban list` 检查状态 |
+| **notify_on_complete** | 后台 terminal 任务 | `terminal(background=true, notify_on_complete=true)` |
+
+**cron 轮询模板（推荐用于多任务场景）：**
+
+```bash
+# 创建轮询 cron（任务全部完成后自动删除）
+hermes cron create \
+  --name "musicdl-round4-tracker" \
+  --schedule "5m" \
+  --prompt "检查 kanban 中 [musicdl] Round4 任务状态。
+如果所有 coder 任务 done：验证代码改动（node -c + python 语法检查），unblock tester 卡。
+如果 tester 也 done：汇报结果给大佬，删除本 cron。
+如果仍有 running：简短汇报进度，继续等待。" \
+  --no-agent
+```
+
+**完成后必须做的三件事：**
+1. **验证产出物** — 不是信任 worker 的 summary，而是实际检查代码（node -c、grep 关键改动、curl API）
+2. **解除依赖** — 有 blocked 的下游任务 → `hermes kanban unblock <id>`
+3. **通知大佬** — 汇报完成状态 + 验证结果，不要让大佬来问
+
+**⛔ 禁止：**
+- 派发后不做任何追踪（fire-and-forget）
+- 依赖任务卡在 blocked 不解除
+- 大佬来问"做完没"才去检查（主动汇报，不要被动等）
 
 ### ⚡ Phase 6 超时机制（Q5 方案 C — 2026-05-19 实施）
 

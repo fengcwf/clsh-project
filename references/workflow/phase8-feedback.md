@@ -144,14 +144,14 @@ Step 5: REPORT — 带证据汇报给大佬
 
 | 借口 | 现实 | 正确做法 |
 |------|------|---------|
-| "CodeWhale 说改好了" | CodeWhale ≠ 功能验证 | tester 浏览器截图验证 |
+| "worker 说改好了" | worker ≠ 功能验证 | tester 浏览器截图验证 |
 | "代码看起来对" | 代码 ≠ 运行中 | `pm2 restart` + 浏览器访问 |
 | "小问题，不用测" | 小改动也引入回归 | 跑完整验证 |
 | "之前验证过了" | 之前的代码 ≠ 改完的代码 | 重新执行验证 |
 
 **⛔ Phase 8 最常见违规模式：**
-灵犀派 CodeWhale 修复 → CodeWhale 返回"已修复" → 灵犀直接汇报大佬 → 大佬测试发现没修好
-**根因：** 灵犀跳过了 Step 2-4，用 CodeWhale 的声明替代了实际验证。
+灵犀派 worker 修复 → worker 返回"已修复" → 灵犀直接汇报大佬 → 大佬测试发现没修好
+**根因：** 灵犀跳过了 Step 2-4，用 worker 的声明替代了实际验证。
 
 详见 `references/methodology/verification-and-ratchet.md` §一、§二。
 
