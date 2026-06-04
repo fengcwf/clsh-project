@@ -60,7 +60,7 @@
 46. **Fastify 双静态根配置** — 需要同时服务 `src/public/` 和 `src/projects/*/public/` 时，注册两次 fastifyStatic。
 47. **CodeWhale 部分编辑导致文件损坏（2026-05-28 教训）** — 超时时可能已对同一文件做了多次部分 patch，导致括号嵌套错乱。超时后直接 `write_file` 重写整个文件，不要逐行修补。
 48. **Vue3 CDN 组件解构完整性** — 新建组件时，默认解构 `const { ref, computed, watch, onMounted, onUnmounted, h, defineComponent } = Vue;`
-49. **灵犀做代码推理再告诉 worker 怎么改（置信度 0.9，3 轮触发）** — kanban task body 只给**目标 + 参考文件 + 约束 + 验收标准**。❌ 不该给具体 CSS 代码、详细实现步骤。✅ 该给概念性目标。
+49. **灵犀做代码推理再告诉 worker 怎么改（置信度 0.9，5 轮触发，2026-06-04 再犯）** — kanban task body 只给**目标 + 现象 + 文件路径 + 约束 + 验收标准**。❌ 不该给具体代码改动（如"将 z-index 从 10 改为 100"、"添加 download_url: url"）。✅ 该给现象描述（如"播放条遮住了平台下拉框"、"下载 API 返回假成功"）。**2026-06-04 再犯案例：** Round 7 task body 写了"将 .md-search-bar 的 z-index 从 10 改为 100"、"ID 改为 `${item.song_name}_${item.source}_${item.ext}_${item.bitrate}`"。大佬纠正："不是应该给目标和问题coder，让他自己分析操作吗"。**根因：** 灵犀看到"简单 bug"就忍不住给具体修复方案，认为这样更快。但 Way C 的价值在于 worker 自己读代码推理，可能发现更好的方案或更多问题。
 50-54. （API 一致性 / Fastify 禁止 execSync / 知识复利 / 子 agent 并行写共享文件 / Skill 删除连带 — 略）
 55. **跳过 Phase 3 设计发散直接手写 HTML（2026-05-29 教训）** — UI 项目禁止灵犀手写 CSS，必须用 Open Design tokens。
 56-58. （delegate_task 并行覆盖文件 / Skill 删除连带 scripts / Phase 1 需求澄清顺序 — 略）
@@ -82,3 +82,8 @@
 76. **execFileSync 在循环中对 N 个文件调用 = 性能灾难（2026-06-03 教训）** — 批量操作禁止在循环中同步启动子进程。改为按需检查或批量脚本。
 77. **Kanban 派发 fire-and-forget（2026-06-03 教训）** — 派发任务后不做追踪，任务完成 ~1.5 小时无人知晓，依赖卡 blocked 无人解除。**铁律：派发 ≠ 结束。** 派发后必须设追踪机制（cron 轮询/session 内等待/notify_on_complete），完成后三件事：(1) 验证产出物 (2) 解除依赖 (3) 通知大佬。详见 Phase 6 "派发后追踪协议"。
 78. **Tester 卡迭代预算耗尽（2026-06-03 教训）** — 一个 tester 卡覆盖所有功能（平台分类+封面+元数据+回归），迭代预算 90 耗尽 12 轮未完成。**根因：** Review Checklist 太重（4 大类 10+ 项）+ 浏览器验证与代码审查混在一起。**铁律：** tester 卡和 coder 卡一样拆分 — 每卡只验证一个功能点（≤30 迭代）。灵犀做机械预检（语法/grep/curl），tester 只做浏览器验证。详见 Phase 6 "Tester 卡优化"。
+79. **Tester 完成无 summary 无通知（2026-06-04 教训）** — tester 卡标记 done 但 summary 为空，灵犀不知情。**根因：** task body 没要求写 summary → worker 认为"验证通过就完事了"。**规则：** (1) task body 必须要求 worker 在 kanban_complete 时写 summary（验证了什么、结果、截图路径）(2) 灵犀必须主动轮询 kanban 状态，不能等通知 (3) 完成后必须自己跑 5 步验证，不信任 worker 的 summary。
+80. **Way C 连续违规 — 灵犀忍不住给具体修复方案（2026-06-04 教训，同一 session 两次）** — Round 6 灵犀直接改代码（角色分离违规），Round 7 task body 写了具体代码改动（Way C 违规）。**根因相同：** 看到"简单 bug"就认为"给具体方案更快"。**大佬两次纠正：** "修复是不是没有派活，都是你自己干了" + "不是应该给目标和问题coder，让他自己分析操作吗"。**铁律：** 无论改动多小，task body 只给现象+文件路径。worker 自己读代码的价值 > 节省的 30 秒。
+81. **Kanban create 后忘记 notify-subscribe（2026-06-04 教训）** — create 后没有调 notify-subscribe，kanban_notify_subs 表为空 → worker 完成无通知 → 灵犀不知情。**铁律：** 每次 kanban create 后必须立即 `hermes kanban notify-subscribe <task_id> --platform feishu --chat-id oc_22cb909a35e6a74c62cc0d4d170b19c3`。已写入 phase6-execution.md Step 3.2。与 #77 区别：#77 是不追踪状态；#81 是技术层没建通知订阅。
+82. **Worker kanban_complete 不写 summary** — task_runs 有详细结果但 tasks.result 为空。**规则：** task body 必须要求 `kanban_complete(summary=...")`；灵犀必须主动查 task_runs 或 poll 状态，不能只依赖通知。
+83. **先问用户再查 skill/memory（2026-06-04 教训）** — 大佬说"代理信息应该在 clsh-project 里有记载，为什么需要问我"。代理 `192.168.0.41:7890` 已记录在 `proxy-workarounds` skill 中，但灵犀没查就问用户。**铁律：** 查找优先级 = (1) 查相关 skill → (2) 查 memory → (3) 查 wiki/Obsidian → (4) 最后才问用户。用户已提供的信息不应重复询问。**触发信号：** 需要环境配置、凭据、端口、路径等信息时。

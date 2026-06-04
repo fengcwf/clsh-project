@@ -4,6 +4,7 @@
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v5.19.0 | 2026-06-04 | **Phase 8 强制机制 + Pitfall 强化**：新增 §3.1 Round Exit Checklist（文档写入门禁）。Phase 8 tester 卡 summary 要求模板。Pitfall #49 强化（5 轮触发案例）。Pitfall #79 新增（tester 无通知）。 |
 | v5.15.0 | 2026-06-03 | **CodeWhale ACP → Kanban 派发回归**：Phase 6/8 的 coder/artist 角色从 CodeWhale ACP 改回 kanban 派发。Way C 铁律不变（给路径+目标，不做代码推理），派发方式从 delegate_task(acp_command) 改为 kanban create。15+ pitfalls 中的 CodeWhale 引用更新为 worker/kanban。 |
 | v5.13.0 | 2026-06-02 | **LLM 能力无关性原则 + Harness/Superpowers 对比落地**：新增核心设计原则、Review Checklist 模板、Spec Delta 必填字段、Session Launch Guidance。 |
 | v5.12.0 | 2026-06-02 | **知识复利系统 + Review skill 显式调用 + wiki-lint 适配**：wiki/projects/ 迁移至 raw/projects/，新增 wiki/solutions/ 跨项目方案库，Phase 0 新增跨项目知识注入。 |

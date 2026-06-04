@@ -170,11 +170,48 @@ metadata:
 2. 大佬说"我要做一个 XXX"、"开发一个 XXX 系统"、"实现 XXX 功能"
 3. 大佬提出的需求明显是多步骤项目
 4. 大佬说"按 Kiro 流程走"、"先做需求分析"
+5. 大佬说"review 项目"、"检查实现效果"、"对比设计方案" → **Review Mode**
 
 **不触发的情况：**
 - 简单查询、单步操作、修复 bug（用 systematic-debugging）
 - 已有明确实现方案的小改动
 - 大佬明确说"简单做一下"或"不用走完整流程"
+- 代码质量审查（PR review、linting、重复检查）— 直接用 execute_code 分析 + 出报告
+- **注意：** 功能规格合规审查（对比设计方案检查实现）→ 走 Review Mode
+
+## Review Mode（规格合规审查）
+
+当大佬要求 review 已有项目的代码和实现效果时，不走完整 Phase 1-8，而是执行规格合规审查。
+
+### 触发条件
+- "review 项目代码和实现效果"
+- "检查一下 XX 项目做得怎么样"
+- "对比设计方案看看实现"
+
+### 流程（7 步）
+1. **读取项目文档** — proposal.md、constitution.md、tasks.md、test-log.md、round*-feedback.md + overview.md
+2. **读取所有代码** — 逐文件阅读，不跳过（代码重复/路径不一致只在全量阅读时发现）
+3. **验证运行状态** — pm2 list、依赖检查、.env 配置、API 实际调用
+4. **产出合规矩阵** — 功能 × 实现状态（✅完整/⚠️部分/❌未实现）
+5. **Constitution 合规检查** — 逐条对比约束 vs 实际代码
+6. **代码质量分析** — 按严重性分级（P1 数据一致性/P2 代码重复/P3 架构/P4 死代码/P5 性能/P6 风格）
+7. **汇报** — 结构化报告，优先级排序
+
+### 输出格式
+- 功能合规矩阵（表格：功能 | 后端 | 前端 | 状态）
+- Constitution 合规检查（表格：约束 | 是否遵守 | 备注）
+- 代码质量问题（P1-P6 分级）
+- 未实现功能清单 + 复杂度评估
+- 建议下一步
+
+### 红线
+- Review Mode 产出报告，不直接修复 — 修复走 Phase 8 反馈循环
+- 大佬说"顺便修了" → 提醒走角色分离流程
+- 不创建 kanban 卡，不派发任务
+
+📋 **详细流程:** [references/workflow/phase-review.md](references/workflow/phase-review.md)
+
+---
 
 ## 流程总览
 
@@ -422,6 +459,7 @@ hermes kanban create "[项目名] Round<N>: <问题简述>" \
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v5.20.0 | 2026-06-04 | **Review Mode**：新增规格合规审查模式 — 对比设计方案检查实现，产出功能合规矩阵 + Constitution 合规 + 代码质量分级（P1-P6）。参考 `references/workflow/phase-review.md`。 |
 | v5.19.0 | 2026-06-03 | **Phase 8 机械自检**：新增 `references/pitfalls/phase8-pre-close-checklist.md` — 每轮 Phase 8 结束前必须跑 shell 检查脚本，确认 conversation/diagnosis/fixes/test-report 4 个文件存在。3 次违规后确立的机械强制机制。 |
 | v5.18.0 | 2026-06-03 | **Tester 卡优化**：Phase 6 新增 tester 优化方案（拆分 tester 卡 / 灵犀机械预检 / Lite Checklist）。解决迭代预算耗尽问题。 |
 | v5.17.0 | 2026-06-03 | **派发后追踪协议**：Phase 6 新增 Post-Dispatch Tracking（cron 轮询/session 内等待/notify_on_complete），禁止 fire-and-forget。Pitfall #77。 |

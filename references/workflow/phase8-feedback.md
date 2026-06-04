@@ -74,6 +74,73 @@ raw/projects/<project>/changes/archive/round<N>-feedback/
 
 **⛔ 禁止只在对话中修复，不写 wiki 记录。**
 
+#### 3.1 Phase 8 Round Exit Checklist（每轮结束前必跑，2026-06-04 新增）
+
+**问题：** Phase 8 文档/测试经常漏做，已违规多次。根因：规范写得全但没有机械强制。
+
+**铁律：文档写入是门禁条件，不是"做完再补"。** 没有文档 = 没有完成。
+
+**每轮 Phase 8 修复汇报前，必须跑以下 checklist。任何一项 FAIL = 不得汇报"完成"：**
+
+```bash
+# Phase 8 Round Exit Checklist（灵犀自检）
+PROJECT="<项目名>"
+ROUND="round<N>"
+CHANGES_DIR="/mnt/unraid_data/Obsidian/raw/projects/${PROJECT}/changes/${ROUND}-feedback"
+
+# 1. 文档完整性检查
+echo "=== 文档检查 ==="
+for f in conversation.md diagnosis.md fixes.md test-report.md; do
+  if [ -f "${CHANGES_DIR}/${f}" ]; then
+    SIZE=$(wc -c < "${CHANGES_DIR}/${f}")
+    echo "✅ ${f} (${SIZE} bytes)"
+  else
+    echo "❌ ${f} MISSING"
+  fi
+done
+
+# 2. 代码改动验证
+echo "=== 代码验证 ==="
+cd /opt/Workspace/src/projects/${PROJECT}
+node -c plugin.mjs 2>&1 && echo "✅ plugin.mjs syntax OK" || echo "❌ plugin.mjs syntax ERROR"
+
+# 3. API 端到端验证
+echo "=== API 验证 ==="
+pm2 restart workspace 2>/dev/null
+sleep 2
+# 根据项目类型添加具体验证命令
+```
+
+**Checklist 结果写入 test-report.md，格式：**
+```markdown
+## Round Exit Checklist
+- [x] conversation.md exists (N bytes)
+- [x] diagnosis.md exists (N bytes)
+- [x] fixes.md exists (N bytes)
+- [x] test-report.md exists (N bytes)
+- [x] plugin.mjs syntax OK
+- [x] API search returns N results
+- [x] API download returns success
+```
+
+**⛔ 常见违规模式（必须避免）：**
+- ❌ "修完了，大佬去测试吧" — 没跑 checklist
+- ❌ "代码改了，应该没问题" — 没验证
+- ❌ "文档后面再补" — 文档是门禁，不是事后补
+- ❌ tester 完成无 summary — task body 没要求写 summary，worker 认为"验证通过就完事了"
+
+**Tester 卡 body 模板（必含 summary 要求）：**
+```
+## 验证方式
+必须用浏览器访问页面截图验证。
+
+## 完成要求
+kanban_complete 时必须写 summary，包含：
+1. 验证了哪些项（逐条列出 PASS/FAIL）
+2. 截图路径或命令输出
+3. 发现的问题（如有）
+```
+
 #### 4. 全部用 kanban（2026-05-25 强化）
 
 | 场景 | 方式 |

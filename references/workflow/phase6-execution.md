@@ -238,6 +238,9 @@ Spec Delta: <本 Task 是否改变了 proposal.md 中的定义？列出变更点
   2. 根据任务类型选择 agent（coder/artist/tester）
   3. kanban_create 创建实现卡（绝对路径 + 验收标准 + 不在范围内）
   3.1. ⛔ task body 必须注入 proposal 相关章节（代码示例 + 文件路径 + 禁止事项），不能只写一句话描述。coder 只看 body，不读 wiki 文档。
+  3.2. ⛔ 创建后必须立即订阅通知（2026-06-04 教训）：
+       hermes kanban notify-subscribe <task_id> --platform feishu --chat-id oc_22cb909a35e6a74c62cc0d4d170b19c3
+       不订阅 = worker 完成后灵犀收不到通知 = 大佬等半天不知道结果
   4. dispatcher 自动派发 ready 状态的卡
   5. worker 执行任务
   6. worker 完成后输出 CHECKPOINT（产出物自检）
@@ -246,6 +249,7 @@ Spec Delta: <本 Task 是否改变了 proposal.md 中的定义？列出变更点
      └─ PASS ↓
   8. kanban_create 创建 review 卡（assignee=tester, parents=[实现卡]）
      ⚠️ Review 卡必须在 Step 7 验证 PASS 后才能创建
+     ⚠️ 创建后必须立即 notify-subscribe（同 Step 3.2）
   9. dispatcher 自动派发 review 卡
   10. tester 执行验证（加载 `requesting-code-review` 做安全扫描 + 加载 `code-principles` 做质量审查）
   11. PASS → 标记 Task 完成
