@@ -51,7 +51,7 @@
 
 **clsh-project 差距：**
 - ✅ 已借鉴：constitution.md、proposal.md、tasks.md 三件套
-- ❌ 未借鉴：Extension/Preset 系统（当前硬编码在 SKILL.md）、斜杠命令标准化（当前用 /cp 别名）
+- ❌ 未借鉴：Extension/Preset 系统（当前硬编码在 SKILL.md）、斜杠命令标准化（当前用 /clsh-project，别名需通过 bundle 实现）
 
 ### 3. OpenSpec — 轻量迭代
 
@@ -131,7 +131,7 @@
 
 **问题：** 用户需要记住 /clsh-project 继续 <项目名> 从 Phase N 开始 — 太复杂。
 **借鉴：** OpenSpec 的三命令极简（propose → apply → archive）。
-**落地：** 定义 3 个快捷命令：/cp（开始）、/cp 继续（续做）、/cp 归档（收尾），内部自动判断当前 Phase。
+**落地：** 定义 3 个快捷命令：/clsh-project（开始）、/clsh-project 继续（续做）、/clsh-project 归档（收尾），内部自动判断当前 Phase。如需 /cp 别名，需创建 skill bundle。
 
 ---
 
@@ -152,7 +152,7 @@
 ### 短期（可立即执行）
 
 1. **Backpressure Gates** — kanban complete 前强制附带客观证据
-2. **极简命令入口** — /cp /cp 继续 /cp 归档 三命令
+2. **极简命令入口** — /clsh-project /clsh-project 继续 /clsh-project 归档 三命令
 3. **结构化 solutions frontmatter** — domain/tech/error-type/reusability
 
 ### 中期（需要设计）

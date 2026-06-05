@@ -68,6 +68,7 @@
 60. **Phase 8 禁止灵犀分析根因再告诉 worker** — kanban task body 只给现象+文件路径，让 worker 自己分析。
 61. **外部 API 集成必须先查 OpenAPI spec** — 不要假设端点路径。
 62. **GET vs POST handler 不匹配** — 端到端调试时，第一步验证"请求是否到达了 handler"。
+63. **Kanban 评论在任务完成后不生效（2026-06-05 教训）** — 任务 done 后追加的 `hermes kanban comment` 不会触发 worker 重新执行。需求变更时必须创建新卡或在当前 session 自己修复。 | 验证：检查任务状态是否为 done | 触发：任务完成后需要追加需求
 63. **task body 列举太多参考文件导致 worker 迭代耗尽** — 灵犀先读参考文件 → 写自包含 SPEC 文件 → worker 只读 SPEC。
 64. **SQLite Schema 不兼容导致迁移失败** — 修改表 schema 时，必须检测旧 schema 并处理。
 65. **跳过 Phase 6 tester review 直接上线** — 代码完成后必须走 tester 验证流程。

@@ -6,132 +6,86 @@
 
 将多个外部数据源（SNMP 交换机、SSH/OpenWrt、HTTP Lucky API、阿里云 ECS）聚合为 Workspace 统一管理界面。
 
-## 架构
+## 硬编码端口配置模式（2026-06-05）
 
-```
-src/projects/network/
-├── plugin.mjs              ← Fastify 路由（92 行）
-├── api/
-│   ├── devices.mjs         ← 设备 CRUD + Ping（269 行）
-│   ├── overview.mjs        ← 概览聚合（150 行）
-│   ├── openwrt.mjs         ← OpenWrt ubus/SSH（64 行）
-│   ├── lucky.mjs           ← Lucky HTTP API（168 行）
-│   ├── switch.mjs          ← SNMP 交换机（105 行）
-│   └── aliyun.mjs          ← 阿里云 ECS（220 行）
-├── services/
-│   ├── collector.mjs       ← 后台定时采集+缓存（448 行）
-│   ├── snmp-client.mjs     ← net-snmp 封装（123 行）
-│   ├── ubus-client.mjs     ← ubus RPC 客户端（182 行）
-│   └── ssh-client.mjs      ← sshpass 封装（71 行）
-└── public/
-    └── NetworkView.mjs     ← Vue3 前端（1390 行）
-```
+消费级交换机 SNMP walk 返回的端口列表不可靠（包含虚拟端口、CPU 接口等）。**解决方案：硬编码物理端口配置，SNMP 数据只用于匹配状态。**
 
-总计 3,282 行，12 个文件。
-
-## 混合采集策略
-
-| 数据源 | 协议 | 库/工具 | 缓存 | 超时 |
-|--------|------|---------|------|------|
-| OpenWrt | SSH + ubus RPC | sshpass + node:http | 60s | 10s |
-| Lucky | HTTP API | node:http | 300s | 10s |
-| 交换机 | SNMP v2c | net-snmp | 30s | 5s |
-| 阿里云 | HTTPS REST | 手动签名 | 120s | 15s |
-
-**原则：** 变化少的数据后台缓存，实时数据（Ping、流量）用户触发。
-
-## Dashboard 设计模式（用户偏好）
-
-用户明确要求：**少 Tab、聚合概览页、低功能模块不独立成 Tab。**
-
-### 演进过程
-
-1. 初版：6 Tab（概览/设备/IP地图/Lucky/OpenWrt/交换机/阿里云）
-2. 用户反馈："加多个概览页，不要那么多 tab 页"
-3. 优化：3 Tab（概览/设备/网络）
-
-### 最终方案
-
-**Tab 1: 概览（Dashboard）** — 6 个卡片区块：
-1. 公网 IP（实时获取，点击复制）
-2. 设备统计（在线/离线/分类）
-3. 交换机 1 端口可视化图
-4. 交换机 2 端口可视化图
-5. Lucky + WireGuard（合并展示）
-6. 阿里云实例（表格+操作按钮）
-
-**Tab 2: 设备** — 搜索/过滤/排序 + CRUD + 批量操作 + IP 地图
-
-**Tab 3: 网络** — OpenWrt / Lucky / 交换机 详情（折叠面板）
-
-### 设计原则
-
-1. 功能 < 3 个独立页面的模块 → 合并到概览页卡片
-2. 概览页 = N 个卡片区块，每块独立刷新
-3. 详情页用折叠面板（不用独立 Tab）
-
-## SNMP 交换机监控
-
-### 关键 OIDs
-
-| OID | 名称 | 说明 |
-|-----|------|------|
-| 1.3.6.1.2.1.2.2.1.2 | ifDescr | 端口名 |
-| 1.3.6.1.2.1.2.2.1.8 | ifOperStatus | 状态（1=up, 2=down） |
-| 1.3.6.1.2.1.31.1.1.1.15 | ifHighSpeed | 速度（Mbps） |
-| 1.3.6.1.2.1.31.1.1.1.6 | ifHCInOctets | 流入字节 |
-| 1.3.6.1.2.1.31.1.1.1.10 | ifHCOutOctets | 流出字节 |
-
-### 端口颜色编码（5 级）
-
-用户要求细分，不要合并：
-
-| 颜色 | CSS | 含义 |
-|------|-----|------|
-| 🟢 绿 | #10b981 | 10G 链接 |
-| 🔵 蓝 | #3b82f6 | 2.5G 链接 |
-| 🟠 橙 | #f59e0b | 1G 链接 |
-| 🟡 黄 | #eab308 | 100M 链接 |
-| 🔴 红 | #ef4444 | 端口 Down |
-
-### Node.js SNMP 封装
+### 前端常量定义（NetworkView.mjs 顶部）
 
 ```javascript
-import snmp from 'net-snmp';
-
-export function createSession(ip, community = 'public') {
-  return snmp.createSession(ip, community, { timeout: 5000, retries: 1 });
-}
-
-export async function walk(session, oid) {
-  return new Promise((resolve, reject) => {
-    const results = [];
-    session.walk(oid, (varbinds) => {
-      for (const vb of varbinds) {
-        if (snmp.isVarbindError(vb)) continue;
-        results.push({ oid: vb.oid, value: vb.value });
-      }
-    }, (err) => err ? reject(err) : resolve(results));
-  });
-}
+const SWITCH_PORT_CONFIGS = {
+  '192.168.0.3': {
+    model: 'ZX530S-8T4XS',
+    ports: [
+      // 8T = 8 RJ45 电口
+      { index: 1, type: 'rj45', label: '1' }, { index: 2, type: 'rj45', label: '2' },
+      { index: 3, type: 'rj45', label: '3' }, { index: 4, type: 'rj45', label: '4' },
+      { index: 5, type: 'rj45', label: '5' }, { index: 6, type: 'rj45', label: '6' },
+      { index: 7, type: 'rj45', label: '7' }, { index: 8, type: 'rj45', label: '8' },
+      // 4XS = 4 SFP+ 光口
+      { index: 9, type: 'sfp', label: '9' }, { index: 10, type: 'sfp', label: '10' },
+      { index: 11, type: 'sfp', label: '11' }, { index: 12, type: 'sfp', label: '12' },
+    ],
+  },
+  '192.168.0.4': {
+    model: 'ZX-SWTGW2224AS',
+    ports: [
+      ...Array.from({ length: 24 }, (_, i) => ({ index: i + 1, type: 'rj45', label: String(i + 1) })),
+      { index: 25, type: 'sfp', label: '25' }, { index: 26, type: 'sfp', label: '26' },
+    ],
+  },
+};
 ```
 
-## 注册步骤
+### 渲染逻辑（switchPanel 函数）
 
-1. 创建 `src/projects/network/plugin.mjs`
-2. 创建 `src/projects/network/api/*.mjs` + `services/*.mjs`
-3. 创建 `src/projects/network/public/NetworkView.mjs`
-4. 更新 `config/projects.json`（添加 tabs）
-5. 更新 `server.mjs`（import + register）
-6. 更新 `app.mjs`（import + 条件渲染）
-7. `.env` 添加配置（OPENWRT_HOST, LUCKY_HOST, SNMP_COMMUNITY 等）
-8. `pnpm add net-snmp --registry https://registry.npmmirror.com`
-9. `pm2 restart workspace`
+```javascript
+const switchPanel = (ports, ip) => {
+  const config = SWITCH_PORT_CONFIGS[ip];
+  if (!config) return h('div', { class: 'net-muted' }, `未知交换机 ${ip}`);
 
-## 教训
+  // SNMP 数据 → index 映射（只用于匹配状态，不决定布局）
+  const portMap = {};
+  for (const p of (ports || [])) {
+    portMap[p.index || p.port || p.id] = p;
+  }
 
-- **CodeWhale 上下文膨胀：** 不要在 context 中列 6+ 参考文件路径。先写自包含 spec 文件（`SPEC_BACKEND.md`），告诉 CodeWhale 只读那一个
-- **node:http 优于 fetch：** 代理内网服务时，fetch（undici）可能因 HTTP/2 ALPN 挂起
-- **execFile 优于 execSync：** execSync 阻塞 Fastify 事件循环
-- **阿里云 SDK 可选：** 无 AccessKey 时返回 `{ instances: [], configured: false }`，不影响其他功能
-- **SNMP community 默认 public：** 从 .env 读取，不硬编码
+  // 按 type 分组：SFP+ 和 RJ45 分开显示
+  const sfpPorts = config.ports.filter(p => p.type === 'sfp');
+  const rj45Ports = config.ports.filter(p => p.type === 'rj45');
+
+  // 每组显示 up/down 计数
+  const sfpUp = sfpPorts.filter(p => portMap[p.index]?.status === 'up').length;
+  const rj45Up = rj45Ports.filter(p => portMap[p.index]?.status === 'up').length;
+};
+```
+
+**关键：** `config.ports` 决定显示哪些端口和布局，`portMap` 只提供运行时状态。两者解耦。
+
+## IP 地图视觉区分（2026-06-05 教训）
+
+已用/未用 IP 的背景色必须有**明显区分**，否则用户看不出哪些 IP 被占用。
+
+用户明确要求：**用绿色统一标识已占用 IP**（不用分类颜色），未用 IP 用浅灰。
+
+| 状态 | 背景 | 边框 | 编号色 |
+|------|------|------|--------|
+| 在线 | `rgba(16,185,129,0.25)` | `1.5px solid rgba(16,185,129,0.5)` | `#065f46` |
+| 离线 | `rgba(16,185,129,0.12)` | `1.5px solid rgba(16,185,129,0.25)` | `#065f46` |
+| 未用 | `rgba(248,250,252,0.5)` | `1px solid rgba(0,0,0,0.06)` | `#cbd5e1` |
+
+## WireGuard Peer 名称（2026-06-05）
+
+`wg show` 不输出 peer 名称。Peer 描述存在 OpenWrt UCI 配置（`option description`）。collector 需额外 `uci show network` 按 public_key 匹配。
+
+## 路由器端口 CSS（2026-06-05）
+
+路由器端口必须和交换机端口用相同尺寸（44px/min-width/38px 高度），用 `.rp-ports-row` 子容器避免水平拖拉条。
+
+## IPv4/IPv6 显示（2026-06-05）
+
+用户要求：用**圆角边框包裹**，IPv4 蓝色标签（`#3b82f6`）+ 蓝色边框，IPv6 紫色标签（`#8b5cf6`）+ 紫色边框，统一 16px 等宽字体。
+
+## Lucky Token 过期处理（2026-06-05）
+
+API 返回 `ret: -1` 时前端区分"未配置"和"认证失败"，显示提示让用户更新 `.env` 的 `LUCKY_TOKEN`。

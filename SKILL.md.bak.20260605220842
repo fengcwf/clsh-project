@@ -1,6 +1,5 @@
 ---
 name: clsh-project
-aliases: [cp]
 description: "需求驱动的项目开发工作流 — 从需求澄清到设计文档到实现计划到执行。灵感来自 Kiro 的 Spec-Driven Development、Superpowers 的 Brainstorming 方法论、Phoenix 的状态机执行模式。"
 version: 5.23.0
 author: 灵犀
@@ -458,14 +457,20 @@ hermes kanban create "[项目名] Round<N>: <问题简述>" \
 
 📋 **完整验证清单（流程合规 + 验证合规）:** [references/templates/verification-checklist.md](references/templates/verification-checklist.md)
 
-## ⚠️ Skill 别名
+## ⚠️ Skill 别名陷阱
 
-`/cp` 通过 SKILL.md frontmatter `aliases: [cp]` 注册为 `/clsh-project` 的别名。`resolve_skill_command_key("cp")` 会匹配到 `/clsh-project`。
+**`/cp` 不是已注册的命令！** 文档中可能建议使用 `/cp` 作为 `/clsh-project` 的快捷方式，但 skill 系统没有内置别名机制。实际可用的命令是 `/clsh-project`。
 
-如果别名不生效，检查：
-1. SKILL.md frontmatter 是否有 `aliases: [cp]`
-2. `agent/skill_commands.py` 的 `resolve_skill_command_key` 是否检查 aliases
-3. Gateway 是否重启（skill commands 缓存需要刷新）
+如果需要创建别名，使用 skill bundle 机制：
+```bash
+# 创建 ~/.hermes/skill-bundles/cp.yaml
+echo 'name: clsh-project
+description: clsh-project 快捷别名
+skills:
+  - clsh-project' > ~/.hermes/skill-bundles/cp.yaml
+```
+
+详见 `references/pitfalls/skill-alias-documentation-gap.md`。
 
 
 ## 版本历史
