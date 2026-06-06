@@ -148,3 +148,23 @@ raw/articles/drafts/2026-05-28-主题/
 **前端 Tab 模式：** `props: { activeTab }` 接收工作台 tab → 组件内用 `defineComponent` 拆分子 Tab
 
 **渐进式交付：** 三 Wave（基础+Tab1 → Tab2 → Tab3），每 Wave 一个 CodeWhale ACP 任务
+
+## 模板预览 API 模式（2026-06-06）
+
+当子模块需要"预览不同渲染效果"时，采用 iframe + 后端渲染方案：
+
+```
+前端 iframe src → GET /api/<module>/:id/preview?theme=xxx
+  → 后端读取内容 + 应用 CSS 主题 → 返回完整 HTML
+  → iframe 隔离渲染，不污染宿主页面
+```
+
+**设计要点：**
+- CSS 主题在后端管理（`THEME_CSS` 对象），前端只传 theme 参数
+- iframe 天然隔离 CSS，且能模拟真实浏览器渲染
+- 切换主题 = 更新 iframe src，无需刷新页面
+- 优先读取渠道文件（`{channel}.md`），回退到源文件（`article.md`）
+
+**适用场景：** 多渠道内容预览、主题切换、排版效果对比
+
+详见 clsh-content skill 的 `references/workspace-preview-api.md`

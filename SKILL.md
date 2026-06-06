@@ -524,3 +524,20 @@ hermes kanban create "[项目名] Round<N>: <问题简述>" \
 ### 🔌 集成
 - `references/integration/hermes-pitfalls.md` — Hermes 工具链陷阱
 - `references/workspace-sub-module-pattern.md` — Workspace 子模块开发模式
+
+### Kanban Watchdog（派活后自动监控）
+
+**派活后必须启用 watchdog cron**，让 agent 自动感知任务完成：
+
+```bash
+# 派活后启用
+hermes cronjob resume 1d04104d3ca9
+```
+
+**机制：**
+- 每 5 分钟轮询 `in_progress` 状态的 kanban 任务
+- 有任务完成 → 输出摘要（cron 自动发送到当前 chat）
+- 所有任务完成 → 自动暂停自身（不消耗 token）
+- 详见 `references/integration/kanban-watchdog.md`
+
+**铁律：** 派活 = 启用 watchdog。不派活 = watchdog 自动暂停。无需手动管理。
