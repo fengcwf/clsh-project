@@ -148,7 +148,9 @@ def score_template_coverage():
         "archive-workflow.md",
         "context-template.md",
         "adr-template.md",
-        "phase7-archive-checklist.md",
+        "phase5-tasks-template.md",
+        "phase6-dispatch-template.md",
+        "phase8-feedback-template.md",
         "phase8-checkpoint-template.md",
     ]
     score = 0

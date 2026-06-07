@@ -1,10 +1,23 @@
-# Phase 7 归档操作手册（2026-05-21 实战版）
+# Phase 7 归档操作手册
 
-## 触发条件
+> 本文件是 Phase 7 归档的唯一参考。旧 `phase7-archive-checklist.md` 已合并至此。
 
-项目 Phase 8 测试全部通过，大佬确认项目完成时触发。
+---
 
-## 归档步骤（按顺序执行）
+## 速查清单（8 项，全部 ✅ 才算归档完成）
+
+1. [ ] overview.md → status: done
+2. [ ] completion-summary.md 已写入 archive/
+3. [ ] retrospective.md 已写入 archive/
+4. [ ] 所有变更目录已复制到 archive/
+5. [ ] GitHub 已推送
+6. [ ] memory 已更新
+7. [ ] 🔬 蒸馏评估（加载 `project-wrap-up` skill）
+8. [ ] 服务运行正常（pm2 status / curl health）
+
+---
+
+## 详细步骤
 
 ### 1. 更新 overview.md 状态
 
@@ -108,12 +121,20 @@ git push origin main
 
 **注意：** memory 容量 2200 字符。如果占用率 >85%，先删除过时条目再添加。
 
-## 归档检查清单
+### 7. 蒸馏评估
 
-- [ ] overview.md → status: done
-- [ ] completion-summary.md 已写入 archive/
-- [ ] retrospective.md 已写入 archive/
-- [ ] 所有变更目录已复制到 archive/
-- [ ] GitHub 已推送
-- [ ] memory 已更新
-- [ ] 服务运行正常（pm2 status / curl health）
+加载 `project-wrap-up` skill 执行：
+- eval.json 8 项 binary 评估 → 结果 append learnings.md
+- FAIL 项做故障分类（FLOW/AGENT/TOOL/KNOWLEDGE）
+- 条件触发深度蒸馏（learnings ≥10 或 eval ≤3/8）
+
+### 8. 验证服务运行正常
+
+```bash
+pm2 status
+curl -s http://localhost:<PORT>/health
+```
+
+---
+
+*旧文件 `phase7-archive-checklist.md` 已合并，不再单独维护。*

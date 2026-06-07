@@ -185,3 +185,33 @@ ls -la <声明路径>
 **⛔ 路径错误 = 流程违规，必须记 ERRORS.md**
 
 > ⚠️ **教训（2026-05-15）：** write_file 使用相对路径，文件落到 skill references/ 目录而不是 raw/projects/ 目录。写入后未 `ls` 验证，导致虚假汇报。
+
+---
+
+## ⛔ Common Pitfalls（Phase 3-4 高频）
+
+> 从 pitfalls/common.md 提取的 Phase 3-4 高频教训，避免额外查文件。
+
+### #14/#55 写入文件后不验证路径 / 跳过 Open Design 加载
+
+**规则 #14：** write_file 后必须 `ls` 确认文件存在且大小 > 0。路径必须用绝对路径。
+
+**规则 #55（UI 项目）：** Phase 3 设计发散必须先读取 `/opt/open-design/design-systems/<name>/tokens.css` + `DESIGN.md` + `craft/*.md`，再渲染变体。直接手写 HTML = 跳步 = 效果差 = 返工。
+
+**反例：** 灵犀手写 HTML 颜色/间距 → 效果差 → 大佬确认"glass 布局+配色，比你之前自己生成的好很多"。
+
+### #17 设计发散跳过
+
+**规则：** UI 项目且无明确设计参考时，Phase 3 应触发设计发散（2-3 个 HTML mockup 变体），不能直接画页面。
+
+**反例：** 没有展示设计变体直接写前端代码 → 大佬不满意 → 重构 CSS。
+
+### #18/#19 飞书发送 HTML 路径 / chromium 截图路径
+
+**规则 #18：** 飞书无法打开 HTML 文件。必须用 chromium 截图后发 PNG。
+
+**规则 #19：** snap 版 chromium 受 AppArmor 限制，无法写入 /tmp。截图路径用 /root/mockups/。
+
+### #29 CSS backdrop-filter 创建 containing block
+
+**规则：** `backdrop-filter: blur()` 根据 CSS 规范创建新 containing block，导致 `position: fixed` 子元素相对该元素而非视口。修复：移除 backdrop-filter 改半透明背景，或 Teleport 到 document.body。

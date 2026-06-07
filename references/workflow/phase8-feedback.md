@@ -33,19 +33,31 @@
 **❌ 反例：** task body 写"修复右键菜单位置偏移" → coder 加了 viewport 边界检测（合理但错误）
 **✅ 正例：** task body 写"根因：`.obs-layout` 的 `backdrop-filter` 创建 containing block。修复：删除 style.css L615 的 `backdrop-filter`"
 
-#### 2. Tester 必须使用浏览器工具（2026-05-25 强化）
+#### 2. Tester 必须使用浏览器工具 + Profile 验证（2026-05-25 强化，2026-06-07 强化）
 
-**tester 的 toolsets 必须包含 `web` 和 `browser`（或 `computer_use`）。**
+**tester 的 toolsets 必须包含 `browser` 和 `vision`。**
 
-tester 验证时：
+**⛔ 派发前必须验证 profile toolsets：** 读 `/root/.hermes/profiles/<assignee>/config.yaml` → 确认 `toolsets` 包含 `browser` + `vision`。缺少任何一个 → 先修复 config.yaml 再 dispatch。不验证就 dispatch = tester 1 分钟 crash（protocol violation）。
+
+**tester 验证时：**
 - **必须用浏览器访问页面**，不能用 curl/API 替代
 - **必须截图验证每个验收标准** — 只读代码不算验证，截图才是证据
-- 浏览器工具：`mcp_mp_browse_webpage` 或 `browser` toolset
-- 验证内容：页面渲染、交互功能、CSS 样式、响应式布局
 - 如果浏览器工具不可用，向大佬报告，不要降级为 curl 测试
-- **review 卡 body 必须包含"必须用浏览器访问页面截图验证"字样** — 不写 = tester 可能只读代码判 PASS
 
-**⛔ 教训（2026-05-25）：** tester 读了修改后的文件就判"5/5 PASS"，大佬测试后发现 3/5 未修复。根因：review spec 没有强制要求截图验证。
+**⛔ 教训（2026-06-07）：** tester profile 缺少 `browser` + `vision` → 连续 4 个浏览验证任务全部 1 分钟 crash。根因：dispatch 前没验证 profile toolsets。详见 `references/pitfalls/kanban-ops-lessons.md`。
+
+**⛔ 凭据检查（2026-06-07 教训）：** 凭据写入 task body 后，用 curl 验证一次。Workspace 密码 `clsh666.`（末尾有句号），写入时漏了句号 → 3 个 tester 认证失败。
+
+#### 2.1 Tester 任务必须拆分（2026-06-07 教训）
+
+**⛔ 一个 tester 卡验证 5+ 功能点 → 迭代预算耗尽 → 任务失败。**
+
+**铁律：每个 tester 卡只验证一个功能点。**
+- ≤5min，≤30 迭代
+- 5 个验证点 → 5 张 tester 卡
+- 一个卡失败只影响一个功能点
+
+**大佬原话（2026-06-07）：** "我记得以前让你派活检查需要拆开每个功能点，而不是让一个 tester 检查全部"
 
 **tester 派发模板：**
 ```
@@ -358,3 +370,31 @@ Stage 6: 复盘（Retrospect）
 - **禁止跳过 diagnose 的 Stage 1-2**（不复现就修 = 瞎猜）
 
 > ⚠️ **教训（2026-05-15）：** 大佬说"测试有问题"，灵犀直接自己修复了，跳过了 Phase 8 的全部流程。
+
+---
+
+## ⛔ Common Pitfalls（Phase 8 高频补充）
+
+> Phase 8 已有防辩解表、diagnose 6 阶段和完整规则。以下为易遗漏的高频 pitfalls 补充。
+
+### #2 禁止 Phase 8 "顺手修了"
+
+**规则：** 大佬反馈问题必须走完整反馈循环（conversation → diagnosis → fixes → test-report），禁止灵犀直接改代码。
+
+### #23 Bugfix Spec 不列出调用点
+
+**规则：** Spec 必须列出所有需要修改的函数/端点。只说"修复 X 功能"→ coder 只修一处。
+
+**反例：** Spec 说"修复 URL 生成"→ coder 改了 createShare()，漏了 listShares() 和 findShareByPath()。
+
+### #6 方向变化不回 Phase 1
+
+**规则：** 核心定位/架构/目标用户变化 = 新变更目录 + 从 Phase 1 开始，不能回 Phase 3。必须归档旧变更（status: superseded）。
+
+### #22 Phase 8 上下文溢出
+
+**规则：** 每轮最多修 3-4 个 bug。后端和前端分开修。修完一批先 pm2 restart + 基础测试再继续下批。
+
+### #79 Tester 完成无 summary 无通知
+
+**规则：** tester 卡 task body 必须要求 kanban_complete 时写 summary（验证了什么、结果、截图路径）。灵犀必须主动轮询 kanban 状态。

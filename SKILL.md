@@ -2,7 +2,7 @@
 name: clsh-project
 aliases: [cp]
 description: "需求驱动的项目开发工作流 — 从需求澄清到设计文档到实现计划到执行。灵感来自 Kiro 的 Spec-Driven Development、Superpowers 的 Brainstorming 方法论、Phoenix 的状态机执行模式。"
-version: 5.23.0
+version: 5.29.0
 author: 灵犀
 license: MIT
 platforms: [linux, macos, windows]
@@ -34,11 +34,13 @@ metadata:
       - references/methodology/self-evolution-mechanism.md
       - references/methodology/four-framework-analysis.md
       - references/methodology/optimization-deep-dive.md
+      - references/methodology/skillopt-superpowers-analysis.md
       # 模板（clsh-project 流程模板，保留本地）
       - references/templates/constitution-template.md
       - references/templates/archive-workflow.md
       - references/templates/cloud-server-wireguard.md
-      - references/templates/phase7-archive-checklist.md
+      - references/templates/phase5-tasks-template.md
+      - references/templates/phase6-dispatch-template.md
       - references/templates/phase8-checkpoint-template.md
       - references/templates/context-template.md
       - references/templates/adr-template.md
@@ -56,9 +58,7 @@ metadata:
       - references/workspace-sub-module-pattern.md
       - references/workspace-network-module-pattern.md
       - references/pitfalls/common.md
-      - references/templates/version-history.md
-      - references/templates/verification-checklist.md
-      - references/methodology/self-evolution-mechanism.md
+      - references/pitfalls/rejected-edits.md
       # 教训（流程违规案例，保留本地）
       - references/pitfalls/violation-case-2026-05-15.md
       - references/pitfalls/violation-case-2026-05-15-self-coding.md
@@ -95,8 +95,8 @@ metadata:
 
 ### 膨胀阈值
 - SKILL.md: ≤ 900 行
-- Common Pitfalls: ≤ 24 条（超出迁移）
-- references/: ≤ 25 个文件（超出归档）
+- Common Pitfalls: ≤ 80 条（common.md 是完整词典，超出迁移历史案例到 archive/）
+- references/: ≤ 50 个文件（超出归档历史集成文件到对应项目的 raw/ 目录）
 
 **核心理念（来自 Kiro + Superpowers + Phoenix + Ralph Loop）：**（详见 `references/methodology/kiro-superpowers-analysis.md` 和 `references/methodology/ralph-loop-analysis.md`）
 - 需求不能跳到编码 — 必须经过需求澄清 → 设计 → 计划
@@ -159,6 +159,9 @@ metadata:
 15. **渠道匹配用 key 不用 name（2026-06-05 教训）** — 前后端数据匹配必须用稳定的 key 字段（如 'hugo'/'wechat'/'xhs'），不能用 name 字段（后端 '微信' vs 前端 '微信公众号' 不一致会导致匹配失败）。后端返回数据必须包含 key 字段。**反例：** channel-checker 返回 `name:'微信'`，前端 CHANNELS 定义 `name:'微信公众号'`，findIndex 匹配失败 → 所有渠道回退到默认图标。
 16. **Watchdog cron 模式（2026-06-05）** — 周期性检查类 cron 任务必须用 `no_agent=true` + 脚本模式：正常时 stdout 为空（静默不发通知），异常时 stdout 输出告警（cron 自动发送）。禁止用 agent 做检查（浪费 token 输出"一切正常"）。脚本放在 `~/.hermes/scripts/`。
 17. **机械确认码必须脚本生成（2026-06-05）** — Phase 1 机械确认门禁的随机码必须用 `python3 -c "import secrets,string; ..."` 生成（密码学随机），禁止 LLM 自行编造码（可预测、会重复）。
+18. **Phase 确认模板内嵌（2026-06-07 教训）** — 确认模板已内嵌到 SKILL.md 各 Phase 节中（不再依赖外部文件加载）。每个 Phase 结束输出确认请求时，**必须**使用对应 Phase 的内嵌模板。`[CODE]` 占位符必须替换为脚本生成的确认码。回复格式：大佬直接回复码即可（不需要"确认"前缀），方便复制。不使用模板 = 流程违规。
+19. **Phase 6 派发必须用模板（2026-06-07 教训）** — Phase 6 执行时，必须使用 `references/templates/phase6-dispatch-template.md` 逐项打勾。模板强制：(1) Wave 0 先派 tester 验证；(2) coder 任务顺序派发（不可并行）；(3) 每 2-3 个 coder 任务后暂停做中间 tester 验证。不使用模板 = 流程违规。
+20. **Phase 8 反馈必须用模板（2026-06-07 教训）** — 大佬测试反馈问题后，必须使用 `references/templates/phase8-feedback-template.md` 执行。模板强制：(1) 只记录现象不分析根因；(2) 写 bugfix spec 到文件；(3) 派 coder 修复（不自己修）；(4) 派 tester 验证。灵犀直接改代码 = 流程违规。**Phase 8 checkpoint 文件路径：** `/tmp/<project>-round<N>-checkpoint.md`（使用 `references/templates/phase8-checkpoint-template.md` 模板），session 恢复时从此路径读取。
 13. **Context File Pattern（2026-05-26 验证通过）** — 复杂任务（body > 500 字）采用混合模式：body 放摘要（500 字），详细 spec 写到 `raw/projects/{project}/changes/{变更名}/bugfix-spec.md`，body 中注明**绝对路径**让 worker 读取。worker SOUL.md 已注入规则。**实测：** Round 6 首次使用，coder/tester 都正确读取 spec 文件，token 节省 90%。**关键：** 路径必须是绝对路径（`/mnt/unraid_data/Obsidian/wiki/...`），相对路径可能找不到。
 14. **5 步验证函数（2026-05-29 Superpowers 移植）** — 声称任务完成/修复成功/测试通过前，必须走完 5 步：(1) IDENTIFY 验证命令 (2) RUN 新鲜执行 (3) READ 完整输出+exit code (4) VERIFY 逐条对照验收标准 (5) REPORT 带证据汇报。跳过任何一步 = 违规。"CodeWhale 说改好了" ≠ 验证过，"代码看起来对" ≠ 运行中的系统。详见 `references/methodology/verification-and-ratchet.md` §一、§二。
 
@@ -265,10 +268,27 @@ Phase 8: 反馈循环（大佬测试后，diagnose 6 阶段）→ 回到 Phase 1
 
 ## Phase 0+1: 需求准备与澄清
 
-Phase 0 每次项目开始前内化历史教训；Phase 1 采用**调研循环**模式（替代旧的调研前置）：每个决策点走 `L0 内部调研→提问→确认` 微循环，涉及技术选型时触发 L1（GitHub/文档/竞品），架构级决策触发 L2（文章/讨论）。调研范围逐轮收敛，每轮提问带推荐答案。**新增：机械确认门禁** — 每个决策点生成随机确认码，大佬必须回复 `确认 <码>` 才放行，码不匹配不走。前面 LLM 判断调研质量，门禁是机械判断。**新增：** 代码交叉验证（大佬描述现有行为时必须查代码）+ CONTEXT.md 领域术语表（自然积累项目术语）+ 决策树追踪（Phase 1 结束时输出决策树）。UI 项目可选 Visual Companion。含调研三层模型、提问模板、需求文档格式。
+Phase 0 每次项目开始前内化历史教训；Phase 1 采用**调研循环**模式（替代旧的调研前置）：每个决策点走 `L0 内部调研→提问→确认` 微循环，涉及技术选型时触发 L1（GitHub/文档/竞品），架构级决策触发 L2（文章/讨论）。调研范围逐轮收敛，每轮提问带推荐答案。**新增：机械确认门禁** — 每个决策点生成随机确认码，大佬直接回复码即放行，码不匹配不走。前面 LLM 判断调研质量，门禁是机械判断。**新增：** 代码交叉验证（大佬描述现有行为时必须查代码）+ CONTEXT.md 领域术语表（自然积累项目术语）+ 决策树追踪（Phase 1 结束时输出决策树）。UI 项目可选 Visual Companion。含调研三层模型、提问模板、需求文档格式。
 
 📋 **详细流程:** [references/workflow/phase0-1-requirements.md](references/workflow/phase0-1-requirements.md)
 📋 **术语模板:** [references/templates/context-template.md](references/templates/context-template.md)
+
+**Phase 1 确认模板（内嵌）：**
+```
+需求澄清完成。
+
+决策点：
+- [决策1]: [结果]
+- [决策2]: [结果]
+...
+
+---
+
+🔑 `[CODE]`
+📋 复制上面的码回复即可
+---
+```
+`[CODE]` 用 `python3 -c "import secrets,string; print(''.join(secrets.choice(string.ascii_uppercase+string.digits) for _ in range(6)))"` 生成。
 
 ---
 
@@ -279,6 +299,23 @@ Phase 2 提出 2-3 个方案 + 推荐理由，用对比表格呈现。Phase 2.5 
 📋 **详细流程:** [references/workflow/phase2-design.md](references/workflow/phase2-design.md)
 📋 **原型借鉴:** [references/methodology/matt-pocock-patterns.md](references/methodology/matt-pocock-patterns.md) §5
 
+**Phase 2 确认模板（内嵌）：**
+```
+方案设计完成。
+
+推荐方案：[方案名]
+- [关键决策 1]
+- [关键决策 2]
+
+📄 详情：raw/projects/<项目>/changes/<变更>/proposal.md
+
+---
+
+🔑 `[CODE]`
+📋 复制上面的码回复即可
+---
+```
+
 ---
 
 ## Phase 3+4: 设计文档与自检
@@ -287,6 +324,38 @@ Phase 3 写 proposal.md + constitution.md（含轻量版和完整版模板）。
 
 📋 **详细流程:** [references/workflow/phase3-spec.md](references/workflow/phase3-spec.md)
 📋 **ADR 模板:** [references/templates/adr-template.md](references/templates/adr-template.md)
+
+**Phase 3 确认模板（内嵌）：**
+```
+设计文档完成。
+
+已输出：
+- proposal.md（[行数] 行）
+- constitution.md（[行数] 行）
+
+📄 详情：raw/projects/<项目>/changes/<变更>/
+
+---
+
+🔑 `[CODE]`
+📋 复制上面的码回复即可
+---
+```
+
+**Phase 4 确认模板（内嵌）：**
+```
+自检完成。
+
+文档质量：[PASS/FAIL]
+流程合规：[PASS/FAIL]
+Module Depth：[评估结果]
+
+---
+
+🔑 `[CODE]`
+📋 复制上面的码回复即可
+---
+```
 
 ---
 
@@ -453,6 +522,7 @@ hermes kanban create "[项目名] Round<N>: <问题简述>" \
 69. 禁止灵犀自己分析 5 个可能原因再告诉 worker — 这是 worker 的活
 
 > 78+ 条完整 pitfalls（含历史案例、验证方法、触发条件）→ `references/pitfalls/common.md`
+> 各 Phase 高频 pitfalls（3-5 条）已内嵌到对应 workflow 文件末尾 → 读 Phase 时自动看到，不需额外查 `common.md`
 
 ### ✅ Verification Checklist
 
@@ -472,6 +542,11 @@ hermes kanban create "[项目名] Round<N>: <问题简述>" \
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v5.28.0 | 2026-06-07 | **确认模板内嵌 + 回复格式简化**：模板从外部文件改为内嵌到 SKILL.md 各 Phase 节（方案 B），消除 LLM 记忆依赖。回复格式从"确认 [CODE]"简化为直接回复码（方便复制）。铁律 #18 更新。phase6-dispatch-template + phase8-feedback-template 同步更新。新增 Pitfall #87（模板未加载）。 |
+| v5.29.0 | 2026-06-07 | **Phase 8 反馈模板 + Watchdog 诊断**：新增 `references/templates/phase8-feedback-template.md`（5 步流程：记录→spec→coder→tester→汇报）。铁律 #20：Phase 8 修复必须用模板，不自己修。Pitfalls #91-#93：cron resume 静默成功、notify-subscribe 发文件内容、CDN 库 API 版本不兼容。Kanban watchdog cron 重建（13891dee5df4，旧 ID 不存在）。 |
+| v5.27.0 | 2026-06-07 | **Phase 确认码模板化**：新增 `references/templates/phase-confirmation-template.md`（4 个 Phase 的确认模板，各含 `[CODE]` 占位符）。铁律 #18：Phase 确认必须用模板，不使用 = 流程违规。根因：Phase 2 漏生成确认码，触发点依赖 LLM 记忆（违反能力无关性原则）。模板使 `[CODE]` 占位变成机械触发。 |
+| v5.26.0 | 2026-06-07 | **P2 学习率预算**：3 条硬规则写入 self-evolution-mechanism.md — 每次 SKILL.md 修改最多改 1 个维度、每次新增 pitfalls ≤ 3 条、单次 workflow 修改不超过 1 个 Phase。与膨胀阈值互补（总量上限 vs 每次增量）。 |
+| v5.25.0 | 2026-06-07 | **Phase 8 tester 强化 + Kanban 运维教训**：Profile toolsets 派发前验证（browser+vision 缺失 = worker 静默失败）+ tester 任务拆分铁律（每卡一个功能点）+ 凭据 curl 验证。新增 `references/pitfalls/kanban-ops-lessons.md`（watchdog 脚本 bug + profile 排查 + 备份超时修复）。Pitfalls #84-#86。：SKILL.md 549 行（61% 使用率，健康）。references 74 个 .md 文件（超旧阈值 25）。扩容：Common Pitfalls ≤80 条（含 archive/ 分区），references ≤50 个文件（历史集成文件迁移到项目 raw/）。清理 frontmatter 3 个重复引用。P1-A pitfalls 内嵌完成验证：7/7 Phase workflow 有 Common Pitfalls 节（2-6 条）。 |
 | v5.22.0 | 2026-06-05 | **调研循环+机械确认门禁**：Phase 1 从"调研前置"改为"调研循环"——每个决策点走 `L0→L1→L2` 分层调研→提问→确认微循环。新增机械确认门禁：每个决策点生成随机确认码，大佬必须回复 `确认 <码>` 才放行。前面 LLM 判断调研质量，门禁是纯机械判断。借鉴 grill-me 决策树遍历 + Superpowers 管道化。 |
 | v5.23.0 | 2026-06-05 | **调研循环 LLM 判断力分析**：发现 L1 触发条件引入 LLM 判断力依赖（违反能力无关性原则）。新增 `references/pitfalls/research-loop-llm-judgment.md`，对比 Superpowers 的线性管道模式，提出硬编码触发条件方案。 |
 | v5.21.0 | 2026-06-05 | **Network 交换机+路由器拟物化面板**：Workspace network 模块交换机端口显示从扁平色块改为拟物化物理布局（ZX530S / ZX-SWTGW2224AS 双模板）。新增路由器前面板设计（物理网口+接口摘要）。SNMP ifType 陷阱：消费级交换机 walk 不可靠，走型号配置。Obsidian 截图作为 UI 视觉参考模式。更新 `references/workspace-network-module-pattern.md`。 |
@@ -498,6 +573,7 @@ hermes kanban create "[项目名] Round<N>: <问题简述>" \
 - `references/methodology/verification-and-ratchet.md` — 验证框架与棘轮机制
 - `references/methodology/self-evolution-mechanism.md` — **自进化机制**（Darwin 9 维 rubric、ECC 执行验证）
 - `references/methodology/external-framework-evaluation.md` — 外部框架评估方法论
+- `references/methodology/skillopt-superpowers-analysis.md` — **SkillOpt × Superpowers × clsh-project 三方对比分析**（P0-P2 优化 + LLM 能力无关性检查）
 
 ### 📋 模板
 - `references/templates/constitution-template.md` — Constitution 模板
@@ -505,9 +581,14 @@ hermes kanban create "[项目名] Round<N>: <问题简述>" \
 - `references/templates/version-history.md` — **完整版本历史**
 - `references/templates/context-template.md` — CONTEXT.md 领域术语表模板
 - `references/templates/adr-template.md` — ADR 架构决策记录模板
+- `references/templates/phase-confirmation-template.md` — **Phase 确认模板**（机械确认码，每个 Phase 结束时必须使用）
+- `references/templates/phase6-dispatch-template.md` — **Phase 6 派发模板**（顺序派发 + tester 验证，不可并行）
+- `references/templates/phase8-feedback-template.md` — **Phase 8 反馈模板**（记录→spec→coder→tester→汇报，不自己修）
 
 ### ⚠️ 教训
-- `references/pitfalls/common.md` — **Common Pitfalls 完整版**（78+ 条，含历史案例 + 验证方法 + 触发条件）
+- `references/pitfalls/common.md` — **Common Pitfalls 完整版**（93+ 条，含历史案例 + 验证方法 + 触发条件）
+- `references/pitfalls/kanban-ops-lessons.md` — **Kanban 运维教训**（profile toolset 缺失、watchdog 脚本 bug、备份超时）
+- `references/pitfalls/rejected-edits.md` — **被拒绝的 Skill 编辑记录**（SkillOpt rejected edit buffer 实现）
 - `references/pitfalls/skill-lookup-priority.md` — **技能库查询优先级**（查 skill 先于问用户，2026-06-04 教训）
 - `references/pitfalls/violation-case-2026-05-15.md` — 跳步 + 自测案例
 - `references/pitfalls/violation-case-2026-05-18.md` — Kanban 状态同步 + 角色分离案例
@@ -525,19 +606,29 @@ hermes kanban create "[项目名] Round<N>: <问题简述>" \
 - `references/integration/hermes-pitfalls.md` — Hermes 工具链陷阱
 - `references/workspace-sub-module-pattern.md` — Workspace 子模块开发模式
 
-### Kanban Watchdog（派活后自动监控）
+### Kanban Watchdog（派活后自动监控 v2）
 
-**派活后必须启用 watchdog cron**，让 agent 自动感知任务完成：
+**⚠️ 已知问题（2026-06-07）：** watchdog cron 可能不存在或被删除。`hermes cron resume <id>` 对不存在的 cron 会静默报 "Resumed" 但实际不生效。`notify-subscribe` 也可能不持久化。
+
+**派活后必须验证 watchdog 实际存在：**
 
 ```bash
-# 派活后启用
-hermes cronjob resume 1d04104d3ca9
+# 1. 检查 watchdog cron 是否存在
+hermes cron list | grep -i watchdog
+
+# 2. 如果不存在，创建新的
+hermes cron create --name "kanban-watchdog" --schedule "*/5 * * * *" \
+  --script kanban-watchdog.sh --no-agent
+
+# 3. 启用后验证
+hermes cron list | grep -i watchdog
 ```
 
-**机制：**
-- 每 5 分钟轮询 `in_progress` 状态的 kanban 任务
-- 有任务完成 → 输出摘要（cron 自动发送到当前 chat）
-- 所有任务完成 → 自动暂停自身（不消耗 token）
-- 详见 `references/integration/kanban-watchdog.md`
+**v2 能力（2026-06-07）：**
+- **blocked 检测：** 发现 blocked 任务时自动 unblock 重试（最多 2 次）
+- **超时告警：** running 超过 8 分钟的任务告警
+- **状态持久化：** 通过 `.kanban-watchdog-state` JSON 文件跟踪
 
-**铁律：** 派活 = 启用 watchdog。不派活 = watchdog 自动暂停。无需手动管理。
+**铁律：** 派活 = 启用 watchdog + 验证存在。不派活 = watchdog 自动暂停。无需手动管理。
+
+**Pitfall：** `hermes cron resume` 对不存在的 cron 静默成功（#87 2026-06-07）。

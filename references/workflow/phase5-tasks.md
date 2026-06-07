@@ -186,3 +186,23 @@ Slice 4: 删除任务（删除 + API + 确认UI）
 - Type Consistency: ✅/❌
 - File Isolation: ✅/❌
 ```
+
+---
+
+## ⛔ Common Pitfalls（Phase 5 高频）
+
+> 从 pitfalls/common.md 提取的 Phase 5 高频教训，避免额外查文件。
+
+### #8 缺少 Self-Review
+
+**规则：** tasks.md 写完后必须执行 4 项自检（Spec Coverage / Placeholder Scan / Type Consistency / File Isolation），全部通过才能进入 Phase 6。
+
+### #13 Placeholder 污染 tasks.md
+
+**规则：** TBD / TODO / "类似 Task N" / "填充详情" / "写测试覆盖上述" = 计划缺陷，必须全部修复为实际代码。tasks.md 中不应出现任何占位符。
+
+### #25/#45 文件路径分散 / worker 首轮功能不全
+
+**规则 #25：** 代码应集中在项目文件夹（如 `/opt/Workspace/src/projects/<项目名>/`），task body 必须显式写明**绝对输出路径**。
+
+**规则 #45：** tasks.md 写好文件依赖图，每个 Task 指定精确文件路径。worker 首轮后 grep 验证关键功能，缺失时二轮用精确 bullet-point 需求补全。

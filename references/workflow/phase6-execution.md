@@ -318,7 +318,9 @@ PASS/FAIL 输出要求..." \
 
 **优化方案（三选一或组合）：**
 
-#### 方案 1: 拆分 tester 卡（推荐）
+#### 方案 1: 拆分 tester 卡（推荐，2026-06-07 大佬强化）
+
+**大佬原话：**"我记得以前让你派活检查需要拆开每个功能点，而不是让一个 tester 检查全部"
 
 和 coder 卡一样，每个 tester 卡只验证一个功能点，5 分钟内能完成：
 
@@ -329,6 +331,22 @@ PASS/FAIL 输出要求..." \
   - tester-API: curl 验证 API 响应结构（20 迭代）
   - tester-回归: 核心功能不 break（30 迭代）
 ```
+
+**铁律：一个卡卡住 = 全部卡住。5 个验证点 → 5 张 tester 卡。**
+
+#### ⚠️ Profile Toolset 验证（2026-06-07 教训）
+
+派发前必须验证 assignee profile 的 toolsets 覆盖任务需求：
+
+```bash
+cat /root/.hermes/profiles/<profile>/config.yaml | grep -A10 "toolsets:"
+```
+
+| 任务类型 | 必需 toolsets | 缺失后果 |
+|---------|-------------|---------|
+| UI 验证（浏览器截图） | browser, vision | protocol violation（60s crash） |
+| 代码修改 | terminal, file | 无法读写文件 |
+| API 测试 | terminal, web | 无法 curl |
 
 #### 方案 2: 灵犀做机械预检，tester 只做浏览器
 
@@ -516,3 +534,57 @@ echo "TIMEOUT_ROLLBACK: <task-name> | $(date) | $(git diff --stat)" >> /tmp/<pro
 - **禁止跳过 Security Scan** — 即使"代码很简单"
 - **禁止 fix agent 超过 2 轮** — 2 轮后必须 escalate 给大佬
 - **禁止 agent 自判完成** — 必须通过客观验证
+
+---
+
+## ⛔ Common Pitfalls（Phase 6 高频补充）
+
+> Phase 6 已有防辩解表和大量规则。以下为易遗漏的高频 pitfalls 补充。
+
+### #11 agent 自判完成（置信度 0.9）
+
+**规则：** agent 说"已完成"/"done"/"fixed" ≠ 真的完成。必须通过 CHECKPOINT 客观验证（exit code / 截图 / ls 输出）。
+
+### #34 tester 只读代码判 PASS
+
+**规则：** UI 项目的 tester review spec 必须包含"必须用浏览器工具实际访问页面，截图验证每个验收标准"。只读代码不算验证。
+
+### #38/#39/#49/#80 灵犀做代码推理（置信度 0.9，多次触发）
+
+**规则（Way C 铁律）：** kanban task body 只给目标+现象+路径+约束，不给具体代码改动。worker 自己读代码、推理根因。
+
+**反例：** task body 写"将 z-index 从 10 改为 100" → worker 照做，错过更好的方案。
+
+### #77 Kanban 派发 fire-and-forget
+
+**规则：** 派发 ≠ 结束。派发后必须设追踪机制（cron 轮询/session 内等待/notify_on_complete），完成后三件事：(1) 验证产出物 (2) 解除依赖 (3) 通知大佬。
+
+### #81 Kanban create 后忘记 notify-subscribe
+
+**规则：** create 后必须立即 `hermes kanban notify-subscribe <task_id> --platform feishu --chat-id oc_22cb909a35e6a74c62cc0d4d170b19c3`。
+
+### #78 Tester 卡迭代预算耗尽
+
+**规则：** tester 卡和 coder 卡一样拆分 — 每卡只验证一个功能点（≤30 迭代）。灵犀做机械预检（语法/grep/curl），tester 只做浏览器验证。
+
+### #82 Parallel Tester 429 Rate Limit（2026-06-07）
+
+**问题：** 4 张 tester 卡同时 dispatch → 4 个 worker 同时请求 MiMo API → 全部 429 → crash（"protocol violation"）。
+
+**根因：** MiMo token-plan API 有速率限制，N 个 worker 并行 = N 倍请求量。浏览器验证更严重（snapshot + vision 模型调用 = 每次验证 3-5 个 API 请求）。
+
+**规则：Tester 串行派发。** 一次 dispatch 1 张 tester 卡，等完成/失败后再派下一张。
+
+```bash
+# ❌ 错误：4 张卡同时 dispatch
+hermes kanban create "tester-1" --assignee tester ...
+hermes kanban create "tester-2" --assignee tester ...
+
+# ✅ 正确：串行，一张完成再派下一张
+hermes kanban create "tester-1" --assignee tester ...  # 等完成
+hermes kanban create "tester-2" --assignee tester ...  # 等完成
+```
+
+**补充：代码验证优先于浏览器验证。** 当 provider 有速率限制时，tester 卡应优先用代码验证（node -c、grep、curl），避免浏览器截图触发大量 API 调用。浏览器验证留给最关键的 UI 交互。
+
+**模型降级策略：** 验证类任务（非推理密集）可降级到轻量模型（如 mimo-v2.5 替代 mimo-v2.5-pro），减少 API 负载。在 tester profile config.yaml 中设置。

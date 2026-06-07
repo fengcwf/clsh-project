@@ -1,7 +1,21 @@
-# Common Pitfalls — 完整版
+# Common Pitfalls — 完整词典
 
-> 本文件是 clsh-project SKILL.md Common Pitfalls 的完整版（含历史案例细节）。SKILL.md 中保留精简摘要（规则+验证+触发）。
+> clsh-project 流程中的常见错误、触发条件、验证方法。
+> 各 Phase 高频 pitfalls 已内嵌到对应 workflow 文件末尾，此文件是完整词典。
 
+---
+
+## Pitfall #87: 确认模板未加载（LLM 记忆依赖）
+
+**触发条件：** Phase 结束输出确认请求时，SKILL.md 有铁律 #18 的文字但 LLM 没有加载 `phase-confirmation-template.md`
+
+**根因：** 铁律 #18 写"必须使用模板"，但触发加载模板这一步依赖 LLM 自觉。LLM 加载了 SKILL.md（含规则文字）就认为"已知道规则"，没有实际加载模板文件。这违反了 LLM 能力无关性原则。
+
+**解决方案（2026-06-07 确立）：** 模板内嵌到 SKILL.md 各 Phase 节中（方案 B）。LLM 加载 SKILL.md 时自动看到模板内容，不需要额外加载步骤。
+
+**验证方法：** 检查 SKILL.md 各 Phase 节是否有内嵌的确认模板（含 `[CODE]` 占位符）
+
+**教训：** "写了规则" ≠ "规则会被执行"。如果规则的执行依赖 LLM 记忆触发，就必须把触发条件变成机械的（内嵌到加载路径中）。
 ## 角色分离（铁律，置信度 0.9）
 
 1. **禁止灵犀直接写代码** — 即使"很快能做完"也必须派 agent | 验证：检查是否有灵犀的 write_file/patch 操作 | 触发：任何代码修改任务
@@ -82,9 +96,49 @@
 75. **不要分析根因再派 worker（2026-06-03 大佬纠正）** — 大佬反馈 bug 时，灵犀只做：(1) 记录现象 (2) 指定文件路径 (3) 创建 kanban 卡让 worker 分析。
 76. **execFileSync 在循环中对 N 个文件调用 = 性能灾难（2026-06-03 教训）** — 批量操作禁止在循环中同步启动子进程。改为按需检查或批量脚本。
 77. **Kanban 派发 fire-and-forget（2026-06-03 教训）** — 派发任务后不做追踪，任务完成 ~1.5 小时无人知晓，依赖卡 blocked 无人解除。**铁律：派发 ≠ 结束。** 派发后必须设追踪机制（cron 轮询/session 内等待/notify_on_complete），完成后三件事：(1) 验证产出物 (2) 解除依赖 (3) 通知大佬。详见 Phase 6 "派发后追踪协议"。
-78. **Tester 卡迭代预算耗尽（2026-06-03 教训）** — 一个 tester 卡覆盖所有功能（平台分类+封面+元数据+回归），迭代预算 90 耗尽 12 轮未完成。**根因：** Review Checklist 太重（4 大类 10+ 项）+ 浏览器验证与代码审查混在一起。**铁律：** tester 卡和 coder 卡一样拆分 — 每卡只验证一个功能点（≤30 迭代）。灵犀做机械预检（语法/grep/curl），tester 只做浏览器验证。详见 Phase 6 "Tester 卡优化"。
+78. **Tester 卡迭代预算耗尽（2026-06-03 教训，2026-06-07 再犯）** — 一个 tester 卡覆盖所有功能，迭代预算耗尽未完成。**大佬原话（2026-06-07）：**"我记得以前让你派活检查需要拆开每个功能点，而不是让一个 tester 检查全部"。**铁律：** tester 卡和 coder 卡一样拆分 — 每卡只验证一个功能点（≤5min，≤30 迭代）。5 个验证点 → 5 张 tester 卡。一个卡卡住 = 全部卡住。详见 Phase 6 "Tester 卡优化"。
 79. **Tester 完成无 summary 无通知（2026-06-04 教训）** — tester 卡标记 done 但 summary 为空，灵犀不知情。**根因：** task body 没要求写 summary → worker 认为"验证通过就完事了"。**规则：** (1) task body 必须要求 worker 在 kanban_complete 时写 summary（验证了什么、结果、截图路径）(2) 灵犀必须主动轮询 kanban 状态，不能等通知 (3) 完成后必须自己跑 5 步验证，不信任 worker 的 summary。
 80. **Way C 连续违规 — 灵犀忍不住给具体修复方案（2026-06-04 教训，同一 session 两次）** — Round 6 灵犀直接改代码（角色分离违规），Round 7 task body 写了具体代码改动（Way C 违规）。**根因相同：** 看到"简单 bug"就认为"给具体方案更快"。**大佬两次纠正：** "修复是不是没有派活，都是你自己干了" + "不是应该给目标和问题coder，让他自己分析操作吗"。**铁律：** 无论改动多小，task body 只给现象+文件路径。worker 自己读代码的价值 > 节省的 30 秒。
 81. **Kanban create 后忘记 notify-subscribe（2026-06-04 教训）** — create 后没有调 notify-subscribe，kanban_notify_subs 表为空 → worker 完成无通知 → 灵犀不知情。**铁律：** 每次 kanban create 后必须立即 `hermes kanban notify-subscribe <task_id> --platform feishu --chat-id oc_22cb909a35e6a74c62cc0d4d170b19c3`。已写入 phase6-execution.md Step 3.2。与 #77 区别：#77 是不追踪状态；#81 是技术层没建通知订阅。
 82. **Worker kanban_complete 不写 summary** — task_runs 有详细结果但 tasks.result 为空。**规则：** task body 必须要求 `kanban_complete(summary=...")`；灵犀必须主动查 task_runs 或 poll 状态，不能只依赖通知。
 83. **先问用户再查 skill/memory（2026-06-04 教训）** — 大佬说"代理信息应该在 clsh-project 里有记载，为什么需要问我"。代理 `192.168.0.41:7890` 已记录在 `proxy-workarounds` skill 中，但灵犀没查就问用户。**铁律：** 查找优先级 = (1) 查相关 skill → (2) 查 memory → (3) 查 wiki/Obsidian → (4) 最后才问用户。用户已提供的信息不应重复询问。**触发信号：** 需要环境配置、凭据、端口、路径等信息时。
+
+## Kanban 运维（2026-06-07 新增）
+
+84. **Profile toolset 缺失导致 worker 静默失败（2026-06-07 教训）** — tester/worker profile 的 `config.yaml` 中 `toolsets` 缺少必要工具时，worker 启动后 60s 内退出，kanban 报 `protocol violation`（rc=0 但没调 kanban_complete）。**实测案例：** tester 缺少 `browser` + `vision` → 连续 4 个浏览器验证任务全部 1 分钟 crash。**排查路径：** protocol violation → 对比能正常工作的 profile 的 toolsets。**铁律：** 派发前验证 assignee profile 的 toolsets。UI 验证 → `browser` + `vision`；代码 → `terminal` + `file`。详见 `references/pitfalls/kanban-ops-lessons.md`。
+85. **Kanban watchdog 脚本参数错误（2026-06-07 教训）** — `hermes kanban list --status in_progress` 无效（状态名是 `running`）；`hermes cronjob` 不存在（正确命令 `hermes cron`）。两个 bug 导致 watchdog 静默退出。详见 `references/pitfalls/kanban-ops-lessons.md`。
+86. **凭据写入 task body 后必须 curl 验证（2026-06-07 教训）** — Workspace 密码 `clsh666.`（末尾有句号），写入 kanban 评论时漏掉句号 → 3 个 tester 全部认证失败。**铁律：** 凭据写入 task body 后用 curl 验证一次。
+
+87. **MiMo API 429 限流 — 并行派发秒炸（2026-06-07 教训）** — 4 个 tester 并行 dispatch → 4 个 MiMo API key 同时请求 → 全部 429 → `max_retries_exhausted` → 60s 内 crash（protocol violation）。**现象：** PID alive 但心跳 3+分钟停止，request dump 中 `429 Too many requests`。**铁律：** MiMo API 环境下**串行派发**（`dispatch --max 1`），间隔 ≥90s。**排查路径：** heartbeat 停止 → ps 确认 → 查 request dump → 429 → kill → archive → 串行重试。**正例：** 串行 2 张 10 分钟内 PASS。
+
+88. **浏览器截图验证耗尽 API 迭代预算（2026-06-07 教训）** — tester 做浏览器登录+screenshot+vision 分析，单任务消耗大量 API 调用，叠加并行 = 立刻 429。**规则：** (1) UI 验证优先用代码检查（grep/node --check）替代浏览器截图 (2) 必须浏览器验证时，串行 dispatch 一张一张来 (3) task body 明确告诉 tester 可用命令行替代浏览器。
+
+91. **`hermes cron resume` 对不存在的 cron 静默成功（2026-06-07 教训）** — `hermes cron resume 1d04104d3ca9` 报 "Resumed job: kanban-watchdog" 但该 cron 从未存在。后续 `hermes cron show` 返回 exit code 2（not found）。**铁律：** resume/create cron 后必须 `hermes cron list` 验证实际存在。参考 ID 不可信，必须从 list 输出中确认。
+
+92. **`notify-subscribe` 发送文件内容而非文本摘要（2026-06-07 教训）** — kanban 任务完成后，notify-subscribe 通知机制把 coder 修改的文件内容（如 index.html）作为通知发送给用户。**根因：** 通知系统将 task result 中的文件变更作为附件发送。**规避：** 用 no_agent cron watchdog 脚本输出纯文本摘要，不依赖 notify-subscribe 的默认行为。
+
+93. **CDN 库 API 版本不兼容（2026-06-07 教训）** — `marked` CDN 加载后 `marked(text)` 报 "marked is not a function"，因为 marked v5+ 顶层 API 改为 `marked.parse(text)`。**铁律：** 添加 CDN 库后必须在浏览器控制台验证 API 调用方式，不能假设 API 与旧版一致。coder 自己分析此类问题，灵犀不替 coder 判断根因。
+
+94. **Kanban scratch workspace 产出文件丢失（2026-06-07 教训）** — kanban scratch workspace（`/root/.hermes/kanban/workspaces/<task_id>/`）是临时目录，任务完成后清理。worker 写入 scratch 的代码文件不会持久化到实际项目目录。**实测：** 12 个代码生成任务用 kanban 派发 → worker 成功完成 → scratch 清理 → 文件不存在。**铁律：** 产出持久文件的任务（代码生成、新建文件）用 `delegate_task`（子 agent 直接写项目目录）。kanban 只用于无文件产出的任务（测试验证、纯推理）或修改现有文件。详见 `references/pitfalls/kanban-ops-lessons.md` §4。
+
+90. **`max_in_progress_per_profile` 需要 gateway restart（2026-06-07 教训）** — `dispatch_in_gateway: true` → kanban daemon 运行在 gateway 进程内 → config 变更需要 restart 生效。**现象：** 设置 `max_in_progress_per_profile: 1` 后 daemon 仍并行派发。**铁律：** 修改 kanban config 后必须 `hermes gateway restart`（从外部 shell，内部会报 `Refusing to restart`）。详见 `references/pitfalls/kanban-ops-lessons.md` §5。
+
+### #87: Kanban 并发打爆 API（2026-06-07）
+- **场景：** 12 个工业区任务同时派发给 coder，全部打爆 MiMo 429
+- **根因：** `max_in_progress_per_profile: null`（无限制）+ `auto_decompose_per_tick: 3`（每 tick 3 个）+ gateway 未重启导致配置未生效
+- **症状：** 所有任务 blocked（protocol violation — worker 429 后退出没调 kanban_complete）
+- **修复：** `max_in_progress_per_profile: 1` + `auto_decompose_per_tick: 1` + `dispatch_stale_timeout_seconds: 600`
+- **教训：** 任务必须顺序派发，不能并行。配置修改后必须重启 gateway。
+- **验证：** `hermes config get kanban.max_in_progress_per_profile` 应返回 1
+
+### #88: Watchdog 不检测 blocked 任务（2026-06-07）
+- **场景：** 12 个任务全部 blocked，watchdog 看不到（只监控 running/ready），自暂停
+- **根因：** watchdog 只检查 running 和 ready 状态，不检查 blocked
+- **修复：** watchdog v2 新增 blocked 检测 + 自动 unblock 重试（最多 2 次）
+- **教训：** watchdog 必须覆盖所有活跃状态（running + ready + blocked）
+
+### #89: 跳过 tester 验证直接派 coder（2026-06-07）
+- **场景：** 工业区迁移直接派 coder，没先派 tester 验证旧模块结构
+- **根因：** "调研阶段已经读过代码" 不等于 "独立 tester 验证过"
+- **正确流程：** Phase 6 Wave 0 先派 tester 验证（确认旧模块结构+新工作台架构），再派 coder
+- **教训：** delegate_task 的结论是 self-reported，需要独立 tester 验证

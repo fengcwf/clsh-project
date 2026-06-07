@@ -4,6 +4,8 @@
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
+| v5.25.0 | 2026-06-07 | **Kanban scratch workspace + delegate_task 决策树**：新增 pitfalls #89（scratch workspace 产出文件丢失 → 代码生成用 delegate_task）、#90（`max_in_progress_per_profile` 需要 gateway restart）。更新 kanban-ops-lessons.md §4-6。同步更新 delegation-protocol 决策树。 |
+| v5.24.0 | 2026-06-07 | **SkillOpt + Superpowers 三方对比分析**：分析 SkillOpt 训练循环和 Superpowers v5.1.0 TDD for Skills、Rationalization Prevention。实施：P0-B TDD for Skills，P1-B rejected-edits.md，P1-A pitfalls 内嵌到 7 个 Phase workflow 文件。 |
 | v5.19.0 | 2026-06-04 | **Phase 8 强制机制 + Pitfall 强化**：新增 §3.1 Round Exit Checklist（文档写入门禁）。Phase 8 tester 卡 summary 要求模板。Pitfall #49 强化（5 轮触发案例）。Pitfall #79 新增（tester 无通知）。 |
 | v5.15.0 | 2026-06-03 | **CodeWhale ACP → Kanban 派发回归**：Phase 6/8 的 coder/artist 角色从 CodeWhale ACP 改回 kanban 派发。Way C 铁律不变（给路径+目标，不做代码推理），派发方式从 delegate_task(acp_command) 改为 kanban create。15+ pitfalls 中的 CodeWhale 引用更新为 worker/kanban。 |
 | v5.13.0 | 2026-06-02 | **LLM 能力无关性原则 + Harness/Superpowers 对比落地**：新增核心设计原则、Review Checklist 模板、Spec Delta 必填字段、Session Launch Guidance。 |
