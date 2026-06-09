@@ -212,7 +212,7 @@ def main():
         print("用法: python3 phase4-mechanical-check.py <项目目录>")
         sys.exit(1)
     
-    project_dir = sys.argv[1]
+    project_dir = sys.argv[1].rstrip("/")
     
     if not os.path.exists(project_dir):
         print(f"❌ 项目目录不存在: {project_dir}")
