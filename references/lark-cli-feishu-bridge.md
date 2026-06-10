@@ -45,14 +45,13 @@ feishu.py send()
 | `hr` | 分割线 | **⚠️ 不是 `divider`！** |
 | `plain_text` | 标题文本 | header.title 专用 |
 
-### ⚠️ 关键 Pitfalls（已验证，2026-06-09 实测）
+### ⚠️ 关键 Pitfalls
 
-1. **`divider` 标签不存在** — 用 `hr` 替代。`divider` 返回 `not support tag: divider`（code 230099）。✅ 已验证。
+1. **`divider` 标签不存在** — 用 `hr` 替代。`divider` 会返回 `not support tag: divider` 错误（code 230099）。
 2. **`config.update_multi` 必须为 true** — 否则流式卡片 PATCH 更新会静默失败。
-3. **中文消息阈值 ~30 字符** — 中文信息密度高，30 字符已是完整句子。`should_use_card()` 默认阈值 30。
-4. **表格用 dict rows** — Card 2.0 table 组件 rows 是 `[{col_name: value}]` 格式，不是数组。✅ 已验证。
+3. **中文消息阈值 ~30 字符** — 中文信息密度高，30 字符（约 10-15 个汉字）已经是完整句子。
+4. **表格用 dict rows** — Card 2.0 的 table 组件 rows 是 `[{col_name: value}]` 格式，不是数组。
 5. **lark-cli 路径** — venv 内 npm 包路径：`venv/lib/python3.11/site-packages/nodejs_wheel/lib/node_modules/@larksuite/cli/bin/lark-cli`
-6. **确认码卡片中码必须独占一行** — 用户反馈：码周围有 emoji/文字时不方便复制（容易选中附近内容）。✅ 用户纠正。
 
 ### 卡片颜色自动映射
 
