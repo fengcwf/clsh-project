@@ -39,8 +39,12 @@ TEMPLATE_RULES = {
         "keywords": ["约束", "禁止", "验收标准"],
         "max_lines": 60,
     },
-    "changes/*/tasks.md": {
-        "keywords": ["验收标准", "不在范围内"],
+    "changes/*/PRODUCT.md": {
+        "keywords": ["不变量", "验证"],
+        "max_lines": 60,
+    },
+    "changes/*/TECH.md": {
+        "keywords": ["架构决策", "文件变更范围"],
         "max_lines": 80,
     },
 }
