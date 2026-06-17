@@ -1,0 +1,17 @@
+{
+  "project_docs_dir": "./project-docs",
+  "level": "auto",
+  "features": {
+    "kanban": null,
+    "obsidian_vault": null,
+    "gate_enforcer_plugin": false
+  },
+  "confirm_code_method": "hash",
+  "platform": "hermes",
+  "gate_state_dir": "~/.hermes/gate-state",
+  "_notes": {
+    "level": "auto=detect from env, A=full(kanban+gate-enforcer), B=standard(delegate_task+gates), C=lite(prompt-only)",
+    "project_docs_dir": "Where project documentation lives. Relative paths resolve from skill directory.",
+    "confirm_code_method": "hash=sha256(check_result)+salt (unforgeable), random=secrets.token (requires gate script)"
+  }
+}

@@ -1,18 +1,16 @@
 ---
 name: clsh-project
 aliases: [cp]
-description: "需求驱动的项目开发工作流 — 从需求澄清到设计文档到实现计划到执行。灵感来自 Kiro 的 Spec-Driven Development、Superpowers 的 Brainstorming 方法论、Phoenix 的状态机执行模式。DO trigger: 用户说'我要做一个 XXX'、'开发一个 XXX 系统'、'/clsh-project'、'/cp'、'按 Kiro 流程走'、需求明显是多步骤项目。Do NOT trigger: 简单查询、单步操作、修 bug（用 systematic-debugging）、已有明确方案的小改动、用户说'简单做一下'、代码质量审查（PR review）。"
-version: 5.71.0
-author: 灵犀
+description: "需求驱动的项目开发工作流 — 从需求澄清到设计文档到实现计划到执行。灵感来自 Kiro Spec-Driven Development、Superpowers Brainstorming、Phoenix 状态机执行。DO trigger: 用户说'我要做一个 XXX'、'开发一个 XXX 系统'、'/clsh-project'、'/cp'、需求明显是多步骤项目。Do NOT trigger: 简单查询、单步操作、修 bug（用 systematic-debugging）、已有明确方案的小改动、用户说'简单做一下'、代码质量审查。"
+version: 6.0.0-generic
+author: clsh
 license: MIT
 platforms: [linux, macos, windows]
 metadata:
   hermes:
-    tags: [workflow, project, spec-driven, planning, kanban, methodology]
-    pinned: true
+    tags: [workflow, project, spec-driven, planning, methodology]
     related_skills:
       - kanban-orchestrator
-      - obsidian-operations
       - plan
       - test-driven-development
       - incremental-implementation
@@ -20,596 +18,307 @@ metadata:
       - doubt-driven-development
 ---
 
-# /clsh-project — 需求驱动项目开发
-
-## 📁 路径约定
-
-> **Vault 根目录:** `/mnt/unraid_data/Obsidian`
-> 本 skill 中所有 `/mnt/unraid_data/Obsidian/raw/projects/` 路径均以 Vault 根目录为基准。
-> 迁移时全局替换此前缀即可。
+# /clsh-project — 需求驱动项目开发（通用版）
 
 ## 概述
 
-当大佬提出新的项目或功能需求时，**不直接写代码**，而是走完整的 需求→设计→计划→执行 流程。
+当用户提出新的项目或功能需求时，**不直接写代码**，走完整 需求→设计→计划→执行 流程。
+
+**核心理念（Kiro + Superpowers + Phoenix）：**
+- 需求不能跳到编码 — 必须经过需求澄清 → 设计 → 计划
+- 文档是锚点 — 防止进度丢失和跑偏
+- 分阶段审批 — 每阶段需用户确认后才进入下一阶段
+- 一次只问一个问题 — 不要一次性抛出多个问题
+- 两阶段 review（Superpowers）：先 spec compliance，再 code quality
+- 状态机执行（Phoenix）：每个 Task 有 checkpoint、验证条件、失败阻断
+
+## 📁 路径约定
+
+> **所有路径通过 config.json 的 `project_docs_dir` 配置，默认 `./project-docs/`。**
+> 迁移时修改 config.json 即可，无需改 SKILL.md。
 
 ## 边界定义
 
 ### 管什么
 - 流程编排（Phase 1-8 门禁和流转）
-- 角色分离（灵犀 ≠ coder）
-- 质量保障（checkpoint + review + security scan）
-- 文档管理（raw/projects/ 结构）
+- 角色分离（协调者 ≠ coder）
+- 质量保障（checkpoint + review）
+- 文档管理
 
 ### 不管什么
-- 具体技术实现细节 → `raw/projects/<项目>/references/pitfalls/`
+- 具体技术实现细节 → `references/pitfalls-common.md`
 - 调试方法论 → `systematic-debugging` skill
 - 代码质量规则 → `code-principles` skill
-- UI/样式设计不属于灵犀职责 → `artist` 角色自行决定
-- 测试用例编写不包含在灵犀 review 范围 → `tester` 角色自行设计
 
 ### 膨胀阈值
-- SKILL.md: ≤ 650 行（Phase 流程 + 门禁规则 + Convention，Pitfalls 外置 Vault）
-- Common Pitfalls: ≤ 120 条（以 `## Pitfall #XX:` 格式计数）
-- references/: 已迁移到 Vault `raw/projects/clsh-project/references/`
+- SKILL.md: ≤ 700 行
+- Pitfalls: ≤ 30 条（内嵌高频 + 外置完整版）
 
-**核心理念（来自 Kiro + Superpowers + Phoenix + Ralph Loop）：**
-- 需求不能跳到编码 — 必须经过需求澄清 → 设计 → 计划
-- 文档是锚点 — 需求和设计必须写成文档，防止进度丢失和跑偏
-- 分阶段审批 — 每个阶段需要大佬确认后才进入下一阶段
-- 一次只问一个问题 — 不要一次性抛出多个问题让大佬回复压力大
-- **两阶段 review**（Superpowers）：先检查 spec compliance，再检查 quality
-- **刚性管道**（Kiro）：Requirements → Design → Tasks，每阶段有强制审批门禁
-- **状态机执行**（Phoenix/MiMo/Qwen）：每个 Task 有明确的 checkpoint、验证条件、失败阻断。流程控制权在代码，不在 LLM
-- **Ralph Loop 原则**：灵犀是循环编排者，agent 是单步执行器；客观验证不自判；文件系统+git 是记忆层
+## 🛡️ LLM 能力无关性原则
 
-### 🛡️ LLM 能力无关性原则（2026-06-02 确立）
-
-**clsh-project 的流程控制不依赖 LLM 判断力。** LLM 强时和 LLM 弱时，流程应产出一致的结果。
-
-**判断标准：** 一个机制如果"LLM 强时正常、LLM 弱时静默失败"，则不得用于流程控制。
-
-#### 判断力分配框架
+**流程控制不依赖 LLM 判断力。** LLM 强时和 LLM 弱时，流程应产出一致的结果。
 
 | 类型 | 谁判断 | 用于 | 不得用于 |
 |------|--------|------|---------|
 | **机械判断** | 代码/脚本/硬编码 | 门禁检查、轮次上限、状态流转、文件存在性 | — |
-| **大佬判断** | clsh | 方案选择、设计确认、优先级裁决、方向变更 | 可自动化的验证步骤 |
-| **LLM 判断** | 灵犀/agent | 内容生成、格式化、信息整理、低风险草稿 | 流程控制、质量门禁、严重性分级 |
-
+| **用户判断** | 需求方 | 方案选择、设计确认、优先级裁决 | 可自动化的验证步骤 |
+| **LLM 判断** | agent | 内容生成、格式化、信息整理 | 流程控制、质量门禁 |
 
 ## ⛔ 流程规则（三层架构）
 
-> **设计原则（来自大佬的两条核心铁律）：**
+> **设计原则：**
 > 1. **能纯机械不用 LLM** — 有脚本检查的用脚本，不靠 LLM 自觉
-> 2. **角色严格分离** — 灵犀只做信息传递（记录现象+文件+验收标准），coder/artist 自己分析+执行
+> 2. **角色严格分离** — 协调者只做信息传递，coder/artist 自己分析+执行
 
 ### Layer 1: Gate（门禁，违反 = 流程阻断）
 
-> **⚠️ Gate 的机械性分两类：**（2026-06-10 调研确认：没有任何框架能纯靠 prompt 实现真机械防偏离）
-> - **真机械**（G0/G1/G6）：LLM 执行流程时必然触发（读文件、ls 验证）
-> - **脚本门禁**（G2/G3/G4/G7）：⛔ 必须用门禁脚本（前置检查+码生成原子化），不能拆成两步靠 LLM 自觉串联（Pitfall #142：LLM 会跳过检查直接生成码）。Gate Enforcer Plugin（pre_tool_call hook）可物理阻断，详见 `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/gate-enforcer-plugin.md`
-> - **行业验证的 3 种真机械策略**：工具调用拦截（GSD PreToolUse = Gate Enforcer）、进程隔离（Ralph Loop）、不信任 review（Superpowers fresh-context reviewer）。详见 `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/anti-deviation-patterns.md`
->
-> **Phase Gate 分类（哪些 Phase 需要 Gate 脚本）：**
-> | Phase | Gate 类型 | 需要脚本？ |
-> |-------|----------|----------|
-> | 1 | **人是 Gate（辅助检查）** | **✅ gate-phase1.py（不阻断，仅辅助）** |
-> | 2-3 | 人是 Gate（大佬看内容才输入码） | ❌ |
-> | 4/5/6/8 | LLM 是 Gate（灵犀可跳过检查直接给码） | ✅ gate-phaseN.py |
-> | 5/6 (C7) | LLM 是 Gate（灵犀可跳过 spawn reviewer） | **✅ gate-phase7.py（C7 review 报告检查）** |
+> **Gate 脚本随 skill 分发（`scripts/gate-phase*.py`），用户运行 `python3 scripts/env-check.py` 即可验证环境。**
 
 | # | 规则 | 机械机制 |
 |---|------|---------|
-| G0 | **先查进度再行动** — `ls` + 读 overview.md + 读 changes/，从下一个未完成 Phase 继续 | 文件系统检查（真机械） |
-| G1 | **文档先于代码** — Phase 3 未完成 + 大佬未确认，禁止写代码 | 文件存在性检查（真机械） |
-| G2 | **Phase 4 预检** — ⛔ 必须用 `gate-phase4.py`（内嵌码生成），不能单独跑 `phase4-mechanical-check.py` 再手动生成码。检查 Phase 3 产出物（overview/conversation/proposal/constitution/PRODUCT/TECH）存在性+关键词+行数。tasks.md 由 Phase 5 gate-phase5.py 检查。FAIL = 不出码，PASS = 自动出码 | 脚本 PASS/FAIL + 码生成（原子化，Pitfall #142） |
-| G3 | **机械确认码脚本生成** — ⛔ 必须用 `gate-phase4.py`/`gate-phase8.py` 门禁脚本生成码（内嵌前置检查），禁止拆成"先检查再生成"两步（LLM 会跳过前者）。无门禁脚本的 Phase 用 `python3 -c "import secrets,string; ..."` 但必须先完成该 Phase 所有检查 | 脚本输出（真机械，前置检查+码生成原子化） |
-| G4 | **Phase 8 bugfix spec 门禁** — 跑 `phase8-spec-check.py`，FAIL = 不允许派发。⚠️ 与 G2/G3 同样需要原子化（Pitfall #142），当前独立脚本存在 LLM 跳过风险 | 脚本拦截（待原子化） |
-| G6 | **文档路径验证** — 写入后必须 `ls` 验证 | `ls` 输出（真机械） |
-| G7 | **C7 review 报告门禁** — 跑 `gate-phase7.py`，检查 fresh-context reviewer 报告存在性+维度覆盖+PASS/FAIL。FAIL = 不允许汇报完成 | 脚本 PASS/FAIL + 码生成（原子化） |
+| G0 | **先查进度再行动** — `ls` + 读 overview.md + 读 changes/，从下一个未完成 Phase 继续 | 文件系统检查 |
+| G1 | **文档先于代码** — Phase 3 未完成 + 用户未确认，禁止写代码 | 文件存在性检查 |
+| G2 | **Phase 4 预检** — 必须用 `gate-phase4.py`（内嵌码生成），检查 Phase 3 产出物存在性+关键词+行数 | 脚本 PASS/FAIL + 码生成（原子化） |
+| G3 | **机械确认码** — 必须用门禁脚本生成码（hash(检查结果)+salt），禁止手动生成 | 脚本输出（不可伪造） |
+| G6 | **文档路径验证** — 写入后必须 `ls` 验证 | `ls` 输出 |
+| G7 | **C7 review 报告门禁** — 跑 `gate-phase7.py`，检查 fresh-context reviewer 报告 | 脚本 PASS/FAIL |
 
-### ⚠️ Review Mode 目录结构（2026-06-10 确立）
+### Layer 2: Convention（架构约束）
 
-**Review 项目也必须遵循标准目录结构**，Phase 4 脚本检查不区分开发/Review 项目：
+| # | 规则 | 执行方式 |
+|---|------|---------|
+| C0 | **角色分离：协调者只记录，不分析** — Phase 8 协调者只记录现象+文件+验收标准，coder 自己分析根因 | 架构约束 |
+| C1 | **Phase 5 派 coder 写 tasks** — 协调者派任务（body 含 proposal + constitution 路径），coder 自己写 tasks.md | 任务派发 |
+| C2 | **proposal 只写设计决策** — 功能清单/API 合约/数据模型/架构约束/文件范围，不写实现细节 | 评分器检测 |
+| C3 | **独立测试** — 代码任务必须有 tester 任务，禁止自己测自己验收 | gate-phase6.py |
+| C4 | **方案注入** — Phase 6 建任务时 body 必须注入 proposal + constitution + scope | task body 关键词检查 |
+| C5 | **Phase 确认用模板** — 每个 Phase 结束使用对应确认模板，`[CODE]` 由脚本生成。码必须独占一行 | 模板路径索引 |
+| C6 | **每个 Task 标注角色** — tasks.md 中每个 Task 必须标注 `(coder)` / `(tester)` / `(artist)` | gate-phase5.py |
+| C7 | **spawn fresh-context reviewer（不可自判）** — 协调者不可自己做 C7 review。必须 spawn delegate_task，reviewer 零上下文独立验证 | gate-phase7.py |
+| C8 | **任务派发必须注入 skills** — 每个任务包含角色默认技能。映射：coder→test-driven-development+incremental-implementation, artist→frontend-ui-engineering, tester→code-review-and-quality+systematic-debugging | gate-phase5.py |
 
-```
-raw/projects/<项目>/
-├── overview.md                    # 关键词：状态、进度表
-├── changes/
-│   └── <日期>-<描述>/
-│       ├── conversation.md        # 关键词：需求、决策
-│       ├── proposal.md            # 关键词：技术方案、不在范围内
-│       ├── PRODUCT.md             # 关键词：不变量、验证
-│       ├── TECH.md                # 关键词：架构决策、文件变更范围
-│       └── tasks.md               # Phase 5 产出，gate-phase5.py 检查
-└── source-of-truth/
-    └── constitution.md            # 关键词：约束、禁止、验收标准
-```
+### Layer 3: Pitfall（高频教训，内嵌 Top 10）
 
-**proposal.md 必须包含"实现细节规范"节**（含"编码规范"和"错误处理规范"关键词）。Review 项目可声明"本项目不产出代码"但必须有该节标题。
+| # | 教训 | 规则 |
+|---|------|------|
+| 1 | 协调者做代码推理 | Way C：给目标+路径+约束，不做代码推理 |
+| 2 | 跳过 tester 验证 | worker done ≠ 质量已验证 |
+| 3 | 写入错误路径 | task body 必须指定绝对输出路径 |
+| 4 | task body 列举太多参考文件 | 预读→自包含 SPEC→worker 只读 SPEC |
+| 5 | 声称修复但未改 | grep -c 验证实际变更 |
+| 6 | fire-and-forget | 派发 ≠ 完成，必须跟踪+验证+解锁 |
+| 7 | 先问用户再查 skill/memory | 优先级：skill → memory → ask user |
+| 8 | 跳过 Phase 3 设计直接写代码 | G1：Phase 3 未完成禁止写代码 |
+| 9 | 修改后不重启服务就验证 | 重启服务后再验证 |
+| 10 | Phase 8 文档规范执行不力 | 文档写入是门禁条件，不是"做完再补" |
 
-### ⛔ Anti-Rationalization Guard（2026-06-10 硬编码）
+> 完整 pitfalls → `references/pitfalls-common.md`
+
+### ⛔ Anti-Rationalization Guard
 
 LLM 会创造"合理例外"跳过规则。以下情况 **不是** 跳过规则的理由：
 
 | LLM 合理化 | 真实规则 |
 |------------|---------|
-| "review 项目不适配" | 所有项目必须通过 Phase 4，目录结构统一 |
-| "review 不需要 skills" | 所有 kanban 卡必须 --skill 注入 |
-| "这个太简单不需要流程" | 大佬说"简单做一下"才跳流程 |
+| "这个太简单不需要流程" | 用户说"简单做一下"才跳流程 |
 | "我先检查再决定" | 检查结果不能覆盖规则 |
 | "之前通过了不需要再跑" | 每次都是独立检查 |
-| "脚本不支持这种项目" | 脚本报错 = 改项目结构适配脚本，不是跳过脚本 |
+| "脚本不支持这种项目" | 脚本报错 = 改项目结构适配脚本 |
+| "需求很清楚不用问了" | 必须走完 5 维度追问 |
+| "这个 Phase 很简单可以快进" | 每个 Phase 入口第一步必须重新读 SKILL.md |
+| "方案 A 明显更好直接用" | 必须呈现 2-3 个方案 + 推荐理由 |
+| "先跑一下看看再说" | G1：Phase 3 未完成禁止写代码 |
 
-**验证方法**：每次灵犀说"不需要"/"不适配"/"例外"时，查以上表格。匹配 → 强制执行规则。
+### 禁止行为
 
-### 禁止行为（⛔ 灵犀硬编码，不可例外）
+| 禁止行为 | 替代方案 |
+|---------|---------|
+| 自己写 tasks.md 内容 | 派 coder 写，协调者只 review 格式 |
+| 自己判断 C7 "全部通过" | spawn fresh-context reviewer |
+| 不跑脚本直接生成确认码 | 必须跑对应 gate 脚本 |
+| 用 delegate_task 替代任务派发 | 必须用任务系统 + skill 注入 |
 
-| 禁止行为 | 替代方案 | 违反 = |
-|---------|---------|--------|
-| 自己跑 phase4-mechanical-check.py | 必须跑 gate-phase4.py（原子化） | 流程违规 |
-| 自己写 tasks.md 内容 | 派 coder 写，灵犀只 review 格式 | 流程违规 |
-| 自己判断 C7 "全部通过" | spawn fresh-context reviewer | 流程违规 |
-| 用 delegate_task 替代 kanban | 必须用 hermes kanban create --skill | 流程违规 |
-| 不跑脚本直接生成确认码 | 必须跑对应 gate 脚本 | Gate Enforcer 阻断 |
-| 说"review 项目不适配" | 查 Anti-Rationalization Guard 表 | 流程违规 |
+## ⚙️ 环境与能力等级
 
-### Layer 2: Convention（架构约束，通过设计而非自觉强制）
+### 安装后第一步：环境自检
 
-| # | 规则 | 执行方式 |
-|---|------|---------|
-| C0 | **角色分离：灵犀只记录，不分析** — Phase 8 灵犀只记录现象+文件+验收标准，coder/artist 自己分析根因+设计方案+执行。灵犀不是分析者 | 架构约束（task body 只含信息，不含分析） |
-| C1 | **Phase 5 派 coder 写 tasks** — 灵犀派 kanban 卡（body 含 proposal + constitution 路径），coder 自己写 tasks.md，灵犀 review 格式合规但不改内容 | kanban 派发 |
-| C2 | **proposal 只写设计决策** — 功能清单/API 合约/数据模型/架构约束/文件范围，不写实现细节 | 评分器检测（clsh-unified-scorer.py） |
-| C3 | **独立测试** — 代码任务必须有 tester kanban 卡，禁止自己测自己验收 | `gate-phase6.py`（tester 报告存在性+PASS/FAIL+证据） |
-| C4 | **方案注入** — Phase 6 建卡时 body 必须注入 proposal + constitution + scope | task body 关键词检查 |
-| C5 | **Phase 确认用模板** — 每个 Phase 结束使用对应确认模板，`[CODE]` 由脚本生成。飞书渠道自动渲染为流式卡片（Card JSON 2.0），微信渠道保持纯文本。**码必须独占一行，前后无 emoji/前缀/说明文字**（方便复制）。**⛔ 确认码格式存在于 4+ 个文件中，更新时必须全局 grep 同步** | 模板路径索引 + 确认码格式校验 |
-| C6 | **每个 Task 标注角色** — tasks.md 中每个 Task 必须标注 `(coder)` / `(tester)` / `(artist)` / `(reviewer)`（Review 项目用 reviewer） | `gate-phase5.py`（角色标注正则检查） |
-| C7 | **spawn fresh-context reviewer（不可自判）** — ⛔ 灵犀不可自己做 C7 review。必须 spawn `delegate_task`，goal 包含审查 prompt（见下方）。reviewer 零上下文，独立验证一切，输出直接转发大佬，灵犀不可修改。参考 Superpowers 不信任模型。**C7 审查 checklist：** 1) tasks.md skills 字段存在 2) 角色标注正确 3) 验收标准可执行（无 TBD/placeholder） 4) scope 对照：产出物覆盖 proposal 范围 5) 验证证据（命令输出）存在 | `gate-phase7.py`（C7 review 报告存在性+维度覆盖+PASS/FAIL） |
-| C8 | **kanban 派发必须注入 skills** — 每个 kanban 卡的 `--skill` 参数必须包含角色默认技能。不指定 = 流程违规。映射：coder→test-driven-development+incremental-implementation+ponytail, artist→popular-web-designs+frontend-ui-engineering+ponytail, tester→code-review-and-quality+systematic-debugging | `gate-phase5.py`（tasks.md skills 字段检查） |
-| C8a | **`--skill` 从 worker profile 读取，缺失 = fatal crash** — skill 必须预装到 `~/.hermes/profiles/<name>/skills/`。不装就派活 = worker 崩溃。装 skill 到主 profile 不够，必须装到 worker profile。详见 kanban-orchestrator references/kanban-skill-loading-architecture.md | 手动验证 `ls profiles/<name>/skills/` |
+```bash
+python3 scripts/env-check.py [--config config.json]
+```
 
-### Layer 3: Pitfall（降级为教训，存 common.md）
+输出能力等级：
+- **Level A（完整）**：kanban + gate-enforcer + 机械门禁 → 全功能
+- **Level B（标准）**：delegate_task + 机械门禁 → 核心流程完整
+- **Level C（轻量）**：仅 prompt 约束 → 退化为 Superpowers 级防偏离
 
-11 条旧铁律已降级为 Pitfall（分阶段审批、角色分离总纲、反馈走流程、Checkpoint 机制、安全扫描、Auto-Fix 上限、代码交叉验证、Context File Pattern、渠道匹配、Watchdog cron、Phase 确认模板）。详见 `pitfalls/common.md`。
+### 配置文件 config.json
 
-**违反以上任何一条 = 流程违规，必须记 ERRORS.md。**
+```json
+{
+  "project_docs_dir": "./project-docs",
+  "level": "auto",
+  "confirm_code_method": "hash"
+}
+```
 
 ## 何时触发
 
-1. 大佬发送 `/clsh-project` 或 `/project`
-2. 大佬说"我要做一个 XXX"、"开发一个 XXX 系统"、"实现 XXX 功能"
-3. 大佬提出的需求明显是多步骤项目
-4. 大佬说"按 Kiro 流程走"、"先做需求分析"
-5. 大佬说"review 项目"、"检查实现效果"、"对比设计方案" → **Review Mode**
+1. 用户发送 `/clsh-project` 或 `/cp`
+2. 用户说"我要做一个 XXX"、"开发一个 XXX 系统"
+3. 需求明显是多步骤项目
+4. 用户说"按 Kiro 流程走"
 
-**不触发：** 简单查询、单步操作、修复 bug（用 systematic-debugging）、已有明确方案的小改动、大佬说"简单做一下"、代码质量审查（PR review）。
-
-### ⚠️ Review Mode 审查范围（2026-06-10 确立）
-
-**Review 项目的审查范围必须覆盖整个项目目录**，不只是 `src/`。根目录配置文件（ecosystem.config.cjs、package.json）、scripts/、config/、临时脚本都是审查对象。大佬说"只覆盖 src/"时立即修正，不要等 Phase 2 才发现。
-
-### ⚠️ C7 灵犀 review 必须真实执行（2026-06-10 确立）
-
-**C7 review 不能自己打勾了事。** 必须：
-1. 实际读取 tasks.md 检查每个 Task 的 skills 字段
-2. 实际加载 doubt-driven-development skill
-3. 如果发现缺失（如 skills 未注入），必须修复后才能确认 Phase 5
-
-**自己说"全部通过"但实际未检查 = 流程违规。** 大佬会追问细节来验证。
-
-**⚠️ 歧义提醒："测试 X" vs "创建新项目"**
-- "测试 XX，需求：A+B+C" → **新项目**，"测试"是项目类型，走完整流程
-- "帮我测试一下 XX"、"跑一遍测试"、"验证 XX 功能" → **测试现有代码**，用 systematic-debugging 或直接执行
-
-## Review Mode（规格合规审查）
-
-7 步：读项目文档 → 读所有代码 → 验证运行状态 → 功能合规矩阵 → Constitution 合规 → 代码质量（P1-P6） → 汇报。
-
-📋 详细流程: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/workflow/phase-review.md`
-📋 审计维度框架: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/review-audit-dimensions.md`（skill-local）或 `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/workflow/phase-review-audit-dimensions.md`（Vault）
-
-**Review Mode Phase 1 流程：** 初始扫描（并行子任务覆盖代码级维度）→ 保存初始报告到项目根目录 → 调研扩展（安全/架构维度）→ 向大佬确认范围 → ⚠️ 初始报告是参考，不是执行依据。
-
-**⚠️ Review Mode 适配注意：**
-- **G2 (Phase 4 机械检查) 适用于所有项目类型，包括 Review** — `phase4-mechanical-check.py` 期望标准目录结构（`changes/*/conversation.md`、`source-of-truth/constitution.md`）。**Review 项目也必须用这个结构**，不能用扁平结构。constitution.md 必须包含 `## 实现细节规范` 节（含"编码"关键词）。（Pitfall #139: 不要假设"Review 项目结构不同"就跳过 G2）
-- **C6 角色标注**: Review 项目用 `(reviewer)` 而非 `(coder)/(tester)/(artist)`
-- **审查范围必须包含项目根目录全部代码** — 不只是 `src/`，还要包含根目录脚本、config/、scripts/、ecosystem.config.cjs、package.json 等（Pitfall #138）
-- **C7 review 不可自判** — 加载 doubt-driven-development skill 是必要条件，但不是充分条件。灵犀不能自己打勾通过 C7，必须有外部验证（spawn fresh-context reviewer 或大佬确认）。自己做的 review = 流程违规（Pitfall #140）
-
-**红线：** 产出报告，不直接修复。修复走 Phase 8。
+**不触发：** 简单查询、单步操作、修 bug、已有明确方案的小改动、用户说"简单做一下"。
 
 ---
-
-📋 流程总览 + Session Launch Guidance + 项目暂存: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/workflow/overview.md`
-
----
-
-### ⛔ Phase 入口全局规则
-每个 Phase 入口**第一步**必须重新读取本 SKILL.md（不依赖记忆中的规则）。后续步骤读取对应 workflow 文件 + 确认前一 Phase 完成。
 
 ## Phase 0+1: 需求准备与澄清
 
-### Phase 0: 内化历史教训（每次项目开始前必做）
+### Phase 0: 内化历史教训
 
-| 步骤 | 动作 | 说明 |
-|------|------|------|
-| A | 读取 learnings | `~/.hermes/skills/productivity/project-wrap-up/learnings.md` → 提取相关教训 |
-| B | 跨项目知识 | 读 `wiki/solutions/INDEX.md` → 匹配 tech/domain 标签 → 注入 ≤5 条 → 无匹配则跳过 |
+| 步骤 | 动作 |
+|------|------|
+| A | 读取 learnings（如有）→ 提取相关教训 |
+| B | 读取项目已知 pitfalls → 匹配 tech/domain 标签 |
 
-**Phase 0 无产出文件**，只影响灵犀后续行为。
+### Phase 1: 需求澄清
 
-📋 详细流程: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/workflow/phase0-1-requirements.md` → "Phase 0"节
+**5 维度追问框架（苏格拉底式）：**
 
-### Phase 入口
-1. ⛔ 读取: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/workflow/phase0-1-requirements.md`
-2. ⛔ 读取: `raw/projects/<项目>/overview.md`（确认项目状态）
+| 维度 | 追问方向 |
+|------|---------|
+| 用户与场景 | 谁用？怎么用？边界在哪？ |
+| 功能与流程 | 核心流程？异常流程？闭环？ |
+| 安全与威胁 | 攻击面？数据泄露？权限越界？ |
+| 合规与隐私 | 适用法规？数据处理？用户权利？ |
+| 行业与技术 | 同类产品？技术选型？数据方案？ |
 
-调研循环模式：每个决策点走 `L0→L1→L2` 分层调研→提问→确认微循环。机械确认门禁 + 代码交叉验证 + CONTEXT.md 术语表。
+**追问深度：** L0 概览 → L1 细化 → L2 攻防
 
-### ⛔ Scout 前置调研（Phase 1 启动时必做）
+**Phase 1 产出物：**
+1. **PRODUCT.md** — 用户故事 + 产品不变量（INV-1/INV-2...）+ 可验证性
+   - 📋 模板: `templates/product-md-template.md`
+2. **conversation.md** — 需求澄清对话记录
 
-**灵犀是协调者不是调研者。** Phase 1 开始时 spawn scout 做行业/技术/质量调研，灵犀负责整合结果并继续与大佬交互。
-
-```
-灵犀理解需求 → 提取 tech/domain 标签
-    ↓
-delegate_task(scout, goal=按模板渲染, toolsets=[web,browser,search,file])
-    + 并行: 灵犀问大佬第一个问题
-    ↓
-Scout 返回报告 → 灵犀整合 → 写入 conversation.md → 继续交互
-```
-
-- **Goal 模板:** `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/templates/scout-research-goal.md`
-- **Scout 报告是输入不是结论** — 推荐方案需大佬确认
-- **Scout 失败 → 退回 inline 调研**（不阻断流程）
-- **覆盖范围:** 调研门禁 Step 1-2（行业实践+技术方案），Step 3 部分覆盖，灵犀补充
-
-📋 详细流程: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/workflow/phase0-1-requirements.md` → "Scout 前置调研"节
-
-### ⛔ 调研维度覆盖检查（Phase 1 完成后必须执行）
-
-**Phase 1 完成后，必须运行 `gate-phase1.py` 自检：**
+### ⛔ Phase 1 门禁
 
 ```bash
-python3 /root/.hermes/scripts/gate-phase1.py <项目目录>
+python3 scripts/gate-phase1.py <项目目录>
 ```
-
-**脚本输出：**
-- ✅ PASS：覆盖率 ≥ 80%，大佬应当通过
-- ❌ FAIL：覆盖率 < 80%，必须补充调研
-
-**⚠️ 脚本不阻断流程（Phase 1 的 Gate 是人）**
-脚本只是辅助检查工具，帮大佬发现遗漏。最终是否通过，由大佬决定。
-
-**向大佬汇报时，必须附带：**
-1. 调研内容摘要
-2. gate-phase1.py 检查报告
-3. 未覆盖维度及风险提示
-
-### ⛔ 5 维度追问框架（苏格拉底式）
-
-| 维度 | 关键词 | 追问方向 |
-|------|--------|---------|
-| 用户与场景 | 用户/场景/角色/目标 | 谁用？怎么用？边界在哪？ |
-| 功能与流程 | 功能/流程/核心/异常 | 核心流程？异常流程？闭环？ |
-| 安全与威胁 | 安全/威胁/攻击/漏洞 | 攻击面？数据泄露？权限越界？ |
-| 合规与隐私 | 合规/隐私/法规/个保法 | 适用法规？数据处理？用户权利？ |
-| 行业与技术 | 行业/技术/竞品/选型 | 同类产品？技术选型？数据方案？ |
-
-**追问深度：**
-- L0 概览：首次接触需求，一句话理解本质
-- L1 细化：用户给了基本描述，追问"怎么做"和"边界"
-- L2 攻防：涉及安全/隐私/权限，追问"怎么防"和"怎么测"
-
-**⚠️ 用户跳过维度时的处理：**
-1. 必须追问确认："你确认跳过 XX 维度吗？"
-2. 必须记录到 conversation.md："⏭️ XX: 用户确认跳过"
-3. 必须提示风险："该维度涉及 XX 要求，跳过可能导致 XX 问题"
-
-📋 详细流程: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/workflow/phase0-1-requirements.md`
-📋 Gate 辅助方案: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/workflow/phase1-gate-auxiliary.md`
-📋 确认模板: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/templates/phase-confirmations.md` → Phase 1
-
-### ⛔ Phase 1 产出物（SDD 优化）
-
-**Phase 1 完成后，必须产出：**
-
-1. **PRODUCT.md（产品规格）** — 用户故事 + 产品不变量（INV-1/INV-2...）+ 可验证性
-   - 📋 模板: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/templates/product-md-template.md`
-   - 📋 路径: `raw/projects/<项目>/changes/<日期>-<描述>/PRODUCT.md`
-   - ⚠️ 角色分离：灵犀只记录大佬确认的内容，不变量必须由大佬确认
-
-2. **context.md（领域语言表）** — 项目特有术语定义 + 关系 + 歧义记录
-   - 📋 模板: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/templates/context-template.md`
-   - 📋 路径: `raw/projects/<项目>/source-of-truth/context.md`
-   - ⚠️ 只收录项目特有术语，一词一义，发现歧义立即记录
 
 ---
 
 ## Phase 2+2.5: 方案设计与技术验证
 
-### Phase 入口
-1. ⛔ 读取: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/workflow/phase2-design.md`
-2. ⛔ 确认 Phase 1 已完成（overview.md 进度表）
+2-3 个方案 + 推荐理由 + 对比表格。Phase 2.5: 技术 Spike。
 
-2-3 个方案 + 推荐理由 + 对比表格。Phase 2.5: 技术 Spike + 设计 Prototype。
-
-📋 详细流程: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/workflow/phase2-design.md`
-📋 确认模板: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/templates/phase-confirmations.md` → Phase 2
-
-### ⛔ Phase 2 产出物（SDD 优化）
-
-**Phase 2 完成后，必须产出 TECH.md（技术规格）：** 架构决策 + 文件变更范围 + 实现注意事项 + 不在范围内 + 技术风险
-
-- 📋 模板: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/templates/tech-md-template.md`
-- 📋 路径: `raw/projects/<项目>/changes/<日期>-<描述>/TECH.md`
-- ⚠️ 角色分离：灵犀只记录大佬确认的技术决策，不设计、不实现
+**Phase 2 产出物：**
+- **TECH.md** — 架构决策 + 文件变更范围 + 实现注意事项 + 不在范围内
+  - 📋 模板: `templates/tech-md-template.md`
 
 ---
 
 ## Phase 3+4: 设计文档与自检
 
-### Phase 入口
-1. ⛔ 读取: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/workflow/phase3-spec.md`
-2. ⛔ 确认 Phase 2 已完成（overview.md 进度表）
+Phase 3: proposal.md + constitution.md。**⛔ proposal 只写设计决策。**
 
-Phase 3: proposal.md + constitution.md + 可选 ADR。**⛔ proposal 只写设计决策（铁律 #22）。** Phase 4: 机械检查 + 流程合规 + Review Gate。
+- 📋 constitution 模板: `templates/constitution-template.md`
 
-📋 流程: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/workflow/phase3-spec.md` | 📋 门禁: `/root/.hermes/scripts/gate-phase4.py`（前置检查+码生成原子化，Pitfall #142） | 📋 确认模板: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/templates/phase-confirmations.md`
+Phase 4: 机械检查 + 流程合规。
+
+```bash
+python3 scripts/gate-phase4.py <项目目录>
+```
 
 ---
 
 ## Phase 5: 实现计划（派 coder 执行）
 
-### Phase 入口
-1. ⛔ 读取: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/workflow/phase5-tasks.md`
-2. ⛔ 确认 Phase 4 已完成（overview.md 进度表 + gate-phase4 标记文件）
+协调者派任务（body 含 proposal + constitution 路径），coder 自己写 tasks.md。
 
-灵犀派 kanban 卡（body 含 proposal + constitution 路径），coder 自己写 tasks.md。**⛔ 每个 Task 标注角色（铁律 #22）。⛔ 灵犀只 review 格式，不改内容。⛔ review 前加载 `doubt-driven-development` skill。**
+**⛔ 协调者只 review 格式，不改内容。**
 
-### ⛔ Phase 5 规格参考（SDD 优化）
+- 📋 tasks 模板: `templates/tasks-template.md`
 
-**coder 写 tasks.md 时，必须参考以下规格文件：**
-
-| 文件 | 路径 | 用途 |
-|------|------|------|
-| **PRODUCT.md** | `raw/projects/<项目>/changes/<日期>-<描述>/PRODUCT.md` | 产品不变量，确保 tasks 覆盖所有不变量 |
-| **TECH.md** | `raw/projects/<项目>/changes/<日期>-<描述>/TECH.md` | 技术规格，确保 tasks 遵循技术约束 |
-| **proposal.md** | `raw/projects/<项目>/changes/<日期>-<描述>/proposal.md` | 设计决策，确保 tasks 符合设计方案 |
-| **constitution.md** | `raw/projects/<项目>/source-of-truth/constitution.md` | 约束条件，确保 tasks 不违反约束 |
-
-**coder 写 tasks.md 的 checklist：**
+```bash
+python3 scripts/gate-phase5.py <项目目录>
 ```
-- [ ] 已读取 PRODUCT.md，理解所有产品不变量
-- [ ] 已读取 TECH.md，理解技术规格和文件变更范围
-- [ ] 已读取 proposal.md，理解决策决策
-- [ ] 已读取 constitution.md，理解约束条件
-- [ ] tasks.md 覆盖所有 PRODUCT.md 中的不变量
-- [ ] tasks.md 遵循 TECH.md 中的技术规格
-- [ ] tasks.md 不违反 constitution.md 中的约束
-```
-
-**⚠️ 角色分离：**
-- 灵犀**只提供**规格文件路径，不分析、不设计
-- coder **自己读取**规格文件，自己写 tasks.md
-- 灵犀**只 review 格式**，不改内容
-
-📋 流程: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/workflow/phase5-tasks.md`
 
 ---
 
-## Phase 6: Ralph Loop 分发执行
+## Phase 6: 分发执行
 
-### Phase 入口
-1. ⛔ 读取: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/workflow/phase6-execution.md`
-2. ⛔ 确认 Phase 5 已完成（overview.md 进度表 + gate-phase5 标记文件）
+**角色分工：** coder/artist → 任务执行 | tester → 验证任务
 
-Way C 铁律：灵犀给目标+路径+约束，不做代码推理。**角色分工：** coder/artist → kanban worker | tester → kanban review 卡。**⛔ tester 必须产出持久化测试文件。** 执行后灵犀做**流程合规 review**（C7）：文件存在、角色标注、验收标准、scope 对照。代码质量由 tester review。**⛔ review 前加载 `doubt-driven-development` skill。**
+**⛔ 执行方式铁律：** 必须用任务系统派发（kanban 或 delegate_task），每个任务注入 skills。
 
-### ⛔ Phase 6 一致性校验（SDD 优化）
-
-**tester 验证时，必须执行规格一致性校验：** 读取 PRODUCT.md（不变量）+ TECH.md（技术规格）+ proposal.md（设计决策）+ constitution.md（约束），逐项检查实现是否符合。
-
-- 📋 校验报告模板: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/templates/validation-report-template.md`
-- 📋 产出路径: `raw/projects/<项目>/changes/<日期>-<描述>/validation-report.md`
-- ⚠️ tester 自己读取规格文件、自己产出校验报告，灵犀不干预
-
-### ⛔ Phase 6 执行方式铁律（2026-06-10 确立）
-
-**必须用 `hermes kanban create --skill` 派发，禁止用 `delegate_task` 替代。**
-
-| 方式 | 是否合规 | 原因 |
-|------|---------|------|
-| `hermes kanban create --skill <name>` | ✅ | skills 注入到 worker 环境，角色隔离 |
-| `delegate_task` | ❌ | 无 skills 注入，无角色隔离，绕过 C8 |
-
-**事后补 tasks.md 的 skills 字段不算合规** — skills 必须在执行前注入到 worker 环境，不是写在文档里。
-
-**Review 项目也必须走 kanban**，不能因为"不产出代码"就用 delegate_task 替代。
-
-📋 流程: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/workflow/phase6-execution.md`
-
-**⛔ Phase 6 派发 checklist：** 📋 详见: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/templates/phase6-dispatch-template.md`
-
-核心检查：每个 kanban 卡必须 `--skill` 注入（C8）、skill 无重复副本（Pitfall #143）、unblock 前必须先修根因（Pitfall #144）。
-
-**⛔ Review Mode 特别规则**：
-- Review 项目用 `reviewer` 角色（映射 tester skills）
-- Phase 6 必须用 kanban 派发，**禁止用 delegate_task**（delegate_task 绕过 skill 注入，质量下降 40-186%）
-- task body 必须包含文件产出路径（如 `/tmp/workspace-review-<task_id>.md`），防止 worker 只写截断的 kanban summary
-- 详见 `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/review-mode-lessons.md`
-
-**tasks.md Task 格式（含 skills 字段）：**
+**tasks.md Task 格式：**
 ```markdown
-### Task N: 标题 | 角色：coder | skills: test-driven-development, incremental-implementation, ponytail
-### Task N: 标题 | 角色：artist | skills: popular-web-designs, frontend-ui-engineering, ponytail
-### Task N: 标题 | 角色：tester | skills: code-review-and-quality, systematic-debugging
+### Task N: 标题 | 角色：coder | skills: test-driven-development, incremental-implementation
 ```
-灵犀派活时直接从 Task 定义读 skills，不查外部映射表。
 
-📋 详细派发模板: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/templates/phase6-dispatch-template.md`
-📋 Review Mode 教训: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/review-mode-lessons.md`（10 条教训，含定量对比）
+**⛔ Phase 6 一致性校验：** tester 验证时必须读取 PRODUCT.md + TECH.md + proposal.md + constitution.md，逐项检查实现是否符合。
+
+```bash
+python3 scripts/gate-phase6.py <项目目录>
+```
 
 ---
 
 ## Phase 7: 完成归档与流程复盘
 
-### Phase 入口
-1. ⛔ 读取: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/workflow/phase7-archive.md`
-2. ⛔ 确认 Phase 6 已完成（overview.md 进度表 + gate-phase6 标记文件）
-3. ⛔ **归档路径强制检查** — completion-summary.md / retrospective.md / handoff.md 必须写入 `changes/archive/` 目录，**不是项目根目录**。评分器检查路径：`changes/archive/completion-summary.md`
+归档 9 步 + 流程合规复盘 7 项 + handoff.md。
 
-### ⛔ 归档文档路径（机械门禁，不可变更）
-
-| 文档 | 必须路径 | 错误路径 |
-|------|---------|---------|
-| completion-summary.md | `changes/archive/completion-summary.md` | ❌ 项目根目录 |
-| retrospective.md | `changes/archive/retrospective.md` | ❌ 项目根目录 |
-| handoff.md | `changes/archive/handoff.md` | ❌ 项目根目录 |
-
-**写入前必须：** `mkdir -p changes/archive/`
-
-归档 9 步 + 流程合规复盘 7 项 + handoff.md。**使用 `handoff` skill。**
-
-### ⛔ 归档文档关键词（机械门禁）
-
-| 文档 | 关键词 | 行数上限 |
-|------|--------|---------|
-| completion-summary.md | `概述`, `技术`, `功能`, `限制` | ≤ 40 行 |
-| retrospective.md | `合规`, `教训`, `改进`, `角色` | ≤ 40 行 |
-| handoff.md | `状态`, `下一步行动` | ≤ 30 行 |
-
-📋 详细流程: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/workflow/phase7-archive.md`
+**归档文档路径（不可变更）：**
+| 文档 | 必须路径 |
+|------|---------|
+| completion-summary.md | `changes/archive/completion-summary.md` |
+| retrospective.md | `changes/archive/retrospective.md` |
+| handoff.md | `changes/archive/handoff.md` |
 
 ---
 
 ## Phase 8: 反馈循环
 
-### Phase 入口
-1. ⛔ 读取: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/workflow/phase8-feedback.md`
-2. ⛔ 确认项目当前状态（overview.md）
+**信息传递模式（C0）：** 协调者只记录现象+文件+验收标准，coder/artist 自己分析根因+设计方案+执行。
 
-**信息传递模式（C0）：** 灵犀只记录现象+文件+验收标准，coder/artist 自己分析根因+设计方案+执行。tester 浏览器验证。每轮归档 + 上下文溢出防护（每轮 ≤3-4 bug）。**⛔ 灵犀 review 前加载 `doubt-driven-development` skill。**
-
-**⛔ Phase 8 fix 卡也必须注入 skills（C8 补充）：** Phase 8 创建的 fix kanban 卡同样需要 `--skill` 参数。Phase 6 派发 checklist 不适用于 Phase 8（Phase 8 有自己的流程），但 C8 规则适用于所有 kanban 卡创建。
-
-### ⚠️ Phase 8 测试需求超出原始范围
-
-当项目 Phase 7 已归档（状态 `done`），大佬要求"测试"但需求包含原始 `proposal.md` "不在范围内"的功能时：
-
-先验证现有代码 → 识别差距 → 向大佬确认意图（A)回归 B)新需求 C)部分接受）。**铁律：** 超出 scope 禁止自行扩展，必须先确认。
-
-📋 详细流程: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/workflow/phase8-feedback.md`
-📋 教训: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/pitfalls/common.md`
-📋 Review Mode 教训: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/review-mode-lessons.md`（10 条，含 delegate_task vs kanban 定量对比）
----
-
-## E2E 自动化测试
-主脚本: `/root/.hermes/scripts/clsh-e2e-test.py` | Cron: `/root/.hermes/scripts/clsh-e2e-cron.sh`
+```bash
+python3 scripts/gate-phase8.py <项目目录>
+```
 
 ---
 
-## 流程门禁
+## 流程门禁总览
 
 | 门禁 | 检查内容 | 未通过 → |
 |------|---------|---------|
-| Phase 1-3 | 大佬确认码（人是 Gate，看内容才输入码） | 不进入下一 Phase |
-| Phase 4 | gate-phase4.py（PRODUCT/TECH/proposal/constitution 文件+关键词+行数）→ 大佬确认码 | 不进入 Phase 5 |
-| Phase 5→6 | gate-phase5.py（skills+角色+验收）→ 大佬确认码 | 不允许创建 kanban 卡 |
-| Phase 6 执行 | 代码任务必须有 tester 卡 | 不允许标记完成 |
-| Phase 6 tester 后 | gate-phase6.py（tester 报告+证据）→ 大佬确认码 | 不允许汇报完成 |
-| Phase 6 Browser QA | UI 项目 tester 必须浏览器验证 | 不允许汇报完成 |
-
-> **铁律设计原则：** Phase 1-3 的 Gate 是**人**（大佬看内容后输入码），LLM 无法伪造。Phase 4/5/6/8 的 Gate 是**灵犀**（灵犀跑检查后给码），必须用 Gate Enforcer Plugin（pre_tool_call hook）物理阻断跳过检查的码生成。详见 `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/gate-enforcer-plugin.md` 和 `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/anti-deviation-patterns.md`。
+| Phase 1-3 | 用户确认码（人是 Gate，看内容才输入码） | 不进入下一 Phase |
+| Phase 4 | gate-phase4.py → 用户确认码 | 不进入 Phase 5 |
+| Phase 5→6 | gate-phase5.py → 用户确认码 | 不允许创建任务 |
+| Phase 6 tester 后 | gate-phase6.py → 用户确认码 | 不允许汇报完成 |
+| Phase 6 C7 | gate-phase7.py → 用户确认码 | 不允许汇报完成 |
 
 ## 失败模式与兜底
 
-| 失败现象 | 触发条件 | 一线修复 | 仍失败兜底 | Pitfall |
-|---------|---------|---------|-----------|---------|
-| 确认码绕过前置检查 | 如果 LLM 跳过 gate 脚本直接生成码 | Gate Enforcer Plugin 物理阻断 | 记录违规，回退到正确 Phase | #142 |
-| 目录结构不符脚本预期 | 当机械检查 FAIL 报"文件不存在"时 | 改为 `changes/日期-话题/` 标准结构 | 参考 Pitfall #138 | #138 |
-| kanban Done ≠ 已验证 | 如果所有卡 done 但 tester 未验证 | 执行独立产出 review（逐项 grep） | Phase 7 前强制验证 | #143 |
-| unblock 未修根因 | 当 unblock 前未读 crash log 时 | 先定位根因、修复、验证，再 unblock | 升级给大佬 | #144 |
-| delegate_task 替代 kanban | 如果用 delegate_task 绕过 skill 注入 | 必须用 `hermes kanban create --skill` | 质量下降 40-186% | Review #2 |
-| C7 review 自判 | 当灵犀自己说"全部通过"时 | spawn fresh-context reviewer | 加载 doubt-driven-development | Review #3 |
-| 审查范围不足 | 如果只覆盖 src/ 不含根目录 | 扩展到项目根目录全部代码 | 包含 config/scripts/ecosystem | Review #5 |
-| Phase 4 预期 FAIL | 如果 PRODUCT.md/TECH.md 不存在就视为预期 | 先跑底层检查，补建缺失文件 | 参考 Pitfall #145 | #145 |
-| 大佬未给确认码 | 当大佬不在或延迟时 | 等待，不跳过门禁 | 暂停流程，记录状态 | — |
-| LLM 合理化跳步 | 当灵犀说"不需要"/"不适配"/"例外"时 | 查 Anti-Rationalization Guard 表 | Gate Enforcer 物理阻断 | — |
-
-> 完整 pitfalls 词典 → `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/pitfalls/`
-
-**角色分离（C0）：** 灵犀只做信息传递，不分析根因、不设计方案、不写代码。coder/artist 自己分析+执行。Phase 8 task body 只含现象+文件+验收标准。
-**Way C 铁律（C1）：** 灵犀只给目标+路径+约束，不做代码推理。Pattern to Follow 必做。worker 修复后必须走 tester 验证。
-**流程合规 + Buildability review（C7）：** 灵犀 review 的是流程合规（文件存在、角色标注、验收标准、scope）和 Buildability（task 可执行性：步骤清晰、无 placeholder/TBD、不会让 coder 卡住）。不是代码质量。代码质量由 tester review。**⛔ Security Scan + Quality Review 由 tester 执行（C3 独立测试），灵犀不做代码分析。**
-
-## 维度相关簇
-
-基于 8 框架调研的防偏离机制映射。📋 详见: `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/dimension-clusters.md`
-
-**应用**：每轮优化后检查相邻维度是否退化。如果退化 >2%，回滚本轮改动。
-
-### ⛔ SKILL.md 压缩策略（2026-06-15 确立）
-
-**压缩 SKILL.md 时，内联模板样例替换为模板引用：**
-
-| 压缩方式 | 适用场景 | 例子 |
-|---------|---------|------|
-| 内联模板 → 模板引用 | Phase 产出物有独立模板文件时 | PRODUCT.md/TECH.md 样例 → 指向 templates/ |
-| 内联 checklist → 模板引用 | checklist 已在模板中完整定义时 | Phase 6 派发 checklist → 指向 phase6-dispatch-template.md |
-| 内联参考表 → Vault 引用 | 参考性内容（非规则）时 | 维度相关簇表 → 指向 references/dimension-clusters.md |
-
-**⛔ 不可压缩的内容：** Gate 规则（G0-G7）、Convention（C0-C8）、禁止行为表、Anti-Rationalization Guard — 这些是流程控制核心，必须保留在 SKILL.md。
-
-**压缩后验证：** 行数 ≤ 膨胀阈值（650 行）、frontmatter YAML 合法、无 `||` 格式问题。
-
-## ⚠️ Skill 别名
-
-`/cp` 通过 frontmatter `aliases: [cp]` 注册为 `/clsh-project` 的别名。
-
-
-
-### ⛔ 模板路径铁律（2026-06-10 确立）
-模板只存 raw/ Vault，skill-local 不存副本。SKILL.md 用绝对路径指引，灵犀按需 `read_file()` 读取。新增引用文件同理。
-
-> Pitfalls #145-#155 已迁移到 `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/pitfalls/common.md`，按需 `read_file()` 读取。
-
----
-
-## 版本历史（最近 3 版）
-
-| 版本 | 日期 | 变更 |
-|------|------|------|
-| v5.71.0 | 2026-06-15 | **Darwin 描述层精修 R4-R6**：Anti-Rationalization Guard 全量注入 + 7 文件定向修复；全部文件 ≥90；整体平均 86→92 |
-| v5.70.0 | 2026-06-15 | **Darwin 描述层全量优化**：77 文件评分提升（平均 39→86）；SKILL.md 100/100；模板/引用/流程/Pitfall 全部 ≥80 |
-| v5.69.0 | 2026-06-15 | **门禁修正 + SKILL.md 压缩**：gate-phase4.py 移除 tasks.md 检查（Phase 5 产出），新增 PRODUCT.md + TECH.md 检查；gate-phase5.py 新增 PRODUCT.md 不变量覆盖检查；SKILL.md 内联模板替换为引用（-106 行）；Phase 0 + context.md 补全；维度相关簇迁移到 Vault |
-| v5.68.0 | 2026-06-13 | **Scout 前置调研**：Phase 1 启动时 spawn scout 做行业/技术/质量调研，灵犀整合结果。新增 scout-research-goal.md 模板；SKILL.md + Vault 流程文档同步更新 |
-| v5.67.0 | 2026-06-13 | **SKILL.md 瘦身**：Pitfalls #145-#155 迁移到 Vault common.md（-131 行）；版本历史精简为 3 版；参考文件索引去重（防偏离调研 3→1） |
-
-> 完整版本历史（v5.47.0+）→ `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/templates/version-history.md`
-
----
+| 失败现象 | 一线修复 | 仍失败兜底 |
+|---------|---------|-----------|
+| 确认码绕过前置检查 | Gate 脚本 hash 码机制 | 记录违规，回退到正确 Phase |
+| 目录结构不符脚本预期 | 改为 `changes/日期-话题/` 标准结构 | 参考 pitfalls-common.md |
+| 任务 Done ≠ 已验证 | 执行独立产出 review | Phase 7 前强制验证 |
+| C7 review 自判 | spawn fresh-context reviewer | 加载 doubt-driven-development |
+| LLM 合理化跳步 | 查 Anti-Rationalization Guard 表 | 物理阻断 |
 
 ## 📚 参考文件
 
 | 分类 | 路径 |
 |------|------|
-| **教训** | `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/pitfalls/common.md` — #51-#137 活跃 Pitfalls |
-| **Review Mode 教训** | `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/review-mode-lessons.md`（10 条，含定量对比） |
-| **防偏离** | `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/anti-deviation-patterns.md`（8 框架 + 3 种真机械策略 + 采用映射） |
-| **调研方法论** | `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/research-methodology-comparison.md` + `enhanced-research-template.md` |
-| **方法论** | `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/embedded-vs-external-workflow-pattern.md` |
-| **SDD** | `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/sdd-optimization-plan.md`（含方法论研究 + 落地方案） |
-| **飞书桥接** | `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/lark-cli-feishu-bridge.md` |
-| **审计维度** | `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/review-audit-dimensions.md` |
-| **Goal Mode 分析** | `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/goal-mode-analysis.md`（/goal 与 kanban --goal 对 clsh-project 的适用性） |
+| **Pitfalls** | `references/pitfalls-common.md` |
+| **模板** | `templates/*.md` |
+| **Gate 脚本** | `scripts/gate-phase*.py` |
+| **环境自检** | `scripts/env-check.py` |
 
-## 🔧 Skill 维护
+## 版本历史
 
-| 项目 | 路径/工具 |
-|------|----------|
-| **机械脚本** | `/root/.hermes/scripts/gate-phase1.py` / `gate-phase4.py` / `gate-phase5.py` / `gate-phase6.py` / `gate-phase7.py` / `gate-phase8.py` / `phase4-mechanical-check.py` |
-| **Gate Enforcer** | `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/gate-enforcer-plugin.md`（pre_tool_call hook） |
-| **流程评分器** | `python3 /root/.hermes/skills/clsh-darwin/scripts/darwin-scorer.py SKILL.md`（9 维度评分，检查描述层质量） |
-| **Pitfall 维护** | `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/pitfall-catalog-maintenance.md` |
+| 版本 | 日期 | 变更 |
+|------|------|------|
+| v6.0.0 | 2026-06-18 | **通用版**：解耦 Obsidian/Hermes/lark-cli 环境依赖；gate 脚本随 skill 分发；env-check.py 环境自检；config.json 能力等级分层；pitfalls 精简 120→30 |
