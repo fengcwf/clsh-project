@@ -1,543 +1,868 @@
 ---
 name: spec-driven-project
-description: "Spec-Driven project development workflow — Requirements → Design → Plan → Execute. Inspired by Kiro Spec-Driven Development, Superpowers Brainstorming, Phoenix State Machine. DO trigger: user says 'I want to build X', 'develop a X system', multi-step projects. Do NOT trigger: simple queries, single-step ops, bug fixes, small changes with clear plan."
-version: 1.0.0
-license: MIT
-platforms: [linux, macos, windows]
-tags: [workflow, project, spec-driven, planning, methodology]
+description: >
+  规格驱动项目开发工作流 — 需求 → 设计 → 计划 → 执行。
+  DO 触发：用户说"我想做一个X"、"开发一个X系统"、多步骤项目、新项目创建、大规模重构。
+  Do NOT 触发：简单查询、单步操作、bug修复、小改动、纯信息性请求。
+  Review 模式：用户说"review这个项目"或"审计已完成的工作"。
 ---
 
-# Spec-Driven Project Development
+# 规格驱动项目开发
 
-A rigid, document-first workflow that takes a project from vague idea to delivered code.
-The Orchestrator coordinates. Subagents execute. Humans gate. No exceptions.
-
----
-
-## Core Principles
-
-1. **Orchestrator NEVER writes code.** You coordinate, document, delegate. If you're tempted to write code, you've broken the workflow.
-2. **Role separation.** Each role has a narrow job. The Orchestrator routes tasks to the right role and reviews output.
-3. **Anti-rationalization.** LLMs are prolific at inventing "reasonable exceptions" to skip rules. This skill explicitly lists those rationalizations and forbids them. See the guard table below.
-4. **Document-first.** Every phase produces artifacts before the next phase begins. No phase is "done" until its documents exist and are reviewed.
-5. **Human is the gate.** Major phase transitions require explicit human approval. The Orchestrator cannot self-approve transitions.
+文档优先的刚性工作流：从模糊想法到交付代码。协调者协调，子代理执行，人类把关。无例外。
 
 ---
 
-## When to Trigger
+## Iron Law（铁律）
 
-**Trigger** this skill when:
-- User says "I want to build X", "develop a X system", "create a project for X"
-- Multi-step projects requiring requirements gathering, design, planning, and execution
-- User asks to start a new project or significantly extend/restructure an existing one
-- Ambiguous requests that need requirements clarification before work begins
+```
+NO PHASE TRANSITION WITHOUT GATE APPROVAL
+NO COMPLETION CLAIMS WITHOUT FRESH VERIFICATION EVIDENCE
+NO TASK MARKED DONE WITHOUT REVIEWER APPROVAL
+```
 
-**Do NOT trigger** when:
-- Simple single-step queries ("what does this function do?")
-- Bug fixes with a clear diagnosis and plan
-- Small changes where the user has already specified the exact change
-- Questions about existing code that don't require new development
-- Requests that are purely informational
-
-**Review Mode** — for auditing existing projects:
-- When user says "review this project" or "audit what's been done"
-- Skip Phases 0-2, begin at Phase 3 by reading existing documents
-- Report gaps between docs and implementation
+违反铁律 = 说谎，不是高效。这不是建议，是绝对规则。
 
 ---
 
-## Roles
+## 技能复用
 
-| Role | Responsibility | NEVER does |
-|------|---------------|------------|
-| **Orchestrator** | Coordinates phases, documents decisions, delegates tasks, reviews outputs, gates transitions | Writes code, implements features, directly modifies source files |
-| **Coder** | Implements features, writes code, debugs, refactors | Makes architectural decisions, skips tests |
-| **Artist** | UI/UX design, frontend implementation, visual design, layout | Backend logic, infrastructure |
-| **Tester** | Testing, code review, verification, quality assurance | Writes feature code, skips verification commands |
-| **Scout** | Research, investigation, analysis, technology evaluation | Implements anything, makes final decisions |
+本技能**复用** superpowers 已验证的工作流技能，不重复造轮子：
 
-### Routing Rules
+| Phase | 复用的 superpowers 技能 | 用途 |
+|-------|------------------------|------|
+| Phase 0-1 | `superpowers:brainstorming` | 需求探索、设计文档、用户确认 |
+| Phase 2 | `superpowers:brainstorming` | 方案设计、权衡分析 |
+| Phase 5 | `superpowers:writing-plans` | 实施计划、任务分解、TDD 步骤 |
+| Phase 6 | `superpowers:subagent-driven-development` 或 `superpowers:executing-plans` | 任务执行、子代理派发、两阶段 review |
+| Phase 7 | `superpowers:requesting-code-review` + `superpowers:verification-before-completion` | 代码审查、完成前验证 |
+| Phase 8 | `superpowers:finishing-a-development-branch` | 分支收尾、合并决策 |
 
-- Implementation tasks → **Coder**
-- UI/frontend tasks → **Artist**
-- Testing/verification tasks → **Tester**
-- Research/investigation tasks → **Scout**
-- Architecture decisions → present proposals to **human**, don't decide
-- Ambiguous scope → clarify with **human** before delegating
+**使用方式：** 每个 phase 开始时，先加载 `spec-driven-project` 获取工作流上下文，再加载对应的 `superpowers:*` 技能执行具体操作。
 
 ---
 
-## Directory Structure
+## 核心原则
 
-All project artifacts live in a standard directory tree. Create it when starting a new project.
+1. **协调者不写代码。** 用 Plan agent（`edit: deny`）强制执行此约束。
+2. **角色分工。** 概念角色 ≠ MiMoCode agent 类型，见下方映射表。
+3. **反理性化。** 7 层防御机制，详见下方。权限硬隔离 + prompt 软约束混合策略。
+4. **文档优先。** 每个 phase 产出文档后才能进入下一 phase。决策写入文件，不依赖对话记忆。
+5. **人类把关。** 每个 phase gate 用 `question` 工具获取用户确认。
+6. **文件化进度。** 进度写入 ledger 文件，compaction 后从文件恢复，不从记忆恢复。
+7. **持续执行。** Phase 内部不要暂停询问用户，除非遇到不可解决的阻塞。
+8. **复用 superpowers。** 不重复造轮子，复用已验证的技能。
+
+---
+
+## 角色与 MiMoCode Agent 映射
+
+| 概念角色 | 职责 | MiMoCode Agent | 权限配置 |
+|---------|------|---------------|---------|
+| **协调者** | 协调 phase、文档决策、委派任务、审查产出 | Plan agent | `edit: deny`, `bash: deny` |
+| **编码者** | 实现功能、写代码、调试、重构 | Build agent | 全工具权限 |
+| **艺术家** | UI/UX、前端实现、视觉设计 | Build agent（prompt 隔离） | 全工具权限 |
+| **测试者** | 测试、代码审查、验证、质量保证 | 自定义 subagent | `edit: deny` |
+| **侦察兵** | 调研、分析、技术评估 | Explore agent | 只读 |
+
+**委派模板（使用 actor 工具）：**
+
+```javascript
+// 侦察兵调研 — explore 只读
+actor({ operation: { action: "run", subagent_type: "explore",
+  prompt: "调研任务描述", description: "简短描述" } })
+
+// 编码者实现 — general 可写入
+actor({ operation: { action: "run", subagent_type: "general",
+  prompt: "实现任务描述", description: "简短描述", task_id: "T1" } })
+
+// 测试者验证 — general 可读写
+actor({ operation: { action: "run", subagent_type: "general",
+  prompt: "测试任务描述", description: "简短描述" } })
+```
+
+---
+
+## 目录结构
 
 ```
 projects/<project-name>/
-├── overview.md                    # Status tracker, phase progress, blockers
+├── ledger.md                      # 进度账本（防 compaction 丢失）
+├── overview.md                    # 状态跟踪
 ├── source-of-truth/
-│   └── constitution.md            # Constraints, prohibitions, acceptance criteria
+│   └── constitution.md            # 约束、禁止模式、验收标准
 ├── changes/
 │   └── <YYYY-MM-DD>-<description>/
-│       ├── conversation.md        # Requirements decisions and rationale
-│       ├── proposal.md            # Technical proposal (2-3 options)
-│       ├── PRODUCT.md             # Product invariants and requirements
-│       ├── TECH.md                # Technical specification
-│       └── tasks.md               # Implementation plan with verification
+│       ├── conversation.md        # 需求决策与理由
+│       ├── proposal.md            # 技术方案（2-3个）
+│       ├── PRODUCT.md             # 产品不变量
+│       ├── TECH.md                # 技术规范
+│       └── tasks.md               # 实施计划与验证
 └── archive/
     ├── completion-summary.md
     ├── retrospective.md
     └── handoff.md
 ```
 
-### Document Purposes
+### 文档映射表
 
-| Document | Phase | Purpose |
-|----------|-------|---------|
-| `overview.md` | Created Phase 0 | Living status document. Updated each phase transition. |
-| `constitution.md` | Phase 3-4 | Non-negotiable constraints. All tasks must comply. |
-| `conversation.md` | Phase 1 | Records what was asked, what was clarified, what was decided. |
-| `proposal.md` | Phase 2-3 | Technical approach with alternatives and rationale. |
-| `PRODUCT.md` | Phase 3 | Product-level invariants: what the system must do. |
-| `TECH.md` | Phase 3-4 | Technical specification: how the system is built. |
-| `tasks.md` | Phase 5 | Ordered implementation tasks with acceptance criteria. |
-| `completion-summary.md` | Phase 7 | What was delivered, what changed from plan. |
-| `retrospective.md` | Phase 7 | What went well, what didn't, lessons learned. |
+| Phase | 产出文档 | 存放位置 | 必填/可选 |
+|-------|----------|----------|-----------|
+| Phase 0 | overview.md | projects/<name>/ | 必填 |
+| Phase 0 | ledger.md | projects/<name>/ | 必填 |
+| Phase 1 | conversation.md | projects/<name>/changes/<date>-<desc>/ | 必填 |
+| Phase 2 | proposal.md | projects/<name>/changes/<date>-<desc>/ | 必填 |
+| Phase 3 | PRODUCT.md | projects/<name>/changes/<date>-<desc>/ | 必填 |
+| Phase 3 | TECH.md | projects/<name>/changes/<date>-<desc>/ | 必填 |
+| Phase 4 | constitution.md | projects/<name>/source-of-truth/ | 必填 |
+| Phase 5 | tasks.md | projects/<name>/changes/<date>-<desc>/ | 必填 |
+| Phase 7 | completion-summary.md | projects/<name>/archive/ | 必填 |
+| Phase 7 | retrospective.md | projects/<name>/archive/ | 必填 |
+| Phase 7 | handoff.md | projects/<name>/archive/ | 可选 |
 
----
+**文档完整性检查：** 使用 `templates/document-checklist.md` 跟踪文档完成状态。
 
-## Phase Workflow
-
-### Phase 0: Requirements Preparation
-
-**Goal:** Capture the raw request and set up the project workspace.
-
-**Steps:**
-1. Identify the project name (ask user or derive from request).
-2. Create the directory structure under `projects/<project-name>/`.
-3. Create `overview.md` with initial status:
-   ```
-   # Project: <name>
-   Status: Requirements Gathering
-   Phase: 0
-   Created: <date>
-   ## Progress
-   - [x] Phase 0: Requirements preparation
-   - [ ] Phase 1: Requirements clarification
-   - [ ] Phase 2: Solution design
-   - [ ] Phase 3: Design documents
-   - [ ] Phase 4: Self-check
-   - [ ] Phase 5: Implementation plan
-   - [ ] Phase 6: Execution
-   - [ ] Phase 7: Archive
-   - [ ] Phase 8: Feedback
-   ```
-4. Create `changes/<date>-<description>/conversation.md` and capture the initial request verbatim.
-5. Delegate a **Scout** task: research the problem domain, existing solutions, relevant technologies. Scout returns a summary with references.
-
-**Output:** Project directory exists, initial request documented, Scout research complete.
-
----
-
-### Phase 1: Requirements Clarification
-
-**Goal:** Transform vague request into precise, testable requirements using the 5-Dimension Questioning Framework.
-
-**The 5 Dimensions:**
-
-| # | Dimension | Questions to answer |
-|---|-----------|-------------------|
-| 1 | **Who** | Who are the users? Who maintains it? Who is affected? |
-| 2 | **What** | What problem does it solve? What are the invariants? What are the edge cases? |
-| 3 | **How** | How does it integrate with existing systems? How is it deployed? How is it tested? |
-| 4 | **Scope** | What is explicitly OUT of scope? What are the boundaries? What is phase 1 vs later? |
-| 5 | **Success** | How do we know it works? What metrics matter? What does "done" look like? |
-
-**Steps:**
-1. For each dimension, formulate 3-5 specific questions.
-2. Present all questions to the user in a structured format.
-3. Capture all answers in `conversation.md`.
-4. For any unclear answers, follow up with targeted clarification.
-5. Once all dimensions are filled, produce a requirements summary and present to human for confirmation.
-
-**Gate:** Human reviews requirements summary and confirms "yes, these are correct" or provides corrections.
-
-**Output:** `conversation.md` contains complete requirements across all 5 dimensions.
-
----
-
-### Phase 2: Solution Design
-
-**Goal:** Generate 2-3 technical proposals with trade-off analysis.
-
-**Steps:**
-1. Based on requirements, brainstorm 2-3 distinct technical approaches.
-2. For each approach, document:
-   - Architecture overview (high-level)
-   - Technology choices and rationale
-   - Trade-offs (complexity, performance, maintainability, cost)
-   - Risk assessment
-   - Estimated scope/effort
-3. Optionally delegate a **Scout** task for a technical spike: "Implement a minimal proof-of-concept for [specific aspect] and report feasibility."
-4. Present all proposals to the user for comparison.
-5. Capture user's choice (or hybrid) in `proposal.md`.
-
-**Gate:** Human selects a proposal or requests modifications. Document the decision and rationale.
-
-**Output:** `proposal.md` with 2-3 analyzed proposals, final selection recorded.
-
----
-
-### Phase 2.5: Technical Spike (Optional)
-
-**Trigger:** When the chosen proposal involves uncertain technology, unclear feasibility, or high risk.
-
-**Steps:**
-1. Identify the specific uncertainty to resolve.
-2. Delegate a **Scout** or **Coder** task with tight scope:
-   - Goal: "Resolve [specific uncertainty]"
-   - Scope: minimal code/config to prove feasibility
-   - Acceptance criteria: "Can demonstrate [X] works / doesn't work"
-   - Time-box: set a clear limit on effort
-3. Review spike results.
-4. If spike reveals problems, return to Phase 2 with new information.
-5. If spike confirms feasibility, proceed to Phase 3.
-
-**Output:** Spike results documented in `conversation.md` or a separate spike report.
-
----
-
-### Phase 3: Design Documents
-
-**Goal:** Produce the authoritative design documents that all implementation must follow.
-
-**Documents to create:**
-
-**`PRODUCT.md`** — Product invariants:
-- Functional requirements (what the system does)
-- Non-functional requirements (performance, security, accessibility)
-- User stories or use cases
-- Acceptance criteria for each requirement
-
-**`TECH.md`** — Technical specification:
-- Architecture diagram (text-based)
-- Component breakdown
-- Data models and schemas
-- API contracts (if applicable)
-- Technology stack decisions
-- Integration points
-- Deployment strategy
-
-**Steps:**
-1. Delegate **Coder** task to draft `TECH.md` based on `proposal.md`.
-2. Orchestrator reviews the draft for completeness against requirements.
-3. Draft `PRODUCT.md` based on `conversation.md` requirements.
-4. Present both documents to human for review.
-
-**Gate:** Human reviews both documents. Approves or requests changes.
-
-**Output:** `PRODUCT.md` and `TECH.md` approved by human.
-
----
-
-### Phase 4: Constitution & Self-Check
-
-**Goal:** Create the non-negotiable constraints document and verify all prior work is complete.
-
-**`constitution.md`** contains:
-- Hard constraints (must not violate)
-- Soft preferences (prefer but can override with justification)
-- Prohibited patterns (anti-patterns to avoid)
-- Acceptance criteria that apply to ALL tasks
-- Testing requirements
-- Documentation requirements
-
-**Self-Check Checklist:**
-Before proceeding, the Orchestrator verifies every item:
-
-```
-[ ] overview.md exists and has current status
-[ ] conversation.md has complete 5-dimension answers
-[ ] proposal.md has 2+ proposals with rationale for choice
-[ ] PRODUCT.md lists all functional and non-functional requirements
-[ ] TECH.md specifies architecture, data models, and integration points
-[ ] constitution.md defines constraints, prohibitions, and acceptance criteria
-[ ] All documents are consistent (no contradictions between them)
-[ ] All user-confirmed decisions are recorded
-[ ] Scope boundaries are explicit (what's IN and what's OUT)
-```
-
-**Steps:**
-1. Create `constitution.md` from decisions in prior phases.
-2. Run the self-check checklist above.
-3. If any item fails, fix it before proceeding.
-4. Report self-check results to human.
-5. Human confirms readiness to proceed to implementation planning.
-
-**Gate:** Human confirms self-check results are satisfactory.
-
-**Output:** `constitution.md` created, self-check passed, human approved.
-
----
-
-### Phase 5: Implementation Plan
-
-**Goal:** Break the design into ordered, implementable tasks with verification criteria.
-
-**Delegation:** Spawn a **Coder** subagent with the following task body:
-
-```
-Goal: Create the implementation plan (tasks.md)
-Context: [embed PRODUCT.md, TECH.md, constitution.md contents]
-Output: projects/<name>/changes/<date>-<description>/tasks.md
-
-Requirements for tasks.md:
-- Each task has: ID, description, role assignment, dependencies, acceptance criteria
-- Acceptance criteria must include specific verification commands
-- Tasks are ordered by dependency (topological sort)
-- Each task includes scope exclusions (what NOT to do in this task)
-- Tasks are granular enough to complete in one session
-- Include a "verification" section at the end with commands to run
-```
-
-**Task Format in tasks.md:**
+### Ledger 文件格式（防 compaction 丢失）
 
 ```markdown
-## Task T001: <title>
+# Progress Ledger
+
+## Completed Tasks
+- [x] Phase 0: 需求准备 (commits abc1234..def5678, review clean)
+- [x] Phase 1: 需求澄清 (commits def5678..ghi9012, review clean)
+- [ ] Phase 2: 方案设计 (in progress)
+
+## Current State
+- Current Phase: 2
+- Last Updated: 2025-01-15T10:30:00Z
+- Human Approved Gates: Phase 0→1 ✓, Phase 1→2 ✓
+```
+
+**关键规则：** Compaction 后信任 ledger 和 git log，不信任自己的记忆。
+
+---
+
+## Phase 工作流
+
+### Phase 0: 需求准备
+
+<HARD-GATE>
+Do NOT proceed to Phase 1 until: overview.md exists, conversation.md has initial request, and scout research is complete.
+</HARD-GATE>
+
+**目标：** 捕获原始请求，搭建项目工作区。
+
+**复用：** 加载 `superpowers:brainstorming` 技能获取需求探索方法论。
+
+**MUST 完成清单（按顺序）：**
+1. 确定项目名称（询问用户或从请求推导）
+2. 创建 `projects/<project-name>/` 目录结构
+3. 创建 `overview.md`（初始状态）
+4. 创建 `ledger.md`（进度账本）
+5. 创建 `changes/<date>-<desc>/conversation.md`，记录原始请求
+6. 委派侦察兵：调研问题域、现有方案、相关技术
+7. **项目规模评估**：使用 `question` 工具询问以下问题，根据评估结果选择标准模式或轻量级模式：
+   - 预计开发时间：< 1天 / 1-3天 / 3天以上
+   - 预计代码行数：< 500行 / 500-2000行 / > 2000行
+   - 团队人数：1人 / 2-3人 / 3人以上
+   - 技术复杂度：简单（CRUD）/ 中等（有业务逻辑）/ 复杂（分布式、高并发）
+   
+   **评估规则：**
+   - 如果所有答案都是第一项：建议使用轻量级模式（合并阶段）
+   - 如果有任意答案是第三项：建议使用标准模式（完整8阶段）
+   - 其他情况：用户自行选择
+
+**产出：** 目录存在，初始请求已记录，侦察兵调研完成。
+
+**Never：**
+- 跳过侦察兵调研直接进入需求澄清
+- 在 overview.md 中记录虚假的完成状态
+
+**Anti-Pattern: "需求已经在对话里了，不需要记录"**
+对话会随 compaction 丢失。conversation.md 是唯一持久化的需求记录。没有 conversation.md = 需求不存在。
+
+**REQUIRED NEXT STEP:** 完成后用 `question` 工具让人类确认进入 Phase 1。确认后执行 `/compact`，然后从文件重读上下文。**Phase 1 需加载 `superpowers:brainstorming` 技能。**
+
+---
+
+### Phase 1: 需求澄清
+
+<HARD-GATE>
+Do NOT proceed to Phase 2 until: conversation.md has complete 5-dimension answers AND human has approved via question tool.
+</HARD-GATE>
+
+**目标：** 用 5 维度提问框架将模糊请求转化为精确、可测试的需求。
+
+**MUST 完成清单（按顺序）：**
+1. 读取 conversation.md（从文件恢复上下文）
+2. 对每个维度提出 3-5 个具体问题
+3. 用 `question` 工具逐个向用户提问
+4. 将所有回答记录到 conversation.md
+5. 生成需求摘要
+6. 用 `question` 工具让人类确认需求摘要
+
+| # | 维度 | 要回答的问题 |
+|---|------|-------------|
+| 1 | **谁** | 用户是谁？谁维护？谁受影响？ |
+| 2 | **什么** | 解决什么问题？不变量是什么？边界情况？ |
+| 3 | **如何** | 如何集成？如何部署？如何测试？ |
+| 4 | **范围** | 明确排除什么？Phase 1 vs 后续？ |
+| 5 | **成功** | 如何证明可行？什么指标重要？ |
+
+**产出：** `conversation.md` 包含 5 维度完整需求。
+
+**Never：**
+- 跳过任何维度
+- 用"我认为用户想要..."代替直接询问
+- 在需求未确认前开始设计
+
+**Anti-Pattern: "需求很明确了，不需要 5 维度"**
+"明确"的需求是最可能出错的需求。5 维度框架是强制的，不是可选的。
+
+**REQUIRED NEXT STEP:** 完成后用 `question` 工具让人类确认。确认后执行 `/compact`，然后读取 conversation.md 和 overview.md。
+
+---
+
+### Phase 2: 方案设计
+
+<HARD-GATE>
+Do NOT proceed to Phase 3 until: proposal.md has 2+ approaches with trade-offs AND human has selected via question tool.
+</HARD-GATE>
+
+**目标：** 生成 2-3 个技术方案，含权衡分析。
+
+**MUST 完成清单（按顺序）：**
+1. 读取 conversation.md 和 overview.md（从文件恢复上下文）
+2. 头脑风暴 2-3 个不同技术路径
+3. 每个方案记录：架构、技术选型理由、权衡、风险、工作量
+4. 可选：委派侦察兵做技术 spike（`--fork` 分叉探索）
+5. 用 `question` 工具让用户选择方案
+6. 将选择记录到 proposal.md
+
+**产出：** `proposal.md` 含 2-3 个分析方案，最终选择已记录。
+
+**Never：**
+- 只提出一个方案
+- 跳过权衡分析
+- 在用户选择前自行决定方案
+
+**Anti-Pattern: "只有一种合理方案，不需要比较"**
+LLM 倾向于输出最熟悉的方案。强制比较 2-3 个方案是为了暴露隐含假设。
+
+**REQUIRED NEXT STEP:** 完成后用 `question` 工具让人类选择。确认后执行 `/compact`，然后读取 proposal.md、conversation.md、overview.md。**Phase 3 需加载 `superpowers:brainstorming` 技能（设计文档部分）。**
+
+---
+
+### Phase 2.5: 技术 Spike（可选）
+
+**触发：** 选定方案涉及不确定技术或高风险。
+
+委派侦察兵或编码者，范围严格限定，时间盒约束。结果记录在 `conversation.md`。
+
+---
+
+### Phase 3: 设计文档
+
+<HARD-GATE>
+Do NOT proceed to Phase 4 until: PRODUCT.md and TECH.md are complete AND human has approved via question tool.
+</HARD-GATE>
+
+**目标：** 产出权威设计文档。
+
+**MUST 完成清单（按顺序）：**
+1. 读取 conversation.md、proposal.md、overview.md（从文件恢复上下文）
+2. 委派编码者起草 TECH.md
+3. 协调者审查 TECH.md 完整性
+4. 起草 PRODUCT.md（功能需求、非功能需求、用户故事、验收标准）
+5. 用 `question` 工具让人类审批两个文档
+6. 将批准记录到 overview.md
+
+**产出：** `PRODUCT.md` 和 `TECH.md` 已获人类批准。
+
+**Never：**
+- PRODUCT.md 和 TECH.md 未经人类批准就进入 Phase 4
+- TECH.md 缺少架构图或数据模型
+- PRODUCT.md 缺少验收标准
+
+**Anti-Pattern: "设计文档太长了，我先写代码"**
+设计文档是实施的唯一依据。没有批准的设计文档 = 没有设计 = 不能开始编码。
+
+**REQUIRED NEXT STEP:** 完成后用 `question` 工具让人类批准。确认后执行 `/compact`，然后读取 PRODUCT.md、TECH.md、conversation.md、proposal.md、overview.md。**Phase 4 需要自检，无需额外 superpowers 技能。**
+
+---
+
+### Phase 4: 宪法与自检
+
+<HARD-GATE>
+Do NOT proceed to Phase 5 until: constitution.md exists AND self-check checklist passes AND human has approved via question tool.
+</HARD-GATE>
+
+**目标：** 创建不可协商的约束文档，验证所有前期工作。
+
+**MUST 完成清单（按顺序）：**
+1. 读取所有前序文档（从文件恢复上下文）
+2. 创建 `constitution.md`（使用 constitution-template.md 作为模板），必须包含：
+   - 硬约束
+   - **软偏好处理**：每个软偏好必须标记为"升级为硬约束"或"排除+理由"，不允许"暂时搁置"
+   - 禁止模式
+   - **环境约束**：development/staging/production 配置差异表
+   - 通用验收标准
+3. 运行自检清单（逐项验证）
+4. 修复所有失败项
+5. 用 `question` 工具让人类确认自检结果
+
+**自检清单（MUST 全部通过）：**
+```
+[ ] overview.md 存在且状态最新
+[ ] conversation.md 有完整 5 维度回答
+[ ] proposal.md 有 2+ 方案及选择理由
+[ ] PRODUCT.md 列出所有功能和非功能需求
+[ ] TECH.md 指定架构、数据模型、集成点
+[ ] constitution.md 定义约束和验收标准
+[ ] 所有文档一致（无矛盾）
+[ ] 所有用户确认的决策已记录
+[ ] 范围边界明确（IN 和 OUT）
+[ ] PRODUCT.md 每个用户故事在 tasks.md 中有对应任务（双向追溯）
+[ ] constitution.md 包含环境约束（dev/staging/production）
+[ ] constitution.md 软偏好已明确处理（升级为硬约束 or 明确排除+理由）
+```
+
+**产出：** `constitution.md` 创建，自检通过，人类批准。
+
+**Never：**
+- 自检清单有失败项但继续前进
+- constitution.md 缺少可执行的验证命令
+- 跳过人工确认
+
+**Anti-Pattern: "自检只是形式，核心是编码"**
+自检是防止前期错误传播到实施阶段的最后机会。跳过自检 = 允许错误进入代码。
+
+**REQUIRED NEXT STEP:** 完成后用 `question` 工具让人类确认。确认后执行 `/compact`，然后读取 PRODUCT.md、TECH.md、constitution.md、overview.md。**Phase 5 需加载 `superpowers:writing-plans` 技能。**
+
+---
+
+### Phase 5: 实施计划
+
+<HARD-GATE>
+Do NOT proceed to Phase 6 until: tasks.md has complete acceptance criteria with verification commands AND human has confirmed via question tool.
+</HARD-GATE>
+
+**目标：** 将设计分解为有序、可执行的任务。
+
+**复用：** 加载 `superpowers:writing-plans` 技能获取任务分解方法论（bite-sized tasks、TDD 步骤、exact file paths）。
+
+**MUST 完成清单（按顺序）：**
+1. 读取 PRODUCT.md、TECH.md、constitution.md、overview.md（从文件恢复上下文）
+2. 委派编码者生成 `tasks.md`（遵循 writing-plans 的任务格式）
+3. 审查 tasks.md：
+   - 每个任务有 ID、角色、依赖、验收标准、验证命令
+   - 任务按依赖排序
+   - 每个任务有范围排除
+   - 每个任务有 exact file paths（来自 writing-plans）
+   - **双向追溯验证**：PRODUCT.md 每个用户故事在 tasks.md 有对应任务（检查追溯矩阵）
+   - **双向追溯验证**：tasks.md 每个任务关联到 PRODUCT.md 的用户故事（无孤立任务）
+4. 用 `question` 工具让人类确认任务计划
+5. 更新 ledger.md
+
+**任务格式：**
+```markdown
+## Task T001: <标题>
 - **Role:** coder | artist | tester | scout
 - **Dependencies:** none | T001, T002
-- **Goal:** <what this task achieves>
-- **Scope:** <what to do>
-- **Exclusions:** <what NOT to do>
+- **Goal:** <目标>
+- **Scope:** <做什么>
+- **Exclusions:** <不做什么>
 - **Acceptance Criteria:**
-  1. <specific, testable criterion>
-  2. <verification command that proves it>
-- **Files:** <list of files to create/modify>
+  1. <可测试标准>
+  2. <验证命令>
+- **Files:** <涉及文件>
 ```
 
-**Steps:**
-1. Orchestrator delegates task planning to Coder.
-2. Orchestrator reviews the generated `tasks.md` for:
-   - Correct task format
-   - Complete acceptance criteria with verification commands
-   - Logical ordering and dependency accuracy
-   - Coverage of all requirements from PRODUCT.md
-   - Compliance with constitution.md constraints
-3. If issues found, send back to Coder with specific corrections needed.
-4. Present final `tasks.md` to human for confirmation.
+**产出：** `tasks.md` 已获人类批准。
 
-**Gate:** Human reviews and confirms the implementation plan.
+**Never：**
+- 任务没有验证命令
+- 任务范围排除为空
+- 任务之间依赖关系不清晰
 
-**Output:** `tasks.md` approved, ready for execution.
+**Anti-Pattern: "任务太简单不需要验收标准"**
+没有验收标准的任务 = 无法验证完成 = 永远不会真正完成。
+
+**REQUIRED NEXT STEP:** 完成后用 `question` 工具让人类确认。确认后执行 `/compact`，然后读取 tasks.md、constitution.md、TECH.md、overview.md。**Phase 6 需加载 `superpowers:subagent-driven-development` 和 `superpowers:verification-before-completion` 技能。**
 
 ---
 
-### Phase 6: Execution
+### Phase 6: 执行
 
-**Goal:** Execute tasks in dependency order, delegating each to the appropriate role.
+<HARD-GATE>
+Do NOT mark any task as done without: (1) verification evidence from bash output, (2) reviewer approval, (3) ledger update.
+</HARD-GATE>
 
-**Execution Rules:**
-1. Process tasks in dependency order (respect topological sort).
-2. For each task:
-   a. Verify all dependencies are complete (check overview.md).
-   b. Delegate to the assigned role with full context.
-   c. Receive results with evidence (file diffs, test output, screenshots).
-   d. Review results against acceptance criteria.
-   e. Update `overview.md` with task status.
-3. If a task fails:
-   - Log the failure in `overview.md`.
-   - Determine if it's a blocker (can't proceed) or can be worked around.
-   - If blocker: pause execution, report to human, wait for decision.
-   - If workaround: document the workaround, proceed with caution.
+**目标：** 按依赖顺序执行任务。
 
-**Delegation Template:**
+**复用：**
+- 加载 `superpowers:subagent-driven-development` 技能获取子代理派发和两阶段 review 方法论
+- 加载 `superpowers:verification-before-completion` 技能获取验证铁律
+
+**MUST 完成清单（每个任务）：**
+1. 验证所有依赖已完成（检查 ledger.md）
+2. 读取 tasks.md、constitution.md、TECH.md、overview.md
+3. 委派编码者（使用 actor 工具，指定 subagent_type）
+4. 接收编码者产出：diff、测试输出、自审结果
+5. **验证证据**：运行验证命令，检查 bash 输出（Iron Law: 没有证据 = 没有完成）
+6. **两阶段 Review**（来自 subagent-driven-development）：
+   - 规格合规审查：实现是否符合 tasks.md 的验收标准
+   - 代码质量审查：代码是否符合 TECH.md 的架构约束
+7. 更新 ledger.md：`- [x] Task T001: 完成 (commits abc..def, review clean)`
+8. 更新 overview.md
+
+**委派 prompt 模板（强制格式）：**
+```
+## 强制前置步骤（不可跳过）
+1. 使用 skill 工具加载 "spec-driven-project"
+2. 使用 skill 工具加载 "writing-plans" 或 "verification-before-completion"（根据任务类型）
+3. 读取 tasks.md、constitution.md、TECH.md 获取上下文
+
+## 角色
+你是 <角色>。
+
+## Task <ID>: <标题>
+### 目标
+<要实现什么>
+
+### 上下文
+<嵌入 PRODUCT.md、TECH.md、constitution.md 相关部分>
+
+### 约束
+<从 constitution.md 列出相关约束>
+
+### 验收标准
+<从 tasks.md 列出>
+
+### 范围排除
+<从 tasks.md 列出>
+
+### 验证（必须执行并返回输出）
+<完成后的验证命令>
+
+## 完成后必须返回
+1. 验证命令的完整 bash 输出（不是摘要，是原始输出）
+2. 修改的文件列表
+3. 是否通过自检：是/否
+```
+
+**协调者审查时 MUST 检查：**
+- [ ] 子代理是否加载了正确的技能
+- [ ] 返回的验证输出是否包含实际命令执行结果（不是"测试通过"文字）
+- [ ] 如果是测试任务，输出必须包含测试运行结果，不是"测试文件已创建"
+
+**两阶段 Review 流程：**
+```
+编码者完成 → 生成 diff → 派发审查者 subagent
+审查者报告：
+  - 规格合规: ✅ 或 ❌
+  - 代码质量: ✅ 或 ❌
+两个维度都 ✅ 才能标记完成
+任何 ❌ 必须修复后重新审查
+```
+
+**子代理契约：**
+- 返回：完成摘要、修改文件、验证输出
+- 不得：做架构决策、跳过测试、忽略范围排除
+- 遇到歧义：必须停止并报告，不得猜测
+
+**Never：**
+- 接受编码者"应该能工作"的声明而没有运行验证命令
+- 接受"测试文件已创建"作为测试完成的证据（必须运行测试并返回输出）
+- 跳过 review 直接标记完成
+- 在 review 有 Critical/Important 问题时继续下一个任务
+- 用对话记忆判断任务状态，必须查 ledger.md
+
+**Anti-Pattern: "测试通过了，代码看起来没问题"**
+"看起来没问题" 不是证据。运行验证命令，检查输出，然后才能声称完成。
+
+**Anti-Pattern: "测试文件已创建"**
+创建测试文件 ≠ 测试通过。必须运行 `phpunit`/`vitest` 并返回实际输出。没有输出 = 测试未执行 = 任务未完成。
+
+**REQUIRED NEXT STEP:** 所有任务完成后，派发最终 whole-branch review（使用 `superpowers:requesting-code-review` 模板）。然后执行 `/compact`。**Phase 7 需加载 `superpowers:requesting-code-review`、`superpowers:verification-before-completion` 和 `superpowers:finishing-a-development-branch` 技能。**
+
+---
+
+### Phase 7: 归档与复盘
+
+<HARD-GATE>
+Do NOT close the project until: completion-summary.md, retrospective.md exist AND human has confirmed via question tool.
+</HARD-GATE>
+
+**目标：** 清理、文档化、准备未来参考。
+
+**复用：**
+- 加载 `superpowers:requesting-code-review` 技能获取最终 whole-branch review 方法论
+- 加载 `superpowers:verification-before-completion` 技能获取完成前验证铁律
+- 加载 `superpowers:finishing-a-development-branch` 技能获取分支收尾流程
+
+**MUST 完成清单（按顺序）：**
+1. 读取 overview.md、ledger.md、changes/ 下所有文档
+2. 派发最终 whole-branch review（使用 requesting-code-review 模板）
+3. 创建 `archive/completion-summary.md`（交付内容 vs 计划、偏差、已知问题）
+4. 创建 `archive/retrospective.md`（做得好/不好、改进项）
+5. 更新 `overview.md` 为"已完成"
+6. 创建 `archive/handoff.md`（如需维护）
+7. 用 `question` 工具让人类确认归档完成
+
+**产出：** 项目完整文档化，已归档。
+
+**Never：**
+- 没有 completion-summary 就归档
+- retrospective 只写"做得好"不写"做得不好"
+
+**REQUIRED NEXT STEP:** 完成后用 `question` 工具让人类确认。进入 Phase 8。
+
+---
+
+### Phase 8: 反馈循环
+
+**目标：** 捕获经验，决定下一步。
+
+用 `question` 工具询问：新项目（→Phase 0）| 迭代（→Phase 1）| 审查（Review 模式）| 结束。
+
+---
+
+## 7 层防跳步机制
+
+### 第 1 层：HARD-GATE 标签
+
+每个 phase 转换处标记 `<HARD-GATE>`，明确列出不可跳过的前置条件。
+
+### 第 2 层：MUST 检查清单
+
+每个 phase 有编号的 MUST 完成清单，必须按顺序完成。
+
+### 第 3 层：REQUIRED NEXT STEP
+
+每个 phase 结尾声明下一个必须执行的步骤，形成链式调用。
+
+### 第 4 层：Anti-Pattern 显式禁用
+
+每个 phase 有 Anti-Pattern 小节，直接引用 LLM 的常见理性化借口并禁用。
+
+### 第 5 层：文件化进度 Ledger
+
+进度写入 `ledger.md`，compaction 后从文件恢复。规则：信任 ledger 和 git log，不信任记忆。
+
+### 第 6 层：两阶段 Review
+
+每个任务完成后：规格合规审查 + 代码质量审查。两个维度都 ✅ 才能继续。
+
+### 第 7 层：Never 列表
+
+每个 phase 有明确的 Never 列表，列出绝对禁止的行为。
+
+### 第 8 层：反理性化扩展机制
+
+**目标：** 持续维护反理性化表格，防御新出现的 LLM 跳步借口。
+
+**机制：**
+1. **定期审查：** 每个项目复盘时，检查是否有新的 LLM 合理化借口出现。
+2. **扩展流程：** 发现新借口时，按以下格式添加到 `references/anti-rationalization-patterns.md`：
+   ```
+   ### Pattern N: "新借口标题"
+   **触发场景：** 描述触发条件
+   **LLM 逻辑：** LLM 如何合理化跳步
+   **真实后果：** 实际危害
+   **阻止方式：** 具体防御措施
+   ```
+3. **同步更新：** 同步更新 SKILL.md 中的“Anti-Pattern”小节（如有必要）。
+4. **社区贡献：** 鼓励用户提交新的反理性化模式。
+
+**维护责任：** 协调者负责在 Phase 8（反馈循环）中审查并更新反理性化表格。
+
+---
+
+## MiMoCode 环境集成
+
+### 上下文管理（/compact + 文件重读）
+
+每个 phase gate 确认后执行 `/compact`，然后从文件重读上下文：
 
 ```
-You are a <role> (Coder/Artist/Tester/Scout).
-
-## Task <ID>: <title>
-### Goal
-<what to achieve>
-
-### Context
-<embed relevant parts of PRODUCT.md, TECH.md, constitution.md>
-
-### Constraints
-<list constraints from constitution.md relevant to this task>
-
-### Acceptance Criteria
-<list from tasks.md>
-
-### Scope Exclusions
-<list from tasks.md>
-
-### Verification
-<commands to run to verify completion>
+1. /compact（压缩前一 phase 对话）
+2. Read ledger.md（从文件恢复进度）
+3. Read overview.md（确认当前状态）
+4. Read 本 phase 所需全部文档
+5. 确认无遗漏
+6. 开始执行
 ```
 
-**Subagent Contract:**
-- Subagent returns: summary of what was done, files modified, verification output
-- Subagent does NOT: make architectural decisions, skip tests, ignore scope exclusions
-- If subagent encounters ambiguity: it must stop and report, not guess
+每个 phase 需读取的文件：
 
-**Tester Verification (runs after each task or batch):**
-After tasks complete, delegate to **Tester**:
-```
-Goal: Verify tasks <T00X> through <T00Y> meet acceptance criteria.
-Context: [embed tasks.md acceptance criteria]
-Verification: run the verification commands listed in each task's acceptance criteria.
-Output: verification report with pass/fail for each criterion.
-```
+| Phase | 需读取的文件 |
+|-------|-------------|
+| 0 | （新建项目，无需恢复） |
+| 1 | conversation.md, ledger.md |
+| 2 | conversation.md, overview.md, ledger.md |
+| 3 | conversation.md, proposal.md, overview.md, ledger.md |
+| 4 | PRODUCT.md, TECH.md, conversation.md, proposal.md, overview.md, ledger.md |
+| 5 | PRODUCT.md, TECH.md, constitution.md, overview.md, ledger.md |
+| 6 | tasks.md, constitution.md, TECH.md, overview.md, ledger.md |
+| 7 | overview.md, ledger.md, tasks.md, changes/ 下所有文档 |
+| 8 | overview.md, ledger.md, retrospective.md |
 
-**Progress Tracking in overview.md:**
+### Session 管理
+
+| 场景 | 操作 |
+|------|------|
+| 跨天项目 | `mimo --continue` 恢复 |
+| 尝试新方案 | `mimo --continue --fork` 分叉 |
+| 长上下文 | `/compact` 压缩 |
+
+### 权限与反理性化混合策略
+
+| 层级 | 策略 | 配置 |
+|------|------|------|
+| **权限硬隔离** | 协调者不写代码 | `agent.plan.permission.edit: "deny"` |
+| **权限硬隔离** | 测试者不改代码 | 自定义 agent `edit: deny` |
+| **Prompt 软约束** | 每任务必须有验证命令 | task 模板硬编码 Acceptance Criteria 格式 |
+| **Prompt 软约束** | 独立 review | 角色定义 + 反理性化表 |
+| **Prompt 软约束** | Gate 审批 | question 工具 + phase gate 检查 |
+
+详细反理性化模式见 references/anti-rationalization.md。
+
+---
+
+## 优化方案详细说明
+
+### 方案1：文档结构优化
+
+**问题：** 文档存放位置说明可以更清晰，模板可增加灵活性。
+
+**解决方案：**
+
+1. **文档映射表：** 在 SKILL.md 中增加“文档映射表”，明确每阶段产出与存放位置的对应关系。
+2. **可选字段标记：** 在模板中增加“可选字段”标记（如 `[optional]`），让用户根据项目规模选择。
+3. **文档清单模板：** 创建 `templates/document-checklist.md`，帮助用户跟踪文档完整性。
+
+**实施步骤：**
+1. 在 SKILL.md 的“目录结构”部分增加文档映射表。
+2. 修改 `templates/` 目录下的模板文件，增加可选字段标记。
+3. 创建 `templates/document-checklist.md`。
+
+**示例文档映射表：**
 ```markdown
-## Execution Log
-| Task | Status | Assigned To | Completed | Notes |
-|------|--------|-------------|-----------|-------|
-| T001 | ✅ Done | Coder | 2025-01-15 | All criteria met |
-| T002 | 🔄 In Progress | Artist | - | Blocked on T001 |
-| T003 | ⏳ Pending | Tester | - | Waiting for T002 |
+| Phase | 产出文档 | 存放位置 | 必填/可选 |
+|-------|----------|----------|-----------|
+| Phase 0 | overview.md | projects/<name>/ | 必填 |
+| Phase 0 | ledger.md | projects/<name>/ | 必填 |
+| Phase 1 | conversation.md | projects/<name>/changes/<date>-<desc>/ | 必填 |
+| Phase 2 | proposal.md | projects/<name>/changes/<date>-<desc>/ | 必填 |
+| Phase 3 | PRODUCT.md | projects/<name>/changes/<date>-<desc>/ | 必填 |
+| Phase 3 | TECH.md | projects/<name>/changes/<date>-<desc>/ | 必填 |
+| Phase 4 | constitution.md | projects/<name>/source-of-truth/ | 必填 |
+| Phase 5 | tasks.md | projects/<name>/changes/<date>-<desc>/ | 必填 |
+| Phase 7 | completion-summary.md | projects/<name>/archive/ | 必填 |
+| Phase 7 | retrospective.md | projects/<name>/archive/ | 必填 |
+| Phase 7 | handoff.md | projects/<name>/archive/ | 可选 |
 ```
 
-**Gate:** After all tasks complete, Tester produces a final verification report. Orchestrator reviews. Human confirms delivery.
+### 方案4：流程简化
 
-**Output:** All tasks executed, verification passed, human approved.
+**问题：** 8阶段流程对小项目可能过重。
+
+**解决方案：**
+
+1. **轻量级模式：** 增加“轻量级模式”选项，合并某些阶段。
+2. **项目规模评估：** 在 Phase 0 增加项目规模评估，根据评估结果选择标准模式或轻量级模式。
+
+**轻量级模式阶段合并：**
+- **标准模式：** Phase 0-8（完整流程）
+- **轻量级模式：** 
+  - Phase 0-2 → “需求与设计”（合并为1个阶段）
+  - Phase 3-4 → “约束与分析”（合并为1个阶段）
+  - Phase 5-6 → “计划与执行”（合并为1个阶段）
+  - Phase 7-8 → “归档与反馈”（合并为1个阶段）
+
+**实施步骤：**
+1. 在 SKILL.md 的“Phase 工作流”部分增加“轻量级模式”说明。
+2. 在 Phase 0 增加项目规模评估问题。
+3. 根据评估结果，指导用户选择标准模式或轻量级模式。
+
+**项目规模评估问题：**
+```
+项目规模评估：
+1. 预计开发时间：< 1天 / 1-3天 / 3天以上
+2. 预计代码行数：< 500行 / 500-2000行 / > 2000行
+3. 团队人数：1人 / 2-3人 / 3人以上
+4. 技术复杂度：简单（CRUD）/ 中等（有业务逻辑）/ 复杂（分布式、高并发）
+
+根据评估结果：
+- 如果所有答案都是第一项：建议使用轻量级模式
+- 如果有任意答案是第三项：建议使用标准模式
+- 其他情况：用户自行选择
+```
+
+### 方案6：团队协作
+
+**问题：** 当前主要面向单人开发者，缺乏团队协作指导。
+
+**解决方案：**
+
+1. **角色分配指南：** 增加团队角色分配指南。
+2. **冲突处理机制：** 增加并行任务冲突处理机制。
+3. **协作工具集成：** 增加与协作工具（如 GitHub Issues、Jira）的集成建议。
+
+**团队角色分配指南：**
+```markdown
+## 团队角色分配
+
+### 小型团队（2-3人）
+- **协调者：** 项目经理或技术负责人
+- **编码者：** 1-2名开发人员
+- **测试者：** 开发人员兼任（但必须独立于编码者）
+- **侦察兵：** 开发人员兼任
+
+### 中型团队（4-6人）
+- **协调者：** 项目经理
+- **编码者：** 2-3名开发人员
+- **艺术家：** 1名UI/UX设计师
+- **测试者：** 1名QA工程师
+- **侦察兵：** 1名技术研究员
+
+### 大型团队（7人以上）
+- **协调者：** 项目经理 + 技术负责人
+- **编码者：** 多个开发小组
+- **艺术家：** UI/UX设计团队
+- **测试者：** QA团队
+- **侦察兵：** 技术研究小组
+```
+
+**冲突处理机制：**
+```markdown
+## 并行任务冲突处理
+
+### 冲突预防
+1. **文件锁机制：** 在 tasks.md 中明确每个任务的“文件锁”（哪些文件只能由该任务修改）。
+2. **依赖检查：** 派发任务前，检查新任务与进行中任务的文件重叠。
+3. **通信协议：** 团队成员在修改共享文件前，必须通知协调者。
+
+### 冲突解决
+1. **识别冲突：** 通过代码审查或文件修改历史发现冲突。
+2. **评估影响：** 协调者评估冲突的影响范围。
+3. **重新分配：** 根据冲突情况，重新分配任务或调整顺序。
+4. **合并变更：** 使用版本控制工具合并变更，解决冲突。
+```
+
+### 方案7：反理性化扩展
+
+**问题：** 需要持续维护反理性化表格，防御新出现的 LLM 跳步借口。
+
+**解决方案：** （已在第8层防跳步机制中详细说明）
+
+### 方案8：版本控制集成
+
+**问题：** 缺乏与版本控制工具（如 Git）的集成指导。
+
+**解决方案：**
+
+1. **Git 工作流集成：** 增加与 Git 工作流的集成指导。
+2. **提交规范：** 增加提交信息规范。
+3. **分支策略：** 增加分支策略建议。
+
+**Git 工作流集成：**
+```markdown
+## Git 工作流集成
+
+### 分支策略
+- **main/master：** 稳定版本，只接受经过 review 的合并
+- **develop：** 开发分支，集成所有已完成任务
+- **feature/<task-id>：** 每个任务一个分支，任务完成后合并到 develop
+- **release/<version>：** 发布分支，用于版本发布
+
+### 提交规范
+```
+<type>(<scope>): <subject>
+
+<body>
+
+<footer>
+```
+
+**类型（type）：**
+- feat：新功能
+- fix：修复bug
+- docs：文档更新
+- style：代码格式（不影响功能）
+- refactor：重构
+- test：测试
+- chore：构建过程或辅助工具的变动
+
+**示例：**
+```
+feat(user): 实现用户登录功能
+
+- 添加用户登录API
+- 添加JWT token验证
+- 添加用户模型
+
+Closes #123
+```
+
+### 工作流程
+1. **开始任务：** 从 develop 创建 feature/<task-id> 分支
+2. **完成任务：** 在 feature/<task-id> 分支上完成开发
+3. **提交更改：** 按照提交规范提交更改
+4. **创建PR：** 创建 Pull Request 到 develop 分支
+5. **代码审查：** 至少一名团队成员审查
+6. **合并：** 审查通过后合并到 develop
+7. **删除分支：** 合并后删除 feature/<task-id> 分支
+
+### 版本发布
+1. **创建发布分支：** 从 develop 创建 release/<version> 分支
+2. **测试：** 在发布分支上进行最终测试
+3. **修复问题：** 修复测试中发现的问题
+4. **合并到 main：** 测试通过后合并到 main
+5. **打标签：** 在 main 分支上打版本标签
+6. **合并回 develop：** 将发布分支合并回 develop
+```
+
+**实施步骤：**
+1. 在 SKILL.md 中增加“版本控制集成”章节。
+2. 提供 Git 工作流模板。
+3. 提供提交信息规范模板。
+4. 提供分支策略模板。
 
 ---
 
-### Phase 7: Archive & Retrospective
+## Phase Gates 速查
 
-**Goal:** Clean up, document what happened, and prepare for future reference.
-
-**Steps:**
-1. Create `archive/completion-summary.md`:
-   - What was delivered vs. what was planned
-   - Deviations from original plan and why
-   - Final file listing
-   - Known issues or technical debt
-   - Recommendations for future work
-
-2. Create `archive/retrospective.md`:
-   - What went well
-   - What didn't go well
-   - What we'd do differently
-   - Process improvements identified
-
-3. Update `overview.md`:
-   - Set status to "Completed"
-   - Record final date
-   - Link to archive documents
-
-4. Create `archive/handoff.md` (if project will be maintained):
-   - How to set up the development environment
-   - Key architectural decisions and where to find them
-   - Testing procedures
-   - Deployment instructions
-
-**Gate:** Human reviews archive documents and confirms completion.
-
-**Output:** Project fully documented, archived, and ready for handoff.
+| 转换 | Gate 条件 |
+|------|----------|
+| Phase 0 → 1 | overview.md 存在，conversation.md 有初始请求，侦察兵调研完成 |
+| Phase 1 → 2 | conversation.md 有完整 5 维度回答，question 工具确认 |
+| Phase 2 → 3 | proposal.md 有 2+ 方案，question 工具选择 |
+| Phase 3 → 4 | PRODUCT.md 和 TECH.md 完成，question 工具批准 |
+| Phase 4 → 5 | constitution.md 存在，自检通过，question 工具确认 |
+| Phase 5 → 6 | tasks.md 有完整验收标准和验证命令，question 工具确认 |
+| Phase 6 → 7 | 所有任务完成，两阶段 review 通过，最终 review 通过 |
+| Phase 7 → 8 | 归档文档完成，question 工具确认 |
+| Phase 8 → done | 人类决定停止 |
+| Phase 8 → 0 | 人类决定启动新项目 |
 
 ---
 
-### Phase 8: Feedback Loop
+## 模板与参考
 
-**Goal:** Capture learnings and determine next steps.
+**模板：** 见 `templates/` 目录。
 
-**Steps:**
-1. Present the retrospective to the user.
-2. Ask: "What would you like to do next?"
-   - Start a new project (return to Phase 0)
-   - Iterate on this project (identify what to change, return to Phase 1)
-   - Review and audit (enter Review Mode)
-   - Done (close)
-3. If iterating, create a new change directory under `changes/` and begin Phase 1 with the new requirements.
+**主要模板：**
+- `templates/overview-template.md` — 项目状态跟踪器模板（含项目模式选择）
+- `templates/document-checklist.md` — 文档完整性检查清单（新增）
+- `templates/conversation-template.md` — 需求对谈记录模板（含可选字段）
+- `templates/tasks-md-template.md` — 实施计划模板（含可选字段）
+- `templates/product-md-template.md` — 产品规格模板（含可选字段）
+- `templates/tech-md-template.md` — 技术规格模板（含可选字段）
 
-**Output:** User decides next action, workflow either restarts or concludes.
-
----
-
-## Anti-Rationalization Guard Table
-
-LLMs will attempt to rationalize skipping workflow steps. These are forbidden rationalizations. **Every row is absolute — no exceptions apply.**
-
-| LLM Rationalization | Actual Rule |
-|---------------------|-------------|
-| "This is too simple for the full process" | Only skip when user explicitly says "just do it simply" and the task is genuinely single-step |
-| "I'll check first and then decide if we need docs" | Check results cannot override rules. Documentation is required regardless of what checks reveal |
-| "This passed before, no need to recheck" | Every check is independent. Past results do not validate current state |
-| "This project type doesn't fit the standard structure" | All projects use the standard directory structure. No exceptions for "special" project types |
-| "Review projects don't need full documentation" | All delegated tasks must include relevant context. Reviews may skip early phases but must produce their own documents |
-| "The user seems impatient, I should skip ahead" | Human impatience does not override workflow gates. Explain why each step matters if asked |
-| "I can infer what the user wants without asking" | Inference is not clarification. Ask explicitly, capture answers in conversation.md |
-| "The requirements are obvious from the request" | "Obvious" requirements are the ones most likely to be wrong. Always run the 5-dimension framework |
-| "I'll write this code directly since it's small" | The Orchestrator NEVER writes code. Delegate to Coder, no matter how small |
-| "We can skip the spike since I know this technology" | The Orchestrator's knowledge is not a substitute for a spike. Delegate if there's uncertainty |
-| "The task is too trivial for acceptance criteria" | Every task must have acceptance criteria with verification commands. No exceptions |
-| "I'll just document what we did instead of planning first" | Plan before execution. Documentation of what was done is Phase 7, not a substitute for Phase 5 |
-| "We can combine phases to save time" | Phases are sequential and each requires a gate. Combining phases skips gates |
-| "The constitution is just formalities, the real work is coding" | The constitution defines non-negotiable constraints. Violating it means the work is wrong |
-| "I can verify my own work without a separate tester" | Self-verification is unreliable. Tester role exists for this reason. Orchestrator delegates, doesn't verify code |
-
----
-
-## Failure Modes and Fallbacks
-
-| Failure | Symptom | Fallback |
-|---------|---------|----------|
-| **Requirements drift** | Mid-execution, new requirements appear that weren't in Phase 1 | Pause execution. Return to Phase 1. Document the change. Re-plan. |
-| **Subagent returns incomplete work** | Acceptance criteria not met, verification fails | Return to subagent with specific failures listed. If fails twice, escalate to human. |
-| **Dependency conflict** | Task depends on something that doesn't exist | Re-order tasks or create a prerequisite task. Update tasks.md. |
-| **Constitution violation** | Implementation contradicts constitution.md | Stop. Report violation to human. Constitution wins over implementation. |
-| **Human gate timeout** | Human hasn't confirmed a gate in a while | Remind human once. If still waiting, pause and note in overview.md. Don't self-approve. |
-| **Scope creep** | Tasks expanding beyond original scope | Compare against constitution.md scope boundaries. If out of scope, create a new change request. |
-| **Technology failure** | Chosen tech doesn't work as expected | Return to Phase 2 with new information. Propose alternative. |
-| **Ambiguous acceptance criteria** | Task "done" is unclear | Clarify with human. Update tasks.md. Never assume completion. |
-
----
-
-## Orchestrator Behavioral Rules
-
-1. **Never write code.** If you find yourself writing a code block, stop. That's a Coder task. Delegate it.
-2. **Never self-approve gates.** The human must explicitly approve phase transitions. "Seems fine" from you is not approval.
-3. **Always document before acting.** If you're about to do something, write down what you're going to do and why first.
-4. **Always include context in delegation.** Subagents don't have your conversation history. Embed all relevant document contents in the task description.
-5. **Always verify before reporting success.** Ask for evidence (test output, file contents, screenshots). "It should work" is not evidence.
-6. **Never compress phases.** Phase 0→1→2→3→4→5→6→7→8 is the order. You can skip phases if the user explicitly says to (e.g., "just review"), but you cannot merge or reorder them.
-7. **Always update overview.md.** The status document is the single source of truth for project state. Update it at every phase transition and task completion.
-8. **Treat the constitution as law.** If a task would violate a constitution constraint, the task is wrong, not the constitution.
-9. **Capture decisions with rationale.** Not just "we chose X" but "we chose X because Y, considering Z alternatives."
-10. **When in doubt, ask the human.** Ambiguity is not an excuse to guess. Guesses that turn out wrong are worse than asking.
-
----
-
-## Document Templates
-
-Refer to the `templates/` directory for standardized document templates:
-
-- `templates/overview.md` — Project status tracker template
-- `templates/constitution.md` — Constraints and acceptance criteria template
-- `templates/conversation.md` — Requirements capture template with 5-dimension structure
-- `templates/proposal.md` — Technical proposal with alternatives template
-- `templates/PRODUCT.md` — Product requirements document template
-- `templates/TECH.md` — Technical specification template
-- `templates/tasks.md` — Implementation plan template
-- `templates/completion-summary.md` — Project completion report template
-- `templates/retrospective.md` — Retrospective template
-- `templates/handoff.md` — Project handoff documentation template
-
----
-
-## Quick Reference: Phase Gates
-
-| Transition | Gate Requirement |
-|------------|-----------------|
-| Phase 0 → 1 | Project directory created, initial request captured |
-| Phase 1 → 2 | Human approves requirements summary |
-| Phase 2 → 3 | Human selects technical proposal |
-| Phase 3 → 4 | Human approves PRODUCT.md and TECH.md |
-| Phase 4 → 5 | Human approves self-check results and constitution |
-| Phase 5 → 6 | Human confirms tasks.md |
-| Phase 6 → 7 | Tester verification report approved by human |
-| Phase 7 → 8 | Human confirms archive is complete |
-| Phase 8 → done | Human decides to stop |
-| Phase 8 → 0 | Human decides to start new project |
+**详细参考：**
+- 反理性化模式 → references/anti-rationalization.md
+- 常见陷阱 → references/pitfalls/common.md
+- 流程图 → references/workflow/overview.md
+- Review 详细流程 → references/workflow/phase-review.md
