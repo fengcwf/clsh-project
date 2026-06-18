@@ -1,14 +1,14 @@
 ---
 title: clsh-project 常见陷阱清单
-version: "1.0"
+version: "1.1"
 updated: 2026-06-18
 description: >
-  30 条高频错误模式，按角色分离、流程合规、执行质量、文档管理、LLM 行为
-  分类，用于 coordinator 自检。
+  35 条高频错误模式，按角色分离、流程合规、执行质量、文档管理、LLM 行为、
+  /goal 与迭代控制分类，用于 coordinator 自检。
 tags: [pitfalls, self-check, workflow]
 ---
 
-# 常见陷阱清单（30 条）
+# 常见陷阱清单（35 条）
 
 > **用法**：每个 Phase 开始前扫描对应类别，检查自身行为是否触犯。
 
@@ -76,6 +76,20 @@ tags: [pitfalls, self-check, workflow]
 | 28 | **合理化例外** | 遇到规则冲突时必须遵守规则，不可找理由绕过 | Critical |
 | 29 | **假设项目类型不适配** | 每个项目都走完整流程，不跳过任何阶段 | High |
 | 30 | **跳过 Checkpoint** | Phase 完成后必须记录 checkpoint 到 progress.md | High |
+
+---
+
+## 6. /goal 与迭代控制（4 条，v1.1 新增）
+
+| # | 陷阱 | 规则 | 严重度 |
+|---|------|------|--------|
+| 31 | **Phase 1-6 用 /goal** | /goal 只适用于 Phase 8 反馈循环和 fix 卡，Phase 1-6 终止权在人 | Critical |
+| 32 | **/goal judge 替代 tester** | judge 只判断"迭代是否收敛"，tester 必须独立验证（C3） | Critical |
+| 33 | **/goal 绕过 gate 脚本** | /subgoal 必须嵌入 gate-phase8 文档检查为验收条件 | High |
+| 34 | **实现卡用 --goal** | 实现卡单 shot 足够，--goal 只适合 fix 修复卡 | High |
+| 35 | **gate 脚本忽略中文本地化** | regex 模式必须同时匹配中英文关键词（如"角色"/"验收"/"优先级"），测试时用中文 markdown 表格验证 | High |
+
+**背景：** /goal 是 Hermes 的 Ralph Loop 原语（L4 级别），judge 模型每 turn 判断 DONE/CONTINUE。对 Phase 8 "迭代直到收敛"模式天然适配，但 Phase 1-6 的确认码流程不能被 judge 替代。详见 `references/loop-engineering-framework.md` 和 `references/goal-mode-analysis.md`。
 
 ---
 

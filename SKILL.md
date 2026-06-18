@@ -2,7 +2,7 @@
 name: clsh-project
 aliases: [cp]
 description: "需求驱动的项目开发工作流 — 从需求澄清到设计文档到实现计划到执行。灵感来自 Kiro Spec-Driven Development、Superpowers Brainstorming、Phoenix 状态机执行。DO trigger: 用户说'我要做一个 XXX'、'开发一个 XXX 系统'、'/clsh-project'、'/cp'、需求明显是多步骤项目。Do NOT trigger: 简单查询、单步操作、修 bug（用 systematic-debugging）、已有明确方案的小改动、用户说'简单做一下'、代码质量审查。"
-version: 6.0.0-generic
+version: 6.1.0
 author: clsh
 license: MIT
 platforms: [linux, macos, windows]
@@ -52,7 +52,7 @@ metadata:
 
 ### 膨胀阈值
 - SKILL.md: ≤ 700 行
-- Pitfalls: ≤ 30 条（内嵌高频 + 外置完整版）
+- Pitfalls: ≤ 40 条（内嵌高频 + 外置完整版）
 
 ## 🛡️ LLM 能力无关性原则
 
@@ -111,6 +111,7 @@ metadata:
 | 8 | 跳过 Phase 3 设计直接写代码 | G1：Phase 3 未完成禁止写代码 |
 | 9 | 修改后不重启服务就验证 | 重启服务后再验证 |
 | 10 | Phase 8 文档规范执行不力 | 文档写入是门禁条件，不是"做完再补" |
+| 11 | **US-* 故事被遗忘** | gate-phase5.py 检查 P0 故事必须有任务，P1/P2 必须在 tasks.md 或 TECH.md "范围外" 显式声明 |
 
 > 完整 pitfalls → `references/pitfalls-common.md`
 
@@ -238,6 +239,12 @@ python3 scripts/gate-phase4.py <项目目录>
 
 **⛔ 协调者只 review 格式，不改内容。**
 
+**⛔ Phase 5 门禁（新增）：**
+- **INV-* 覆盖**：PRODUCT.md 中所有 INV-* 必须在 tasks.md 中出现
+- **US-* 覆盖**（优先级感知）：
+  - P0 用户故事 → **必须**在 tasks.md 中有对应任务
+  - P1/P2 用户故事 → 必须在 tasks.md 中有任务，**或**在 TECH.md "范围外" 中显式排除
+
 - 📋 tasks 模板: `templates/tasks-template.md`
 
 ```bash
@@ -282,9 +289,47 @@ python3 scripts/gate-phase6.py <项目目录>
 
 **信息传递模式（C0）：** 协调者只记录现象+文件+验收标准，coder/artist 自己分析根因+设计方案+执行。
 
+### Phase 8 执行方式选择
+
+| 方式 | 适用场景 | 机制 |
+|------|---------|------|
+| **标准模式** | Gateway 渠道、简单 bug | 派 fix 卡 → tester 验证 → 人工确认 |
+| **/goal 模式** | CLI/TUI、复杂 bug、多轮迭代 | `/goal` + judge 自动判断 + gate-phase8 文档检查 |
+| **kanban --goal 模式** | Gateway 渠道、fix 卡 | worker 自带 /goal loop，迭代直到修复 |
+
+**/goal 模式用法（CLI/TUI）：**
+```
+/goal Phase 8 反馈循环：修复 <项目> 的所有已知 bug，tester 验证全部通过
+/subgoal conversation.md 记录每个 bug 的现象和修复结果
+/subgoal tester 报告中所有 FAIL 项已处理
+```
+
+**kanban --goal 模式用法（fix 卡）：**
+```bash
+hermes kanban create --goal --goal-max-turns 5 \
+  --assignee coder --skill test-driven-development \
+  --title "修复 <bug 描述>" \
+  --body "现象：...\n验收标准：1. <测试命令> PASS 2. 不引入回归"
+```
+
+**⛔ /goal 模式限制：**
+- /goal 的 judge **不能替代 tester 验证**（C3 独立测试）
+- /goal 的 auto-continue **不能绕过 gate-phase8.py 文档检查**
+- Phase 1-6 **禁止使用 /goal**（终止权在人，不在 judge）
+
+📋 详细分析: `references/goal-mode-analysis.md`（Vault）
+📋 Loop Engineering 框架: `references/loop-engineering-framework.md`
+
 ```bash
 python3 scripts/gate-phase8.py <项目目录>
 ```
+
+### ⛔ Phase 8 Loop Native 选项
+
+Hermes 有 `/goal` + kanban `--goal` 模式，可替代手动 Phase 8 循环：
+- **硬规则**（文件检查）→ 用 gate-phase8.py
+- **软规则**（"bug 修好了吗"）→ 用 `/goal` + judge model
+- 详见 `references/hermes-loop-native-features.md`
 
 ---
 
@@ -294,7 +339,7 @@ python3 scripts/gate-phase8.py <项目目录>
 |------|---------|---------|
 | Phase 1-3 | 用户确认码（人是 Gate，看内容才输入码） | 不进入下一 Phase |
 | Phase 4 | gate-phase4.py → 用户确认码 | 不进入 Phase 5 |
-| Phase 5→6 | gate-phase5.py → 用户确认码 | 不允许创建任务 |
+| Phase 5→6 | gate-phase5.py（INV-* + US-* 覆盖）→ 用户确认码 | 不允许创建任务 |
 | Phase 6 tester 后 | gate-phase6.py → 用户确认码 | 不允许汇报完成 |
 | Phase 6 C7 | gate-phase7.py → 用户确认码 | 不允许汇报完成 |
 
@@ -316,9 +361,13 @@ python3 scripts/gate-phase8.py <项目目录>
 | **模板** | `templates/*.md` |
 | **Gate 脚本** | `scripts/gate-phase*.py` |
 | **环境自检** | `scripts/env-check.py` |
+| **Loop Engineering** | `references/loop-engineering-framework.md` — 硬/软规则算子分类、Hermes L4 原语、/goal 适用性 |
+| **/goal 适用性** | `references/goal-mode-analysis.md`（Vault）— Phase 8/fix 卡适用，Phase 1-6 不适用 |
+| **L4 Loop Native** | `references/hermes-loop-native-features.md` |
 
 ## 版本历史
 
 | 版本 | 日期 | 变更 |
 |------|------|------|
 | v6.0.0 | 2026-06-18 | **通用版**：解耦 Obsidian/Hermes/lark-cli 环境依赖；gate 脚本随 skill 分发；env-check.py 环境自检；config.json 能力等级分层；pitfalls 精简 120→30 |
+| v6.1.0 | 2026-06-18 | **Phase 5 US-* 覆盖检查**：gate-phase5.py 新增用户故事覆盖门禁（P0 必须有任务，P1/P2 必须在 tasks.md 或 TECH.md "范围外" 显式声明）；支持中文 regex 模式（角色/验收）；pitfalls 新增 #35 gate 脚本中文本地化 |
