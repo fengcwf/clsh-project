@@ -1,4 +1,4 @@
-# /clsh-project — 需求驱动项目开发工作流（通用版）
+# /clsh-project — 需求驱动项目开发工作流（Hermes 专属版）
 
 > **Spec-driven development workflow for AI agents — 从需求澄清到设计文档到实现计划到执行。**
 > Inspired by Kiro Spec-Driven Development, Superpowers Brainstorming, Phoenix State Machine Execution.
