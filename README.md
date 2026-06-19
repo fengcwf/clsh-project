@@ -23,3 +23,5 @@ Same as the original spec-driven-project skill (see LICENSE file).
 ## 测试同步
 
 此行为测试同步脚本而添加。
+
+测试同步脚本 v2。
