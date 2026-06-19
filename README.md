@@ -1,114 +1,143 @@
-# /clsh-project — 需求驱动项目开发工作流（Hermes 专属版）
+# clsh-project — 需求驱动项目开发工作流（通用版）
 
-> **Spec-driven development workflow for AI agents — 从需求澄清到设计文档到实现计划到执行。**
-> Inspired by Kiro Spec-Driven Development, Superpowers Brainstorming, Phoenix State Machine Execution.
+A rigid, document-first workflow that takes a project from vague idea to delivered code. Inspired by [Kiro](https://kiro.dev) Spec-Driven Development, [Superpowers](https://github.com/superpowers) Brainstorming, and [Phoenix](https://phoenixframework.org) State Machine patterns.
 
-## 📖 这是什么 / What is it?
-
-clsh-project 是一个面向 AI Agent 的**需求驱动项目开发工作流**。当用户提出新项目或功能需求时，不直接写代码，而是走完整 需求→设计→计划→执行 流程，确保产出高质量、可追溯的软件。
-
-## ✨ 核心特性 / Key Features
-
-| 特性 | 说明 |
-|------|------|
-| **8 阶段工作流** | Phase 0-8，从需求澄清到反馈循环，每个阶段有明确产出物和门禁 |
-| **机械门禁脚本** | `scripts/gate-phase*.py` 检查产出物存在性、关键词、格式，不依赖 LLM 判断力 |
-| **反合理化护栏** | Anti-Rationalization Guard — 阻止 LLM 创造"合理例外"跳过规则 |
-| **LLM 无关性设计** | 流程控制不依赖 LLM 能力，强 LLM 和弱 LLM 产出一致结果 |
-
-## ⚡ 快速开始 / Quick Start
-
-```bash
-# 1. 克隆 / Clone
-git clone <repo-url> ~/.hermes/skills/clsh-project
-
-# 2. 环境自检 / Check environment
-python3 ~/.hermes/skills/clsh-project/scripts/env-check.py
-
-# 3. 配置 / Configure
-cp ~/.hermes/skills/clsh-project/config.example.json ~/.hermes/skills/clsh-project/config.json
-# 编辑 config.json，根据 env-check 输出调整配置
-```
-
-## 🏗️ 架构流程图 / Architecture
-
-```
-┌─────────────────────────────────────────────────────────────────┐
-│  Phase 0+1: 需求准备与澄清                                       │
-│  ↓ (PRODUCT.md + conversation.md)                              │
-├─────────────────────────────────────────────────────────────────┤
-│  Phase 2+2.5: 方案设计与技术验证                                  │
-│  ↓ (TECH.md)                                                   │
-├─────────────────────────────────────────────────────────────────┤
-│  Phase 3+4: 设计文档与自检 ⛔ gate-phase4.py                    │
-│  ↓ (proposal.md + constitution.md)                             │
-├─────────────────────────────────────────────────────────────────┤
-│  Phase 5: 实现计划 ⛔ gate-phase5.py                            │
-│  ↓ (tasks.md)                                                  │
-├─────────────────────────────────────────────────────────────────┤
-│  Phase 6: 分发执行 ⛔ gate-phase6.py + gate-phase7.py           │
-│  ↓ (coder/artist 执行, tester 验证)                              │
-├─────────────────────────────────────────────────────────────────┤
-│  Phase 7: 完成归档与流程复盘                                      │
-│  ↓ (completion-summary.md + retrospective.md)                  │
-├─────────────────────────────────────────────────────────────────┤
-│  Phase 8: 反馈循环 ⛔ gate-phase8.py                             │
-│  (修改文档 + 验证)                                               │
-└─────────────────────────────────────────────────────────────────┘
-```
-
-## 🎯 能力等级 / Capability Levels
-
-| 等级 | 依赖 | 能力 |
-|------|------|------|
-| **Level A（完整）** | kanban + gate-enforcer | 全功能：任务派发 + 机械门禁 + 物理阻断 |
-| **Level B（标准）** | delegate_task | 核心流程完整：子任务派发 + 机械门禁 |
-| **Level C（轻量）** | 仅 prompt 约束 | 退化为 Superpowers 级防偏离 |
-
-## 📊 与同类工具对比 / Comparison
-
-| 特性 | clsh-project | Superpowers | Kiro |
-|------|-------------|-------------|------|
-| 需求→设计→计划→执行 | ✅ 8 阶段 | ✅ Brainstorming | ✅ Spec-driven |
-| 机械门禁脚本 | ✅ gate-phase*.py | ❌ 依赖 LLM | ❌ 依赖 LLM |
-| 反合理化护栏 | ✅ Anti-Rationalization Guard | ❌ 无 | ❌ 无 |
-| LLM 无关性 | ✅ 脚本+硬编码 | ❌ | ❌ |
-| 通用性 | ✅ 无平台依赖 | ⚠️ Obsidian | ⚠️ AWS |
-| 3 层规则架构 | ✅ Gate+Convention+Pitfall | ❌ | ❌ |
-
-## 📁 项目结构 / Structure
-
-```
-clsh-project/
-├── SKILL.md              # 技能定义（流程规则+门禁+模板）
-├── config.example.json   # 配置模板
-├── scripts/
-│   ├── env-check.py      # 环境自检脚本
-│   ├── gate_utils.py     # 门禁工具函数
-│   ├── gate-phase1.py    # Phase 1 门禁
-│   ├── gate-phase4.py    # Phase 4 门禁（含码生成）
-│   ├── gate-phase5.py    # Phase 5 门禁
-│   ├── gate-phase6.py    # Phase 6 门禁
-│   ├── gate-phase7.py    # Phase 7 门禁（review 报告）
-│   └── gate-phase8.py    # Phase 8 门禁
-├── templates/            # Phase 产出物模板
-│   ├── product-md-template.md
-│   ├── tech-md-template.md
-│   ├── constitution-template.md
-│   ├── tasks-template.md
-│   └── phase-confirmations.md
-└── references/
-    └── pitfalls-common.md  # 高频教训 Top 10
-```
-
-## 📚 安装指南 / Installation
-
-详细安装步骤请查看 [INSTALL.md](INSTALL.md)。
-
-## 📄 许可证 / License
-
-MIT License
+**The Orchestrator coordinates. Subagents execute. Humans gate. No exceptions.**
 
 ---
 
-**灵感来源 / Inspired by:** Kiro Spec-Driven Development · Superpowers Brainstorming · Phoenix State Machine Execution
+## What This Is
+
+A methodology skill for AI assistants that enforces structured project development:
+
+```
+Phase 0+1: Requirements → 5-Dimension Questioning Framework
+Phase 2:   Solution Design → 2-3 proposals with trade-offs
+Phase 3:   Design Documents → PRODUCT.md + TECH.md
+Phase 4:   Constitution → Non-negotiable constraints
+Phase 5:   Implementation Plan → Ordered tasks with verification
+Phase 6:   Execution → Delegated to role-specific subagents
+Phase 7:   Archive → Completion + Retrospective
+Phase 8:   Feedback Loop → Iterate or close
+```
+
+## Core Principles
+
+1. **Orchestrator NEVER writes code** — coordinates, documents, delegates only
+2. **Role separation** — Orchestrator, Coder, Artist, Tester, Scout each have narrow responsibilities
+3. **Anti-rationalization** — Explicit guard table prevents LLMs from inventing "reasonable exceptions"
+4. **Document-first** — Every phase produces artifacts before the next begins
+5. **Human is the gate** — Major transitions require explicit human approval
+
+## Quick Start
+
+```bash
+# Install the skill into your AI assistant
+curl -sSL https://raw.githubusercontent.com/clsh/clsh-project/main/install.sh | bash
+
+# Or clone manually
+git clone https://github.com/clsh/clsh-project.git
+cp -r clsh-project/SKILL.md ~/.your-assistant/skills/
+cp -r clsh-project/templates ~/.your-assistant/skills/
+```
+
+Then ask your AI assistant: **"I want to build a [X] system"** — the workflow activates automatically.
+
+See [INSTALL.md](INSTALL.md) for detailed installation instructions.
+
+## Repository Structure
+
+```
+clsh-project/
+├── SKILL.md                          # Main workflow definition (~540 lines)
+├── README.md                         # This file
+├── INSTALL.md                        # Installation guide
+├── LICENSE                           # MIT
+├── install.sh                        # One-line installer
+├── templates/                        # Document templates for each phase
+│   ├── conversation-template.md      # Phase 1: Requirements log
+│   ├── product-md-template.md        # Phase 1: Product invariants
+│   ├── context-template.md           # Phase 1: Domain language table
+│   ├── tech-md-template.md           # Phase 2: Technical spec
+│   ├── adr-template.md               # Phase 2: Architecture Decision Record
+│   ├── constitution-template.md      # Phase 3: Constraints
+│   ├── proposal-template.md          # Phase 3: Technical proposal
+│   ├── tasks-md-template.md          # Phase 5: Implementation plan
+│   ├── phase-confirmations.md        # All phases: Transition confirmations
+│   ├── scout-research-goal.md        # Scout delegation template
+│   ├── validation-report-template.md # Phase 6: Tester verification
+│   ├── phase6-dispatch-template.md   # Phase 6: Task dispatch checklist
+│   ├── completion-summary-template.md# Phase 7: Archive
+│   ├── retrospective-template.md     # Phase 7: Retrospective
+│   └── handoff-template.md           # Phase 7: Handoff
+├── references/
+│   ├── pitfalls/common.md            # 50 hard-won pitfalls with fixes
+│   ├── workflow/
+│   │   ├── overview.md               # Flow diagram + phase transition rules
+│   │   └── phase-review.md           # Review mode detailed process
+│   └── anti-rationalization-patterns.md # Why LLMs skip rules + prevention
+└── scripts/
+    └── setup.sh                      # Project directory setup
+```
+
+## How It Works
+
+### Roles
+
+| Role | Does | Never Does |
+|------|------|------------|
+| **Orchestrator** | Coordinates, documents, delegates, reviews output | Writes code, implements features |
+| **Coder** | Implements, debugs, refactors | Architectural decisions, skipping tests |
+| **Artist** | UI/UX, frontend, visual design | Backend, infrastructure |
+| **Tester** | Testing, code review, verification | Feature code |
+| **Scout** | Research, investigation, analysis | Implementation, decisions |
+
+### Phase Gates
+
+Every phase transition has a gate:
+
+| Transition | Gate |
+|-----------|------|
+| 0 → 1 | Project directory created |
+| 1 → 2 | Human approves requirements |
+| 2 → 3 | Human selects proposal |
+| 3 → 4 | Human approves design docs |
+| 4 → 5 | Human approves constitution |
+| 5 → 6 | Human confirms task plan |
+| 6 → 7 | Tester verification passed |
+| 7 → 8 | Human confirms archive |
+| 8 → done | Human decides to stop |
+
+### Anti-Rationalization
+
+The skill includes a guard table of 15 forbidden LLM rationalizations. Examples:
+
+| LLM Says | Actually |
+|----------|----------|
+| "Too simple for the process" | Only skip when user explicitly says so |
+| "I'll check first then decide" | Checks cannot override rules |
+| "Passed before, no need to recheck" | Every check is independent |
+| "I can verify my own work" | Self-verification is unreliable |
+
+## Who Is This For?
+
+- **Solo developers** who want structured AI-assisted project development
+- **Teams** using AI assistants for code generation who need quality gates
+- **Anyone** who's been burned by LLMs skipping steps and producing unreliable code
+
+## Philosophy
+
+> Plausibility is not correctness. Code that looks right isn't verified until proven.
+
+This workflow exists because LLMs are excellent at producing plausible-looking output that's subtly wrong. The rigid pipeline, role separation, and human gates catch what LLM self-review misses.
+
+## License
+
+MIT — Use it, fork it, adapt it. Attribution appreciated but not required.
+
+## Credits
+
+- [Kiro](https://kiro.dev) — Spec-Driven Development concept
+- [Superpowers](https://github.com/superpowers) — Brainstorming methodology and two-stage review
+- [Phoenix Framework](https://phoenixframework.org) — State machine execution pattern
+- [Ralph Loop](https://github.com) — Orchestrator/single-step executor separation

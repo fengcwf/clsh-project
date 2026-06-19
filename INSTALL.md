@@ -1,114 +1,145 @@
-# 安装指南 / Installation Guide
+# Installation Guide
 
-## 前置条件 / Prerequisites
+This skill works with any AI assistant that supports custom skills/prompts and subagent delegation. Choose your platform below.
 
-| 依赖 | 最低版本 | 说明 |
-|------|---------|------|
-| Python | 3.8+ | 门禁脚本运行环境 |
-| Hermes Agent | — | AI Agent 运行平台（delegate_task 支持） |
-| Git | — | 克隆仓库 |
+---
 
-## 步骤 1：环境自检 / Step 1: Environment Check
+## Prerequisites
 
+- An AI assistant that supports:
+  - Custom skill/prompt loading
+  - Subagent/task delegation (spawning specialized workers)
+  - File system access (reading/writing project documents)
+  - Multi-turn conversation with context persistence
+
+---
+
+## Platform-Specific Installation
+
+### Generic / Any Platform
+
+1. Clone the repository:
+   ```bash
+   git clone https://github.com/clsh/spec-driven-project.git
+   cd spec-driven-project
+   ```
+
+2. Copy `SKILL.md` to your assistant's skill/prompt directory.
+
+3. Copy the `templates/` directory alongside the skill.
+
+4. Copy the `references/` directory alongside the skill (optional but recommended).
+
+5. Start a conversation and say: *"I want to build a [X] system"*
+
+### File Layout After Installation
+
+```
+your-assistant-skills/
+└── spec-driven-project/
+    ├── SKILL.md              # Main workflow (required)
+    ├── templates/            # Document templates (required)
+    │   ├── conversation-template.md
+    │   ├── product-md-template.md
+    │   ├── context-template.md
+    │   ├── tech-md-template.md
+    │   ├── adr-template.md
+    │   ├── constitution-template.md
+    │   ├── proposal-template.md
+    │   ├── tasks-md-template.md
+    │   ├── phase-confirmations.md
+    │   ├── scout-research-goal.md
+    │   ├── validation-report-template.md
+    │   ├── phase6-dispatch-template.md
+    │   ├── completion-summary-template.md
+    │   ├── retrospective-template.md
+    │   └── handoff-template.md
+    └── references/           # Pitfalls, workflow docs (optional)
+        ├── pitfalls/common.md
+        ├── workflow/overview.md
+        ├── workflow/phase-review.md
+        └── anti-rationalization-patterns.md
+```
+
+---
+
+## Verification
+
+After installation, verify by asking your assistant:
+
+> "I want to build a simple todo app"
+
+The assistant should:
+1. ✅ Set up a project directory structure
+2. ✅ Ask you questions using the 5-Dimension framework
+3. ✅ NOT immediately start writing code
+4. ✅ Document your requirements before proceeding
+
+If the assistant immediately starts coding, the skill isn't loaded correctly.
+
+---
+
+## Usage Tips
+
+### Starting a New Project
+Just describe what you want to build. The workflow activates automatically for multi-step projects.
+
+### Continuing a Project
+Reference the project name: *"Continue working on the todo-app project"*
+
+### Reviewing an Existing Project
+Say: *"Review the todo-app project"* — enters Review Mode (skips early phases).
+
+### Skipping the Workflow
+If you genuinely want something simple, say: *"Just do it simply"* — this bypasses the workflow for single-step tasks.
+
+---
+
+## Customization
+
+### Adjusting Phase Rigidity
+Edit `SKILL.md` phase gates. For example, to make Phase 2.5 optional, remove its trigger condition.
+
+### Adding Custom Templates
+Add `.md` files to `templates/` and reference them in `SKILL.md`.
+
+### Modifying Roles
+Edit the Roles table in `SKILL.md` to add project-specific roles.
+
+### Changing Directory Structure
+Edit the Directory Structure section in `SKILL.md`. Run `bash scripts/setup.sh` to validate.
+
+---
+
+## Uninstallation
+
+Delete the skill directory:
 ```bash
-cd ~/.hermes/skills/clsh-project
-python3 scripts/env-check.py
+rm -rf your-assistant-skills/spec-driven-project
 ```
 
-输出示例：
-```
-============================================================
-  clsh-project Environment Check
-============================================================
+Project directories created under `projects/` are independent and should be managed separately.
 
-  ✅ python3                    (v3.11.x)
-  ✅ terminal
-  ✅ file_ops
-  ✅ hermes_agent
-  ⚠️  kanban                     → Falls back to delegate_task
-  ❌ obsidian_vault              → Optional. Falls back to local docs/
-  ❌ gate_enforcer_plugin        → Optional. Physical block on gate fail.
+---
 
-  Capability Level: B — Standard capability
-```
+## Troubleshooting
 
-**根据输出的能力等级，决定后续配置。**
+| Problem | Solution |
+|---------|----------|
+| Assistant ignores the workflow | Ensure SKILL.md is in the active skill/prompt directory |
+| Templates not found | Verify `templates/` is alongside SKILL.md |
+| Assistant writes code directly | Check the Anti-Rationalization Guard table is loaded |
+| Phases are being skipped | Review the Orchestrator Behavioral Rules section |
 
-## 步骤 2：配置 config.json / Step 2: Configure
+---
 
-```bash
-cp config.example.json config.json
-```
+## What Gets Installed
 
-编辑 `config.json`，根据 env-check 结果调整：
+| Component | Size | Required |
+|-----------|------|----------|
+| SKILL.md | ~24KB | ✅ Yes |
+| templates/ (15 files) | ~12KB | ✅ Yes |
+| references/ (4 files) | ~38KB | ⚡ Recommended |
+| scripts/ | ~3KB | ❌ Optional |
 
-| 配置项 | 说明 | Level A/B/C 适配 |
-|--------|------|-----------------|
-| `project_docs_dir` | 项目文档存储路径 | 所有等级 |
-| `level` | 能力等级（`auto`/`A`/`B`/`C`） | `auto` 推荐 |
-| `confirm_code_method` | 确认码生成方式（`hash`） | 所有等级 |
-| `features.kanban` | kanban 路径（如有） | Level A |
-| `features.gate_enforcer_plugin` | 启用物理阻断 | Level A |
-
-## 步骤 3：设置项目文档目录 / Step 3: Project Docs Directory
-
-```bash
-# 根据 config.json 中 project_docs_dir 创建目录
-mkdir -p project-docs
-```
-
-确认目录可写：
-```bash
-touch project-docs/.test && rm project-docs/.test && echo "✅ OK"
-```
-
-## 步骤 4：验证门禁脚本 / Step 4: Verify Gate Scripts
-
-```bash
-# 测试 gate_utils.py
-python3 -c "from scripts.gate_utils import *; print('✅ gate_utils loaded')"
-
-# 测试各 gate 脚本语法
-python3 -m py_compile scripts/gate-phase4.py
-python3 -m py_compile scripts/gate-phase5.py
-python3 -m py_compile scripts/gate-phase6.py
-python3 -m py_compile scripts/gate-phase7.py
-python3 -m py_compile scripts/gate-phase8.py
-
-echo "✅ All gate scripts compile OK"
-```
-
-## 能力等级详情 / Capability Level Details
-
-### Level A — 完整 / Full
-- **依赖：** kanban + gate-enforcer plugin
-- **功能：** 全功能任务派发（含 skill 注入）+ 机械门禁 + 物理阻断（代码生成被门禁拦截）
-- **场景：** 生产环境，完整开发团队
-
-### Level B — 标准 / Standard
-- **依赖：** delegate_task（Hermes Agent）
-- **功能：** 核心流程完整（子任务派发 + 机械门禁），无物理阻断
-- **场景：** 日常开发，个人项目
-
-### Level C — 轻量 / Lite
-- **依赖：** 仅 prompt 约束
-- **功能：** 退化为 Superpowers 级防偏离，无脚本门禁
-- **场景：** 快速原型，轻量需求
-
-## 故障排除 / Troubleshooting
-
-| 问题 | 原因 | 解决方案 |
-|------|------|---------|
-| `env-check.py` 报 `UNAVAILABLE` | 缺少 Python 3.8+ 或 Hermes | 安装 Python 3.8+，确认 Hermes 可用 |
-| `gate-phase4.py` 报错 | 目录结构不符合预期 | 按 Phase 顺序执行，确保文档先于代码 |
-| `config.json` 读取失败 | JSON 格式错误 | 用 `python3 -m json.tool config.json` 验证 |
-| 门禁脚本 `PASS` 但流程异常 | 确认码未正确输入 | 每次都跑 gate 脚本获取新码，不复用旧码 |
-| Level 降级 | kanban/gate-enforcer 缺失 | 检查 `~/.hermes/config.yaml` 配置 |
-
-## 下一步 / Next Steps
-
-安装完成后，通过以下方式触发工作流：
-
-1. 在 Hermes 中发送 `/clsh-project` 或 `/cp`
-2. 说「我要做一个 XXX」
-3. 按 Phase 顺序执行，每阶段用门禁脚本验证
+Total: ~77KB. No runtime dependencies, no external services, no API keys.
