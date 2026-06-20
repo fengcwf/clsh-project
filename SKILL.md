@@ -27,18 +27,18 @@ NO TASK MARKED DONE WITHOUT REVIEWER APPROVAL
 
 ## 技能复用
 
-本技能**复用** superpowers 已验证的工作流技能，不重复造轮子：
+本技能**复用** compose 已验证的工作流技能，不重复造轮子：
 
-| Phase | 复用的 superpowers 技能 | 用途 |
-|-------|------------------------|------|
-| Phase 0-1 | `superpowers:brainstorming` | 需求探索、设计文档、用户确认 |
-| Phase 2 | `superpowers:brainstorming` | 方案设计、权衡分析 |
-| Phase 5 | `superpowers:writing-plans` | 实施计划、任务分解、TDD 步骤 |
-| Phase 6 | `superpowers:subagent-driven-development` 或 `superpowers:executing-plans` | 任务执行、子代理派发、两阶段 review |
-| Phase 7 | `superpowers:requesting-code-review` + `superpowers:verification-before-completion` | 代码审查、完成前验证 |
-| Phase 8 | `superpowers:finishing-a-development-branch` | 分支收尾、合并决策 |
+| Phase | 复用的 compose 技能 | 用途 |
+|-------|---------------------|------|
+| Phase 0-1 | `compose:brainstorm` | 需求探索、设计文档、用户确认 |
+| Phase 2 | `compose:brainstorm` | 方案设计、权衡分析 |
+| Phase 5 | `compose:plan` | 实施计划、任务分解、TDD 步骤 |
+| Phase 6 | `compose:subagent` 或 `compose:execute` | 任务执行、子代理派发、两阶段 review |
+| Phase 7 | `compose:review` + `compose:verify` | 代码审查、完成前验证 |
+| Phase 8 | `compose:merge` | 分支收尾、合并决策 |
 
-**使用方式：** 每个 phase 开始时，先加载 `mimo-clsh-project` 获取工作流上下文，再加载对应的 `superpowers:*` 技能执行具体操作。
+**使用方式：** 每个 phase 开始时，先加载 `mimo-clsh-project` 获取工作流上下文，再加载对应的 `compose:*` 技能执行具体操作。
 
 ---
 
@@ -51,7 +51,7 @@ NO TASK MARKED DONE WITHOUT REVIEWER APPROVAL
 5. **人类把关。** 每个 phase gate 用 `question` 工具获取用户确认。
 6. **文件化进度。** 进度写入 ledger 文件，compaction 后从文件恢复，不从记忆恢复。
 7. **持续执行。** Phase 内部不要暂停询问用户，除非遇到不可解决的阻塞。
-8. **复用 superpowers。** 不重复造轮子，复用已验证的技能。
+8. **复用 compose。** 不重复造轮子，复用已验证的技能。
 
 ---
 
@@ -152,7 +152,7 @@ Do NOT proceed to Phase 1 until: overview.md exists, conversation.md has initial
 
 **目标：** 捕获原始请求，搭建项目工作区。
 
-**复用：** 加载 `superpowers:brainstorming` 技能获取需求探索方法论。
+**复用：** 加载 `compose:brainstorm` 技能获取需求探索方法论。
 
 **MUST 完成清单（按顺序）：**
 1. 确定项目名称（询问用户或从请求推导）
@@ -181,7 +181,7 @@ Do NOT proceed to Phase 1 until: overview.md exists, conversation.md has initial
 **Anti-Pattern: "需求已经在对话里了，不需要记录"**
 对话会随 compaction 丢失。conversation.md 是唯一持久化的需求记录。没有 conversation.md = 需求不存在。
 
-**REQUIRED NEXT STEP:** 完成后用 `question` 工具让人类确认进入 Phase 1。确认后执行 `/compact`，然后从文件重读上下文。**Phase 1 需加载 `superpowers:brainstorming` 技能。**
+**REQUIRED NEXT STEP:** 完成后用 `question` 工具让人类确认进入 Phase 1。确认后执行 `/compact`，然后从文件重读上下文。**Phase 1 需加载 `compose:brainstorm` 技能。**
 
 ---
 
@@ -249,7 +249,7 @@ Do NOT proceed to Phase 3 until: proposal.md has 2+ approaches with trade-offs A
 **Anti-Pattern: "只有一种合理方案，不需要比较"**
 LLM 倾向于输出最熟悉的方案。强制比较 2-3 个方案是为了暴露隐含假设。
 
-**REQUIRED NEXT STEP:** 完成后用 `question` 工具让人类选择。确认后执行 `/compact`，然后读取 proposal.md、conversation.md、overview.md。**Phase 3 需加载 `superpowers:brainstorming` 技能（设计文档部分）。**
+**REQUIRED NEXT STEP:** 完成后用 `question` 工具让人类选择。确认后执行 `/compact`，然后读取 proposal.md、conversation.md、overview.md。**Phase 3 需加载 `compose:brainstorm` 技能（设计文档部分）。**
 
 ---
 
@@ -287,7 +287,7 @@ Do NOT proceed to Phase 4 until: PRODUCT.md and TECH.md are complete AND human h
 **Anti-Pattern: "设计文档太长了，我先写代码"**
 设计文档是实施的唯一依据。没有批准的设计文档 = 没有设计 = 不能开始编码。
 
-**REQUIRED NEXT STEP:** 完成后用 `question` 工具让人类批准。确认后执行 `/compact`，然后读取 PRODUCT.md、TECH.md、conversation.md、proposal.md、overview.md。**Phase 4 需要自检，无需额外 superpowers 技能。**
+**REQUIRED NEXT STEP:** 完成后用 `question` 工具让人类批准。确认后执行 `/compact`，然后读取 PRODUCT.md、TECH.md、conversation.md、proposal.md、overview.md。**Phase 4 需要自检，无需额外 compose 技能。**
 
 ---
 
@@ -337,7 +337,7 @@ Do NOT proceed to Phase 5 until: constitution.md exists AND self-check checklist
 **Anti-Pattern: "自检只是形式，核心是编码"**
 自检是防止前期错误传播到实施阶段的最后机会。跳过自检 = 允许错误进入代码。
 
-**REQUIRED NEXT STEP:** 完成后用 `question` 工具让人类确认。确认后执行 `/compact`，然后读取 PRODUCT.md、TECH.md、constitution.md、overview.md。**Phase 5 需加载 `superpowers:writing-plans` 技能。**
+**REQUIRED NEXT STEP:** 完成后用 `question` 工具让人类确认。确认后执行 `/compact`，然后读取 PRODUCT.md、TECH.md、constitution.md、overview.md。**Phase 5 需加载 `compose:plan` 技能。**
 
 ---
 
@@ -349,7 +349,7 @@ Do NOT proceed to Phase 6 until: tasks.md has complete acceptance criteria with 
 
 **目标：** 将设计分解为有序、可执行的任务。
 
-**复用：** 加载 `superpowers:writing-plans` 技能获取任务分解方法论（bite-sized tasks、TDD 步骤、exact file paths）。
+**复用：** 加载 `compose:plan` 技能获取任务分解方法论（bite-sized tasks、TDD 步骤、exact file paths）。
 
 **MUST 完成清单（按顺序）：**
 1. 读取 PRODUCT.md、TECH.md、constitution.md、overview.md（从文件恢复上下文）
@@ -388,7 +388,7 @@ Do NOT proceed to Phase 6 until: tasks.md has complete acceptance criteria with 
 **Anti-Pattern: "任务太简单不需要验收标准"**
 没有验收标准的任务 = 无法验证完成 = 永远不会真正完成。
 
-**REQUIRED NEXT STEP:** 完成后用 `question` 工具让人类确认。确认后执行 `/compact`，然后读取 tasks.md、constitution.md、TECH.md、overview.md。**Phase 6 需加载 `superpowers:subagent-driven-development` 和 `superpowers:verification-before-completion` 技能。**
+**REQUIRED NEXT STEP:** 完成后用 `question` 工具让人类确认。确认后执行 `/compact`，然后读取 tasks.md、constitution.md、TECH.md、overview.md。**Phase 6 需加载 `compose:subagent` 和 `compose:verify` 技能。**
 
 ---
 
@@ -401,8 +401,8 @@ Do NOT mark any task as done without: (1) verification evidence from bash output
 **目标：** 按依赖顺序执行任务。
 
 **复用：**
-- 加载 `superpowers:subagent-driven-development` 技能获取子代理派发和两阶段 review 方法论
-- 加载 `superpowers:verification-before-completion` 技能获取验证铁律
+- 加载 `compose:subagent` 技能获取子代理派发和两阶段 review 方法论
+- 加载 `compose:verify` 技能获取验证铁律
 
 **MUST 完成清单（每个任务）：**
 1. 验证所有依赖已完成（检查 ledger.md）
@@ -420,7 +420,7 @@ Do NOT mark any task as done without: (1) verification evidence from bash output
 ```
 ## 强制前置步骤（不可跳过）
 1. 使用 skill 工具加载 "mimo-clsh-project"
-2. 使用 skill 工具加载 "writing-plans" 或 "verification-before-completion"（根据任务类型）
+2. 使用 skill 工具加载 "compose:plan" 或 "compose:verify"（根据任务类型）
 3. 读取 tasks.md、constitution.md、TECH.md 获取上下文
 
 ## 角色
@@ -484,7 +484,7 @@ Do NOT mark any task as done without: (1) verification evidence from bash output
 **Anti-Pattern: "测试文件已创建"**
 创建测试文件 ≠ 测试通过。必须运行 `phpunit`/`vitest` 并返回实际输出。没有输出 = 测试未执行 = 任务未完成。
 
-**REQUIRED NEXT STEP:** 所有任务完成后，派发最终 whole-branch review（使用 `superpowers:requesting-code-review` 模板）。然后执行 `/compact`。**Phase 7 需加载 `superpowers:requesting-code-review`、`superpowers:verification-before-completion` 和 `superpowers:finishing-a-development-branch` 技能。**
+**REQUIRED NEXT STEP:** 所有任务完成后，派发最终 whole-branch review（使用 `compose:review` 模板）。然后执行 `/compact`。**Phase 7 需加载 `compose:review`、`compose:verify` 和 `compose:merge` 技能。**
 
 ---
 
@@ -497,9 +497,9 @@ Do NOT close the project until: completion-summary.md, retrospective.md exist AN
 **目标：** 清理、文档化、准备未来参考。
 
 **复用：**
-- 加载 `superpowers:requesting-code-review` 技能获取最终 whole-branch review 方法论
-- 加载 `superpowers:verification-before-completion` 技能获取完成前验证铁律
-- 加载 `superpowers:finishing-a-development-branch` 技能获取分支收尾流程
+- 加载 `compose:review` 技能获取最终 whole-branch review 方法论
+- 加载 `compose:verify` 技能获取完成前验证铁律
+- 加载 `compose:merge` 技能获取分支收尾流程
 
 **MUST 完成清单（按顺序）：**
 1. 读取 overview.md、ledger.md、changes/ 下所有文档
@@ -524,7 +524,17 @@ Do NOT close the project until: completion-summary.md, retrospective.md exist AN
 
 **目标：** 捕获经验，决定下一步。
 
-用 `question` 工具询问：新项目（→Phase 0）| 迭代（→Phase 1）| 审查（Review 模式）| 结束。
+**模式选择：**
+- **单次决策**：用 `question` 工具询问：新项目（→Phase 0）| 迭代（→Phase 1）| 审查（Review 模式）| 结束
+- **迭代收敛**：使用 `/goal` 命令设置停止条件，LLM 自动判断何时完成（适用于多轮修复、反馈循环）
+
+**`/goal` 使用场景：**
+| 场景 | 适合 | 原因 |
+|------|:---:|------|
+| Phase 8 反馈循环 | ✅ | 多轮迭代，LLM 判断"还有问题吗" |
+| 修复卡（bug fix） | ✅ | 迭代直到收敛，节省来回开销 |
+| Review 模式修复 | ✅ | 同 Phase 8 结构 |
+| Phase 1-6 完整流程 | ❌ | 终止权在人（确认码），单次任务 |
 
 ---
 
@@ -579,7 +589,63 @@ Do NOT close the project until: completion-summary.md, retrospective.md exist AN
 
 ---
 
+## 硬规则 vs 软规则分离
+
+**核心原则：** 确定性交给代码，判断力交给被代码显式调用的模型。
+
+### 规则分类
+
+| 规则类型 | 性质 | 本技能对应 | 验证方式 |
+|----------|------|------------|----------|
+| **硬规则** | 确定性机判 | 文件存在性、关键词匹配、文档完整性 | bash 命令验证 |
+| **软规则** | LLM 判断 | 需求合理性、代码质量、架构决策 | compose:verify / /goal |
+
+### 硬规则验证（推荐）
+
+每个 phase 的关键检查点，优先使用可执行的 bash 命令验证：
+
+| Phase | 硬规则验证示例 |
+|-------|----------------|
+| Phase 0 | `ls projects/<name>/overview.md` |
+| Phase 1 | `grep -c "维度" conversation.md` |
+| Phase 2 | `grep -c "方案" proposal.md` |
+| Phase 3 | `ls PRODUCT.md TECH.md` |
+| Phase 4 | `grep -c "MUST" constitution.md` |
+| Phase 5 | `grep -c "验收标准" tasks.md` |
+| Phase 6 | `git diff --stat` |
+| Phase 7 | `ls archive/completion-summary.md` |
+
+### 软规则判断
+
+以下场景使用 LLM 判断，不应用脚本模拟：
+- 需求是否合理
+- 代码质量是否达标
+- 架构决策是否正确
+- 用户是否满意
+
+---
+
 ## MiMoCode 环境集成
+
+### 项目配置
+
+在项目根目录创建 `.mimocode/config.json` 集中管理配置：
+
+```json
+{
+  "project_docs_dir": "./projects/<project-name>",
+  "mode": "standard",
+  "verify_method": "bash",
+  "goal_enabled": true
+}
+```
+
+| 配置项 | 说明 | 默认值 |
+|--------|------|--------|
+| `project_docs_dir` | 项目文档目录 | `./projects/<project-name>` |
+| `mode` | 工作流模式（standard/lightweight） | `standard` |
+| `verify_method` | 验证方式（bash/script） | `bash` |
+| `goal_enabled` | 是否启用 /goal 停止条件 | `true` |
 
 ### 上下文管理（/compact + 文件重读）
 
@@ -664,9 +730,9 @@ Do NOT close the project until: completion-summary.md, retrospective.md exist AN
 | Phase 7 | handoff.md | projects/<name>/archive/ | 可选 |
 ```
 
-### 方案4：流程简化
+### 方案2：流程简化
 
-**问题：** 8阶段流程对小项目可能过重。
+**问题：** 9阶段流程对小项目可能过重。
 
 **解决方案：**
 
@@ -674,7 +740,7 @@ Do NOT close the project until: completion-summary.md, retrospective.md exist AN
 2. **项目规模评估：** 在 Phase 0 增加项目规模评估，根据评估结果选择标准模式或轻量级模式。
 
 **轻量级模式阶段合并：**
-- **标准模式：** Phase 0-8（完整流程）
+- **标准模式：** Phase 0-8（完整9阶段流程）
 - **轻量级模式：** 
   - Phase 0-2 → “需求与设计”（合并为1个阶段）
   - Phase 3-4 → “约束与分析”（合并为1个阶段）
@@ -700,7 +766,7 @@ Do NOT close the project until: completion-summary.md, retrospective.md exist AN
 - 其他情况：用户自行选择
 ```
 
-### 方案6：团队协作
+### 方案3：团队协作
 
 **问题：** 当前主要面向单人开发者，缺乏团队协作指导。
 
@@ -751,13 +817,13 @@ Do NOT close the project until: completion-summary.md, retrospective.md exist AN
 4. **合并变更：** 使用版本控制工具合并变更，解决冲突。
 ```
 
-### 方案7：反理性化扩展
+### 方案4：反理性化扩展
 
 **问题：** 需要持续维护反理性化表格，防御新出现的 LLM 跳步借口。
 
 **解决方案：** （已在第8层防跳步机制中详细说明）
 
-### 方案8：版本控制集成
+### 方案5：版本控制集成
 
 **问题：** 缺乏与版本控制工具（如 Git）的集成指导。
 
@@ -855,7 +921,7 @@ Closes #123
 
 **主要模板：**
 - `templates/overview-template.md` — 项目状态跟踪器模板（含项目模式选择）
-- `templates/document-checklist.md` — 文档完整性检查清单（新增）
+- `templates/document-checklist.md` — 文档完整性检查清单
 - `templates/conversation-template.md` — 需求对谈记录模板（含可选字段）
 - `templates/tasks-md-template.md` — 实施计划模板（含可选字段）
 - `templates/product-md-template.md` — 产品规格模板（含可选字段）
