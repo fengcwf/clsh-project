@@ -1,5 +1,5 @@
 ---
-name: spec-driven-project
+name: mimo-clsh-project
 description: >
   规格驱动项目开发工作流 — 需求 → 设计 → 计划 → 执行。
   DO 触发：用户说"我想做一个X"、"开发一个X系统"、多步骤项目、新项目创建、大规模重构。
@@ -38,7 +38,7 @@ NO TASK MARKED DONE WITHOUT REVIEWER APPROVAL
 | Phase 7 | `superpowers:requesting-code-review` + `superpowers:verification-before-completion` | 代码审查、完成前验证 |
 | Phase 8 | `superpowers:finishing-a-development-branch` | 分支收尾、合并决策 |
 
-**使用方式：** 每个 phase 开始时，先加载 `spec-driven-project` 获取工作流上下文，再加载对应的 `superpowers:*` 技能执行具体操作。
+**使用方式：** 每个 phase 开始时，先加载 `mimo-clsh-project` 获取工作流上下文，再加载对应的 `superpowers:*` 技能执行具体操作。
 
 ---
 
@@ -419,7 +419,7 @@ Do NOT mark any task as done without: (1) verification evidence from bash output
 **委派 prompt 模板（强制格式）：**
 ```
 ## 强制前置步骤（不可跳过）
-1. 使用 skill 工具加载 "spec-driven-project"
+1. 使用 skill 工具加载 "mimo-clsh-project"
 2. 使用 skill 工具加载 "writing-plans" 或 "verification-before-completion"（根据任务类型）
 3. 读取 tasks.md、constitution.md、TECH.md 获取上下文
 
