@@ -1,543 +1,378 @@
 ---
-name: spec-driven-project
-description: "Spec-Driven project development workflow — Requirements → Design → Plan → Execute. Inspired by Kiro Spec-Driven Development, Superpowers Brainstorming, Phoenix State Machine. DO trigger: user says 'I want to build X', 'develop a X system', multi-step projects. Do NOT trigger: simple queries, single-step ops, bug fixes, small changes with clear plan."
+name: clsh-project
+aliases: [cp]
+description: "需求驱动的项目开发工作流 — 从需求澄清到设计文档到实现计划到执行。灵感来自 Kiro Spec-Driven Development、Superpowers Brainstorming、Phoenix 状态机执行。DO trigger: 用户说'我要做一个 XXX'、'开发一个 XXX 系统'、'/clsh-project'、'/cp'、需求明显是多步骤项目。Do NOT trigger: 简单查询、单步操作、修 bug（用 systematic-debugging）、已有明确方案的小改动、用户说'简单做一下'、代码质量审查。"
 version: 1.0.0
+author: clsh
 license: MIT
 platforms: [linux, macos, windows]
-tags: [workflow, project, spec-driven, planning, methodology]
+metadata:
+  hermes:
+    tags: [workflow, project, spec-driven, planning, methodology]
+    related_skills:
+      - kanban-orchestrator
+      - plan
+      - test-driven-development
+      - incremental-implementation
+      - code-review-and-quality
+      - doubt-driven-development
 ---
 
-# Spec-Driven Project Development
+# /clsh-project — 需求驱动项目开发（通用版）
 
-A rigid, document-first workflow that takes a project from vague idea to delivered code.
-The Orchestrator coordinates. Subagents execute. Humans gate. No exceptions.
+## 概述
 
----
+当用户提出新的项目或功能需求时，**不直接写代码**，走完整 需求→设计→计划→执行 流程。
 
-## Core Principles
+**核心理念（Kiro + Superpowers + Phoenix）：**
+- 需求不能跳到编码 — 必须经过需求澄清 → 设计 → 计划
+- 文档是锚点 — 防止进度丢失和跑偏
+- 分阶段审批 — 每阶段需用户确认后才进入下一阶段
+- 一次只问一个问题 — 不要一次性抛出多个问题
+- 两阶段 review（Superpowers）：先 spec compliance，再 code quality
+- 状态机执行（Phoenix）：每个 Task 有 checkpoint、验证条件、失败阻断
 
-1. **Orchestrator NEVER writes code.** You coordinate, document, delegate. If you're tempted to write code, you've broken the workflow.
-2. **Role separation.** Each role has a narrow job. The Orchestrator routes tasks to the right role and reviews output.
-3. **Anti-rationalization.** LLMs are prolific at inventing "reasonable exceptions" to skip rules. This skill explicitly lists those rationalizations and forbids them. See the guard table below.
-4. **Document-first.** Every phase produces artifacts before the next phase begins. No phase is "done" until its documents exist and are reviewed.
-5. **Human is the gate.** Major phase transitions require explicit human approval. The Orchestrator cannot self-approve transitions.
+## 📁 路径约定
 
----
+> **所有路径通过 config.json 的 `project_docs_dir` 配置，默认 `./project-docs/`。**
+> 迁移时修改 config.json 即可，无需改 SKILL.md。
 
-## When to Trigger
+## 边界定义
 
-**Trigger** this skill when:
-- User says "I want to build X", "develop a X system", "create a project for X"
-- Multi-step projects requiring requirements gathering, design, planning, and execution
-- User asks to start a new project or significantly extend/restructure an existing one
-- Ambiguous requests that need requirements clarification before work begins
+### 管什么
+- 流程编排（Phase 1-8 门禁和流转）
+- 角色分离（协调者 ≠ coder）
+- 质量保障（checkpoint + review）
+- 文档管理
 
-**Do NOT trigger** when:
-- Simple single-step queries ("what does this function do?")
-- Bug fixes with a clear diagnosis and plan
-- Small changes where the user has already specified the exact change
-- Questions about existing code that don't require new development
-- Requests that are purely informational
+### 不管什么
+- 具体技术实现细节 → `references/pitfalls-common.md`
+- 调试方法论 → `systematic-debugging` skill
+- 代码质量规则 → `code-principles` skill
 
-**Review Mode** — for auditing existing projects:
-- When user says "review this project" or "audit what's been done"
-- Skip Phases 0-2, begin at Phase 3 by reading existing documents
-- Report gaps between docs and implementation
+### 膨胀阈值
+- SKILL.md: ≤ 700 行
+- Pitfalls: ≤ 40 条（内嵌高频 + 外置完整版）
 
----
+## 🛡️ LLM 能力无关性原则
 
-## Roles
+**流程控制不依赖 LLM 判断力。** LLM 强时和 LLM 弱时，流程应产出一致的结果。
 
-| Role | Responsibility | NEVER does |
-|------|---------------|------------|
-| **Orchestrator** | Coordinates phases, documents decisions, delegates tasks, reviews outputs, gates transitions | Writes code, implements features, directly modifies source files |
-| **Coder** | Implements features, writes code, debugs, refactors | Makes architectural decisions, skips tests |
-| **Artist** | UI/UX design, frontend implementation, visual design, layout | Backend logic, infrastructure |
-| **Tester** | Testing, code review, verification, quality assurance | Writes feature code, skips verification commands |
-| **Scout** | Research, investigation, analysis, technology evaluation | Implements anything, makes final decisions |
+| 类型 | 谁判断 | 用于 | 不得用于 |
+|------|--------|------|---------|
+| **机械判断** | 代码/脚本/硬编码 | 门禁检查、轮次上限、状态流转、文件存在性 | — |
+| **用户判断** | 需求方 | 方案选择、设计确认、优先级裁决 | 可自动化的验证步骤 |
+| **LLM 判断** | agent | 内容生成、格式化、信息整理 | 流程控制、质量门禁 |
 
-### Routing Rules
+## ⛔ 流程规则（三层架构）
 
-- Implementation tasks → **Coder**
-- UI/frontend tasks → **Artist**
-- Testing/verification tasks → **Tester**
-- Research/investigation tasks → **Scout**
-- Architecture decisions → present proposals to **human**, don't decide
-- Ambiguous scope → clarify with **human** before delegating
+> **设计原则：**
+> 1. **能纯机械不用 LLM** — 有脚本检查的用脚本，不靠 LLM 自觉
+> 2. **角色严格分离** — 协调者只做信息传递，coder/artist 自己分析+执行
 
----
+### Layer 1: Gate（门禁，违反 = 流程阻断）
 
-## Directory Structure
+> **Gate 脚本随 skill 分发（`scripts/gate-phase*.py`），用户运行 `python3 scripts/env-check.py` 即可验证环境。**
 
-All project artifacts live in a standard directory tree. Create it when starting a new project.
+| # | 规则 | 机械机制 |
+|---|------|---------|
+| G0 | **先查进度再行动** — `ls` + 读 overview.md + 读 changes/，从下一个未完成 Phase 继续 | 文件系统检查 |
+| G1 | **文档先于代码** — Phase 3 未完成 + 用户未确认，禁止写代码 | 文件存在性检查 |
+| G2 | **Phase 4 预检** — 必须用 `gate-phase4.py`（内嵌码生成），检查 Phase 3 产出物存在性+关键词+行数 | 脚本 PASS/FAIL + 码生成（原子化） |
+| G3 | **机械确认码** — 必须用门禁脚本生成码（hash(检查结果)+salt），禁止手动生成 | 脚本输出（不可伪造） |
+| G6 | **文档路径验证** — 写入后必须 `ls` 验证 | `ls` 输出 |
+| G7 | **C7 review 报告门禁** — 跑 `gate-phase7.py`，检查 fresh-context reviewer 报告 | 脚本 PASS/FAIL |
 
-```
-projects/<project-name>/
-├── overview.md                    # Status tracker, phase progress, blockers
-├── source-of-truth/
-│   └── constitution.md            # Constraints, prohibitions, acceptance criteria
-├── changes/
-│   └── <YYYY-MM-DD>-<description>/
-│       ├── conversation.md        # Requirements decisions and rationale
-│       ├── proposal.md            # Technical proposal (2-3 options)
-│       ├── PRODUCT.md             # Product invariants and requirements
-│       ├── TECH.md                # Technical specification
-│       └── tasks.md               # Implementation plan with verification
-└── archive/
-    ├── completion-summary.md
-    ├── retrospective.md
-    └── handoff.md
-```
+### Layer 2: Convention（架构约束）
 
-### Document Purposes
+| # | 规则 | 执行方式 |
+|---|------|---------|
+| C0 | **角色分离：协调者只记录，不分析** — Phase 8 协调者只记录现象+文件+验收标准，coder 自己分析根因 | 架构约束 |
+| C1 | **Phase 5 派 coder 写 tasks** — 协调者派任务（body 含 proposal + constitution 路径），coder 自己写 tasks.md | 任务派发 |
+| C2 | **proposal 只写设计决策** — 功能清单/API 合约/数据模型/架构约束/文件范围，不写实现细节 | 评分器检测 |
+| C3 | **独立测试** — 代码任务必须有 tester 任务，禁止自己测自己验收 | gate-phase6.py |
+| C4 | **方案注入** — Phase 6 建任务时 body 必须注入 proposal + constitution + scope | task body 关键词检查 |
+| C5 | **Phase 确认用模板** — 每个 Phase 结束使用对应确认模板，`[CODE]` 由脚本生成。码必须独占一行 | 模板路径索引 |
+| C6 | **每个 Task 标注角色** — tasks.md 中每个 Task 必须标注 `(coder)` / `(tester)` / `(artist)` | gate-phase5.py |
+| C7 | **spawn fresh-context reviewer（不可自判）** — 协调者不可自己做 C7 review。必须 spawn delegate_task，reviewer 零上下文独立验证 | gate-phase7.py |
+| C8 | **任务派发必须注入 skills** — 每个任务包含角色默认技能。映射：coder→test-driven-development+incremental-implementation, artist→frontend-ui-engineering, tester→code-review-and-quality+systematic-debugging | gate-phase5.py |
 
-| Document | Phase | Purpose |
-|----------|-------|---------|
-| `overview.md` | Created Phase 0 | Living status document. Updated each phase transition. |
-| `constitution.md` | Phase 3-4 | Non-negotiable constraints. All tasks must comply. |
-| `conversation.md` | Phase 1 | Records what was asked, what was clarified, what was decided. |
-| `proposal.md` | Phase 2-3 | Technical approach with alternatives and rationale. |
-| `PRODUCT.md` | Phase 3 | Product-level invariants: what the system must do. |
-| `TECH.md` | Phase 3-4 | Technical specification: how the system is built. |
-| `tasks.md` | Phase 5 | Ordered implementation tasks with acceptance criteria. |
-| `completion-summary.md` | Phase 7 | What was delivered, what changed from plan. |
-| `retrospective.md` | Phase 7 | What went well, what didn't, lessons learned. |
+### Layer 3: Pitfall（高频教训，内嵌 Top 10）
 
----
+| # | 教训 | 规则 |
+|---|------|------|
+| 1 | 协调者做代码推理 | Way C：给目标+路径+约束，不做代码推理 |
+| 2 | 跳过 tester 验证 | worker done ≠ 质量已验证 |
+| 3 | 写入错误路径 | task body 必须指定绝对输出路径 |
+| 4 | task body 列举太多参考文件 | 预读→自包含 SPEC→worker 只读 SPEC |
+| 5 | 声称修复但未改 | grep -c 验证实际变更 |
+| 6 | fire-and-forget | 派发 ≠ 完成，必须跟踪+验证+解锁 |
+| 7 | 先问用户再查 skill/memory | 优先级：skill → memory → ask user |
+| 8 | 跳过 Phase 3 设计直接写代码 | G1：Phase 3 未完成禁止写代码 |
+| 9 | 修改后不重启服务就验证 | 重启服务后再验证 |
+| 10 | Phase 8 文档规范执行不力 | 文档写入是门禁条件，不是"做完再补" |
+| 11 | **US-* 故事被遗忘** | gate-phase5.py 检查 P0 故事必须有任务，P1/P2 必须在 tasks.md 或 TECH.md "范围外" 显式声明 |
+| 12 | **WARN 级别门禁被忽略** | gate 检查用 FAIL（阻断）不用 WARN（警告）。R4 DeepSeek 实测：alert fatigue 导致 WARN 被系统性忽略。如果检查重要到要写代码，就重要到阻断流程 |
 
-## Phase Workflow
+> 完整 pitfalls → `references/pitfalls-common.md`
 
-### Phase 0: Requirements Preparation
+### ⛔ Anti-Rationalization Guard
 
-**Goal:** Capture the raw request and set up the project workspace.
+LLM 会创造"合理例外"跳过规则。以下情况 **不是** 跳过规则的理由：
 
-**Steps:**
-1. Identify the project name (ask user or derive from request).
-2. Create the directory structure under `projects/<project-name>/`.
-3. Create `overview.md` with initial status:
-   ```
-   # Project: <name>
-   Status: Requirements Gathering
-   Phase: 0
-   Created: <date>
-   ## Progress
-   - [x] Phase 0: Requirements preparation
-   - [ ] Phase 1: Requirements clarification
-   - [ ] Phase 2: Solution design
-   - [ ] Phase 3: Design documents
-   - [ ] Phase 4: Self-check
-   - [ ] Phase 5: Implementation plan
-   - [ ] Phase 6: Execution
-   - [ ] Phase 7: Archive
-   - [ ] Phase 8: Feedback
-   ```
-4. Create `changes/<date>-<description>/conversation.md` and capture the initial request verbatim.
-5. Delegate a **Scout** task: research the problem domain, existing solutions, relevant technologies. Scout returns a summary with references.
+| LLM 合理化 | 真实规则 |
+|------------|---------|
+| "这个太简单不需要流程" | 用户说"简单做一下"才跳流程 |
+| "我先检查再决定" | 检查结果不能覆盖规则 |
+| "之前通过了不需要再跑" | 每次都是独立检查 |
+| "脚本不支持这种项目" | 脚本报错 = 改项目结构适配脚本 |
+| "需求很清楚不用问了" | 必须走完 5 维度追问 |
+| "这个 Phase 很简单可以快进" | 每个 Phase 入口第一步必须重新读 SKILL.md |
+| "方案 A 明显更好直接用" | 必须呈现 2-3 个方案 + 推荐理由 |
+| "先跑一下看看再说" | G1：Phase 3 未完成禁止写代码 |
 
-**Output:** Project directory exists, initial request documented, Scout research complete.
+**架构级反理性化策略（从 mimo 分支引入）：**
 
----
+| 策略 | 原理 | 本 skill 中的实现 | 强化方向 |
+|------|------|------------------|---------|
+| **Tool Interception** | 工具层面阻断，不靠 LLM 自觉 | G2 gate-phase4.py、G7 gate-phase7.py | 扩展 gate 覆盖更多 phase |
+| **Process Isolation** | 关键决策由独立实体执行 | C7 fresh-context reviewer、C3 独立测试 | reviewer 模型切换 |
+| **Untrusted Review** | 假设产出有缺陷，用证据验证 | gate 脚本 + 确认码 + severity+evidence 门禁 | 持续增强门禁粒度 |
 
-### Phase 1: Requirements Clarification
+### 禁止行为
 
-**Goal:** Transform vague request into precise, testable requirements using the 5-Dimension Questioning Framework.
+| 禁止行为 | 替代方案 |
+|---------|---------|
+| 自己写 tasks.md 内容 | 派 coder 写，协调者只 review 格式 |
+| 自己判断 C7 "全部通过" | spawn fresh-context reviewer |
+| 不跑脚本直接生成确认码 | 必须跑对应 gate 脚本 |
+| 用 delegate_task 替代任务派发 | 必须用任务系统 + skill 注入 |
 
-**The 5 Dimensions:**
+## ⚙️ 环境与能力等级
 
-| # | Dimension | Questions to answer |
-|---|-----------|-------------------|
-| 1 | **Who** | Who are the users? Who maintains it? Who is affected? |
-| 2 | **What** | What problem does it solve? What are the invariants? What are the edge cases? |
-| 3 | **How** | How does it integrate with existing systems? How is it deployed? How is it tested? |
-| 4 | **Scope** | What is explicitly OUT of scope? What are the boundaries? What is phase 1 vs later? |
-| 5 | **Success** | How do we know it works? What metrics matter? What does "done" look like? |
+### 安装后第一步：环境自检
 
-**Steps:**
-1. For each dimension, formulate 3-5 specific questions.
-2. Present all questions to the user in a structured format.
-3. Capture all answers in `conversation.md`.
-4. For any unclear answers, follow up with targeted clarification.
-5. Once all dimensions are filled, produce a requirements summary and present to human for confirmation.
-
-**Gate:** Human reviews requirements summary and confirms "yes, these are correct" or provides corrections.
-
-**Output:** `conversation.md` contains complete requirements across all 5 dimensions.
-
----
-
-### Phase 2: Solution Design
-
-**Goal:** Generate 2-3 technical proposals with trade-off analysis.
-
-**Steps:**
-1. Based on requirements, brainstorm 2-3 distinct technical approaches.
-2. For each approach, document:
-   - Architecture overview (high-level)
-   - Technology choices and rationale
-   - Trade-offs (complexity, performance, maintainability, cost)
-   - Risk assessment
-   - Estimated scope/effort
-3. Optionally delegate a **Scout** task for a technical spike: "Implement a minimal proof-of-concept for [specific aspect] and report feasibility."
-4. Present all proposals to the user for comparison.
-5. Capture user's choice (or hybrid) in `proposal.md`.
-
-**Gate:** Human selects a proposal or requests modifications. Document the decision and rationale.
-
-**Output:** `proposal.md` with 2-3 analyzed proposals, final selection recorded.
-
----
-
-### Phase 2.5: Technical Spike (Optional)
-
-**Trigger:** When the chosen proposal involves uncertain technology, unclear feasibility, or high risk.
-
-**Steps:**
-1. Identify the specific uncertainty to resolve.
-2. Delegate a **Scout** or **Coder** task with tight scope:
-   - Goal: "Resolve [specific uncertainty]"
-   - Scope: minimal code/config to prove feasibility
-   - Acceptance criteria: "Can demonstrate [X] works / doesn't work"
-   - Time-box: set a clear limit on effort
-3. Review spike results.
-4. If spike reveals problems, return to Phase 2 with new information.
-5. If spike confirms feasibility, proceed to Phase 3.
-
-**Output:** Spike results documented in `conversation.md` or a separate spike report.
-
----
-
-### Phase 3: Design Documents
-
-**Goal:** Produce the authoritative design documents that all implementation must follow.
-
-**Documents to create:**
-
-**`PRODUCT.md`** — Product invariants:
-- Functional requirements (what the system does)
-- Non-functional requirements (performance, security, accessibility)
-- User stories or use cases
-- Acceptance criteria for each requirement
-
-**`TECH.md`** — Technical specification:
-- Architecture diagram (text-based)
-- Component breakdown
-- Data models and schemas
-- API contracts (if applicable)
-- Technology stack decisions
-- Integration points
-- Deployment strategy
-
-**Steps:**
-1. Delegate **Coder** task to draft `TECH.md` based on `proposal.md`.
-2. Orchestrator reviews the draft for completeness against requirements.
-3. Draft `PRODUCT.md` based on `conversation.md` requirements.
-4. Present both documents to human for review.
-
-**Gate:** Human reviews both documents. Approves or requests changes.
-
-**Output:** `PRODUCT.md` and `TECH.md` approved by human.
-
----
-
-### Phase 4: Constitution & Self-Check
-
-**Goal:** Create the non-negotiable constraints document and verify all prior work is complete.
-
-**`constitution.md`** contains:
-- Hard constraints (must not violate)
-- Soft preferences (prefer but can override with justification)
-- Prohibited patterns (anti-patterns to avoid)
-- Acceptance criteria that apply to ALL tasks
-- Testing requirements
-- Documentation requirements
-
-**Self-Check Checklist:**
-Before proceeding, the Orchestrator verifies every item:
-
-```
-[ ] overview.md exists and has current status
-[ ] conversation.md has complete 5-dimension answers
-[ ] proposal.md has 2+ proposals with rationale for choice
-[ ] PRODUCT.md lists all functional and non-functional requirements
-[ ] TECH.md specifies architecture, data models, and integration points
-[ ] constitution.md defines constraints, prohibitions, and acceptance criteria
-[ ] All documents are consistent (no contradictions between them)
-[ ] All user-confirmed decisions are recorded
-[ ] Scope boundaries are explicit (what's IN and what's OUT)
+```bash
+python3 scripts/env-check.py [--config config.json]
 ```
 
-**Steps:**
-1. Create `constitution.md` from decisions in prior phases.
-2. Run the self-check checklist above.
-3. If any item fails, fix it before proceeding.
-4. Report self-check results to human.
-5. Human confirms readiness to proceed to implementation planning.
+输出能力等级：
+- **Level A（完整）**：kanban + gate-enforcer + 机械门禁 → 全功能
+- **Level B（标准）**：delegate_task + 机械门禁 → 核心流程完整
+- **Level C（轻量）**：仅 prompt 约束 → 退化为 Superpowers 级防偏离
 
-**Gate:** Human confirms self-check results are satisfactory.
+### 配置文件 config.json
 
-**Output:** `constitution.md` created, self-check passed, human approved.
+```json
+{
+  "project_docs_dir": "./project-docs",
+  "level": "auto",
+  "confirm_code_method": "hash"
+}
+```
+
+## 何时触发
+
+1. 用户发送 `/clsh-project` 或 `/cp`
+2. 用户说"我要做一个 XXX"、"开发一个 XXX 系统"
+3. 需求明显是多步骤项目
+4. 用户说"按 Kiro 流程走"
+
+**不触发：** 简单查询、单步操作、修 bug、已有明确方案的小改动、用户说"简单做一下"。
 
 ---
 
-### Phase 5: Implementation Plan
+## Phase 0+1: 需求准备与澄清
 
-**Goal:** Break the design into ordered, implementable tasks with verification criteria.
+### Phase 0: 内化历史教训
 
-**Delegation:** Spawn a **Coder** subagent with the following task body:
+| 步骤 | 动作 |
+|------|------|
+| A | 读取 learnings（如有）→ 提取相关教训 |
+| B | 读取项目已知 pitfalls → 匹配 tech/domain 标签 |
 
+### Phase 1: 需求澄清
+
+**5 维度追问框架（苏格拉底式）：**
+
+| 维度 | 追问方向 |
+|------|---------|
+| 用户与场景 | 谁用？怎么用？边界在哪？ |
+| 功能与流程 | 核心流程？异常流程？闭环？ |
+| 安全与威胁 | 攻击面？数据泄露？权限越界？ |
+| 合规与隐私 | 适用法规？数据处理？用户权利？ |
+| 行业与技术 | 同类产品？技术选型？数据方案？ |
+
+**追问深度：** L0 概览 → L1 细化 → L2 攻防
+
+**Phase 1 产出物：**
+1. **PRODUCT.md** — 用户故事 + 产品不变量（INV-1/INV-2...）+ 可验证性
+   - 📋 模板: `templates/product-md-template.md`
+2. **conversation.md** — 需求澄清对话记录
+
+### ⛔ Phase 1 门禁
+
+```bash
+python3 scripts/gate-phase1.py <项目目录>
 ```
-Goal: Create the implementation plan (tasks.md)
-Context: [embed PRODUCT.md, TECH.md, constitution.md contents]
-Output: projects/<name>/changes/<date>-<description>/tasks.md
 
-Requirements for tasks.md:
-- Each task has: ID, description, role assignment, dependencies, acceptance criteria
-- Acceptance criteria must include specific verification commands
-- Tasks are ordered by dependency (topological sort)
-- Each task includes scope exclusions (what NOT to do in this task)
-- Tasks are granular enough to complete in one session
-- Include a "verification" section at the end with commands to run
+---
+
+## Phase 2+2.5: 方案设计与技术验证
+
+2-3 个方案 + 推荐理由 + 对比表格。Phase 2.5: 技术 Spike。
+
+**Phase 2 产出物：**
+- **TECH.md** — 架构决策 + 文件变更范围 + 实现注意事项 + 不在范围内
+  - 📋 模板: `templates/tech-md-template.md`
+
+---
+
+## Phase 3+4: 设计文档与自检
+
+Phase 3: proposal.md + constitution.md。**⛔ proposal 只写设计决策。**
+
+- 📋 constitution 模板: `templates/constitution-template.md`
+
+Phase 4: 机械检查 + 流程合规。
+
+```bash
+python3 scripts/gate-phase4.py <项目目录>
 ```
 
-**Task Format in tasks.md:**
+---
 
+## Phase 5: 实现计划（派 coder 执行）
+
+协调者派任务（body 含 proposal + constitution 路径），coder 自己写 tasks.md。
+
+**⛔ 协调者只 review 格式，不改内容。**
+
+**⛔ Phase 5 门禁（新增）：**
+- **INV-* 覆盖**：PRODUCT.md 中所有 INV-* 必须在 tasks.md 中出现
+- **US-* 覆盖**（优先级感知）：
+  - P0 用户故事 → **必须**在 tasks.md 中有对应任务
+  - P1/P2 用户故事 → 必须在 tasks.md 中有任务，**或**在 TECH.md "范围外" 中显式排除
+
+- 📋 tasks 模板: `templates/tasks-template.md`
+
+```bash
+python3 scripts/gate-phase5.py <项目目录>
+```
+
+---
+
+## Phase 6: 分发执行
+
+**角色分工：** coder/artist → 任务执行 | tester → 验证任务
+
+**⛔ 执行方式铁律：** 必须用任务系统派发（kanban 或 delegate_task），每个任务注入 skills。
+
+**tasks.md Task 格式：**
 ```markdown
-## Task T001: <title>
-- **Role:** coder | artist | tester | scout
-- **Dependencies:** none | T001, T002
-- **Goal:** <what this task achieves>
-- **Scope:** <what to do>
-- **Exclusions:** <what NOT to do>
-- **Acceptance Criteria:**
-  1. <specific, testable criterion>
-  2. <verification command that proves it>
-- **Files:** <list of files to create/modify>
+### Task N: 标题 | 角色：coder | skills: test-driven-development, incremental-implementation
 ```
 
-**Steps:**
-1. Orchestrator delegates task planning to Coder.
-2. Orchestrator reviews the generated `tasks.md` for:
-   - Correct task format
-   - Complete acceptance criteria with verification commands
-   - Logical ordering and dependency accuracy
-   - Coverage of all requirements from PRODUCT.md
-   - Compliance with constitution.md constraints
-3. If issues found, send back to Coder with specific corrections needed.
-4. Present final `tasks.md` to human for confirmation.
+**⛔ Phase 6 一致性校验：** tester 验证时必须读取 PRODUCT.md + TECH.md + proposal.md + constitution.md，逐项检查实现是否符合。
 
-**Gate:** Human reviews and confirms the implementation plan.
-
-**Output:** `tasks.md` approved, ready for execution.
-
----
-
-### Phase 6: Execution
-
-**Goal:** Execute tasks in dependency order, delegating each to the appropriate role.
-
-**Execution Rules:**
-1. Process tasks in dependency order (respect topological sort).
-2. For each task:
-   a. Verify all dependencies are complete (check overview.md).
-   b. Delegate to the assigned role with full context.
-   c. Receive results with evidence (file diffs, test output, screenshots).
-   d. Review results against acceptance criteria.
-   e. Update `overview.md` with task status.
-3. If a task fails:
-   - Log the failure in `overview.md`.
-   - Determine if it's a blocker (can't proceed) or can be worked around.
-   - If blocker: pause execution, report to human, wait for decision.
-   - If workaround: document the workaround, proceed with caution.
-
-**Delegation Template:**
-
-```
-You are a <role> (Coder/Artist/Tester/Scout).
-
-## Task <ID>: <title>
-### Goal
-<what to achieve>
-
-### Context
-<embed relevant parts of PRODUCT.md, TECH.md, constitution.md>
-
-### Constraints
-<list constraints from constitution.md relevant to this task>
-
-### Acceptance Criteria
-<list from tasks.md>
-
-### Scope Exclusions
-<list from tasks.md>
-
-### Verification
-<commands to run to verify completion>
+```bash
+python3 scripts/gate-phase6.py <项目目录>
 ```
 
-**Subagent Contract:**
-- Subagent returns: summary of what was done, files modified, verification output
-- Subagent does NOT: make architectural decisions, skip tests, ignore scope exclusions
-- If subagent encounters ambiguity: it must stop and report, not guess
+---
 
-**Tester Verification (runs after each task or batch):**
-After tasks complete, delegate to **Tester**:
+## Phase 7: 完成归档与流程复盘
+
+归档 9 步 + 流程合规复盘 7 项 + handoff.md。
+
+**归档文档路径（不可变更）：**
+| 文档 | 必须路径 |
+|------|---------|
+| completion-summary.md | `changes/archive/completion-summary.md` |
+| retrospective.md | `changes/archive/retrospective.md` |
+| handoff.md | `changes/archive/handoff.md` |
+
+---
+
+## Phase 8: 反馈循环
+
+**信息传递模式（C0）：** 协调者只记录现象+文件+验收标准，coder/artist 自己分析根因+设计方案+执行。
+
+### Phase 8 执行方式选择
+
+| 方式 | 适用场景 | 机制 |
+|------|---------|------|
+| **标准模式** | Gateway 渠道、简单 bug | 派 fix 卡 → tester 验证 → 人工确认 |
+| **/goal 模式** | CLI/TUI、复杂 bug、多轮迭代 | `/goal` + judge 自动判断 + gate-phase8 文档检查 |
+| **kanban --goal 模式** | Gateway 渠道、fix 卡 | worker 自带 /goal loop，迭代直到修复 |
+
+**/goal 模式用法（CLI/TUI）：**
 ```
-Goal: Verify tasks <T00X> through <T00Y> meet acceptance criteria.
-Context: [embed tasks.md acceptance criteria]
-Verification: run the verification commands listed in each task's acceptance criteria.
-Output: verification report with pass/fail for each criterion.
+/goal Phase 8 反馈循环：修复 <项目> 的所有已知 bug，tester 验证全部通过
+/subgoal conversation.md 记录每个 bug 的现象和修复结果
+/subgoal tester 报告中所有 FAIL 项已处理
 ```
 
-**Progress Tracking in overview.md:**
-```markdown
-## Execution Log
-| Task | Status | Assigned To | Completed | Notes |
-|------|--------|-------------|-----------|-------|
-| T001 | ✅ Done | Coder | 2025-01-15 | All criteria met |
-| T002 | 🔄 In Progress | Artist | - | Blocked on T001 |
-| T003 | ⏳ Pending | Tester | - | Waiting for T002 |
+**kanban --goal 模式用法（fix 卡）：**
+```bash
+hermes kanban create --goal --goal-max-turns 5 \
+  --assignee coder --skill test-driven-development \
+  --title "修复 <bug 描述>" \
+  --body "现象：...\n验收标准：1. <测试命令> PASS 2. 不引入回归"
 ```
 
-**Gate:** After all tasks complete, Tester produces a final verification report. Orchestrator reviews. Human confirms delivery.
+**⛔ /goal 模式限制：**
+- /goal 的 judge **不能替代 tester 验证**（C3 独立测试）
+- /goal 的 auto-continue **不能绕过 gate-phase8.py 文档检查**
+- Phase 1-6 **禁止使用 /goal**（终止权在人，不在 judge）
 
-**Output:** All tasks executed, verification passed, human approved.
+📋 详细分析: `references/goal-mode-analysis.md`（Vault）
 
----
+```bash
+python3 scripts/gate-phase8.py <项目目录>
+```
 
-### Phase 7: Archive & Retrospective
+### ⛔ Phase 8 Loop Native 选项
 
-**Goal:** Clean up, document what happened, and prepare for future reference.
-
-**Steps:**
-1. Create `archive/completion-summary.md`:
-   - What was delivered vs. what was planned
-   - Deviations from original plan and why
-   - Final file listing
-   - Known issues or technical debt
-   - Recommendations for future work
-
-2. Create `archive/retrospective.md`:
-   - What went well
-   - What didn't go well
-   - What we'd do differently
-   - Process improvements identified
-
-3. Update `overview.md`:
-   - Set status to "Completed"
-   - Record final date
-   - Link to archive documents
-
-4. Create `archive/handoff.md` (if project will be maintained):
-   - How to set up the development environment
-   - Key architectural decisions and where to find them
-   - Testing procedures
-   - Deployment instructions
-
-**Gate:** Human reviews archive documents and confirms completion.
-
-**Output:** Project fully documented, archived, and ready for handoff.
+Hermes 有 `/goal` + kanban `--goal` 模式，可替代手动 Phase 8 循环：
+- **硬规则**（文件检查）→ 用 gate-phase8.py
+- **软规则**（"bug 修好了吗"）→ 用 `/goal` + judge model
 
 ---
 
-### Phase 8: Feedback Loop
+## 流程门禁总览
 
-**Goal:** Capture learnings and determine next steps.
+| 门禁 | 检查内容 | 未通过 → |
+|------|---------|---------|
+| Phase 1-3 | 用户确认码（人是 Gate，看内容才输入码） | 不进入下一 Phase |
+| Phase 4 | gate-phase4.py → 用户确认码 | 不进入 Phase 5 |
+| Phase 5→6 | gate-phase5.py（INV-* + US-* 覆盖）→ 用户确认码 | 不允许创建任务 |
+| Phase 6 tester 后 | gate-phase6.py → 用户确认码 | 不允许汇报完成 |
+| Phase 6 C7 | gate-phase7.py → 用户确认码 | 不允许汇报完成 |
 
-**Steps:**
-1. Present the retrospective to the user.
-2. Ask: "What would you like to do next?"
-   - Start a new project (return to Phase 0)
-   - Iterate on this project (identify what to change, return to Phase 1)
-   - Review and audit (enter Review Mode)
-   - Done (close)
-3. If iterating, create a new change directory under `changes/` and begin Phase 1 with the new requirements.
+## 失败模式与兜底
 
-**Output:** User decides next action, workflow either restarts or concludes.
+| 失败现象 | 一线修复 | 仍失败兜底 |
+|---------|---------|-----------|
+| 确认码绕过前置检查 | Gate 脚本 hash 码机制 | 记录违规，回退到正确 Phase |
+| 目录结构不符脚本预期 | 改为 `changes/日期-话题/` 标准结构 | 参考 pitfalls-common.md |
+| 任务 Done ≠ 已验证 | 执行独立产出 review | Phase 7 前强制验证 |
+| C7 review 自判 | spawn fresh-context reviewer | 加载 doubt-driven-development |
+| LLM 合理化跳步 | 查 Anti-Rationalization Guard 表 | 物理阻断 |
 
----
+## 📚 参考文件
 
-## Anti-Rationalization Guard Table
+| 分类 | 路径 |
+|------|------|
+| **Pitfalls** | `references/pitfalls-common.md` |
+| **模板** | `templates/*.md` |
+| **Gate 脚本** | `scripts/gate-phase*.py` |
+| **环境自检** | `scripts/env-check.py` |
+| **/goal 适用性** | `references/goal-mode-analysis.md`（Vault）— Phase 8/fix 卡适用，Phase 1-6 不适用 |
 
-LLMs will attempt to rationalize skipping workflow steps. These are forbidden rationalizations. **Every row is absolute — no exceptions apply.**
+## 版本历史
 
-| LLM Rationalization | Actual Rule |
-|---------------------|-------------|
-| "This is too simple for the full process" | Only skip when user explicitly says "just do it simply" and the task is genuinely single-step |
-| "I'll check first and then decide if we need docs" | Check results cannot override rules. Documentation is required regardless of what checks reveal |
-| "This passed before, no need to recheck" | Every check is independent. Past results do not validate current state |
-| "This project type doesn't fit the standard structure" | All projects use the standard directory structure. No exceptions for "special" project types |
-| "Review projects don't need full documentation" | All delegated tasks must include relevant context. Reviews may skip early phases but must produce their own documents |
-| "The user seems impatient, I should skip ahead" | Human impatience does not override workflow gates. Explain why each step matters if asked |
-| "I can infer what the user wants without asking" | Inference is not clarification. Ask explicitly, capture answers in conversation.md |
-| "The requirements are obvious from the request" | "Obvious" requirements are the ones most likely to be wrong. Always run the 5-dimension framework |
-| "I'll write this code directly since it's small" | The Orchestrator NEVER writes code. Delegate to Coder, no matter how small |
-| "We can skip the spike since I know this technology" | The Orchestrator's knowledge is not a substitute for a spike. Delegate if there's uncertainty |
-| "The task is too trivial for acceptance criteria" | Every task must have acceptance criteria with verification commands. No exceptions |
-| "I'll just document what we did instead of planning first" | Plan before execution. Documentation of what was done is Phase 7, not a substitute for Phase 5 |
-| "We can combine phases to save time" | Phases are sequential and each requires a gate. Combining phases skips gates |
-| "The constitution is just formalities, the real work is coding" | The constitution defines non-negotiable constraints. Violating it means the work is wrong |
-| "I can verify my own work without a separate tester" | Self-verification is unreliable. Tester role exists for this reason. Orchestrator delegates, doesn't verify code |
-
----
-
-## Failure Modes and Fallbacks
-
-| Failure | Symptom | Fallback |
-|---------|---------|----------|
-| **Requirements drift** | Mid-execution, new requirements appear that weren't in Phase 1 | Pause execution. Return to Phase 1. Document the change. Re-plan. |
-| **Subagent returns incomplete work** | Acceptance criteria not met, verification fails | Return to subagent with specific failures listed. If fails twice, escalate to human. |
-| **Dependency conflict** | Task depends on something that doesn't exist | Re-order tasks or create a prerequisite task. Update tasks.md. |
-| **Constitution violation** | Implementation contradicts constitution.md | Stop. Report violation to human. Constitution wins over implementation. |
-| **Human gate timeout** | Human hasn't confirmed a gate in a while | Remind human once. If still waiting, pause and note in overview.md. Don't self-approve. |
-| **Scope creep** | Tasks expanding beyond original scope | Compare against constitution.md scope boundaries. If out of scope, create a new change request. |
-| **Technology failure** | Chosen tech doesn't work as expected | Return to Phase 2 with new information. Propose alternative. |
-| **Ambiguous acceptance criteria** | Task "done" is unclear | Clarify with human. Update tasks.md. Never assume completion. |
-
----
-
-## Orchestrator Behavioral Rules
-
-1. **Never write code.** If you find yourself writing a code block, stop. That's a Coder task. Delegate it.
-2. **Never self-approve gates.** The human must explicitly approve phase transitions. "Seems fine" from you is not approval.
-3. **Always document before acting.** If you're about to do something, write down what you're going to do and why first.
-4. **Always include context in delegation.** Subagents don't have your conversation history. Embed all relevant document contents in the task description.
-5. **Always verify before reporting success.** Ask for evidence (test output, file contents, screenshots). "It should work" is not evidence.
-6. **Never compress phases.** Phase 0→1→2→3→4→5→6→7→8 is the order. You can skip phases if the user explicitly says to (e.g., "just review"), but you cannot merge or reorder them.
-7. **Always update overview.md.** The status document is the single source of truth for project state. Update it at every phase transition and task completion.
-8. **Treat the constitution as law.** If a task would violate a constitution constraint, the task is wrong, not the constitution.
-9. **Capture decisions with rationale.** Not just "we chose X" but "we chose X because Y, considering Z alternatives."
-10. **When in doubt, ask the human.** Ambiguity is not an excuse to guess. Guesses that turn out wrong are worse than asking.
-
----
-
-## Document Templates
-
-Refer to the `templates/` directory for standardized document templates:
-
-- `templates/overview.md` — Project status tracker template
-- `templates/constitution.md` — Constraints and acceptance criteria template
-- `templates/conversation.md` — Requirements capture template with 5-dimension structure
-- `templates/proposal.md` — Technical proposal with alternatives template
-- `templates/PRODUCT.md` — Product requirements document template
-- `templates/TECH.md` — Technical specification template
-- `templates/tasks.md` — Implementation plan template
-- `templates/completion-summary.md` — Project completion report template
-- `templates/retrospective.md` — Retrospective template
-- `templates/handoff.md` — Project handoff documentation template
-
----
-
-## Quick Reference: Phase Gates
-
-| Transition | Gate Requirement |
-|------------|-----------------|
-| Phase 0 → 1 | Project directory created, initial request captured |
-| Phase 1 → 2 | Human approves requirements summary |
-| Phase 2 → 3 | Human selects technical proposal |
-| Phase 3 → 4 | Human approves PRODUCT.md and TECH.md |
-| Phase 4 → 5 | Human approves self-check results and constitution |
-| Phase 5 → 6 | Human confirms tasks.md |
-| Phase 6 → 7 | Tester verification report approved by human |
-| Phase 7 → 8 | Human confirms archive is complete |
-| Phase 8 → done | Human decides to stop |
-| Phase 8 → 0 | Human decides to start new project |
+| 版本 | 日期 | 变更 |
+|------|------|------|
+| v6.0.0 | 2026-06-18 | **通用版**：解耦 Obsidian/Hermes/lark-cli 环境依赖；gate 脚本随 skill 分发；env-check.py 环境自检；config.json 能力等级分层；pitfalls 精简 120→30 |
+| v6.1.0 | 2026-06-18 | **Phase 5 US-* 覆盖检查**：gate-phase5.py 新增用户故事覆盖门禁（P0 必须有任务，P1/P2 必须在 tasks.md 或 TECH.md "范围外" 显式声明）；支持中文 regex 模式（角色/验收）；pitfalls 新增 #35 gate 脚本中文本地化 |
