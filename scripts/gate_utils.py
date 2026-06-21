@@ -12,13 +12,14 @@ Provides common operations used by gate-phaseN.py scripts:
 """
 
 import hashlib
+import hmac as _hmac
 import json
 import os
 import re
 import secrets
 import sys
 import time
-from datetime import datetime
+from datetime import datetime, timezone
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -46,9 +47,9 @@ def get_gate_dir() -> Path:
 # ---------------------------------------------------------------------------
 
 def generate_code(project_dir: str, phase: str) -> str:
-    """Generate a 6-char uppercase confirmation code.
+    """Generate a 10-char uppercase confirmation code (40-bit entropy).
 
-    The code is the first 6 hex chars of:
+    The code is the first 10 hex chars of:
         sha256(project_dir + phase + timestamp + random_salt)
 
     This makes codes deterministic for the same input but practically
@@ -58,12 +59,35 @@ def generate_code(project_dir: str, phase: str) -> str:
     salt = secrets.token_hex(16)
     payload = f"{project_dir}{phase}{timestamp}{salt}"
     digest = hashlib.sha256(payload.encode()).hexdigest()
-    return digest[:6].upper()
+    return digest[:10].upper()
 
 
 # ---------------------------------------------------------------------------
 # 3. Marker file management
 # ---------------------------------------------------------------------------
+
+def _get_machine_key() -> bytes:
+    """Derive a machine-specific key for marker signing."""
+    import platform
+    raw = f"{platform.node()}-{os.getuid()}"
+    return hashlib.sha256(raw.encode()).digest()
+
+
+def _compute_hmac(marker: dict) -> str:
+    """Compute HMAC-SHA256 for a marker dict (16 hex chars)."""
+    key = _get_machine_key()
+    signable = {k: v for k, v in marker.items() if k != "hmac"}
+    payload = json.dumps(signable, sort_keys=True).encode()
+    return _hmac.new(key, payload, hashlib.sha256).hexdigest()[:16]
+
+
+def verify_marker(marker: dict) -> bool:
+    """Verify a marker's HMAC signature. Returns True if valid."""
+    stored = marker.get("hmac")
+    if not stored:
+        return False
+    return _hmac.compare_digest(stored, _compute_hmac(marker))
+
 
 def write_marker(phase: str, project_dir: str, code: str,
                  meta: dict | None = None) -> Path:
@@ -79,7 +103,7 @@ def write_marker(phase: str, project_dir: str, code: str,
       - optional extra metadata
     """
     gate_dir = get_gate_dir()
-    slug = re.sub(r"[^a-zA-Z0-9_-]", "_", project_dir.rstrip("/"))
+    slug = hashlib.sha256(project_dir.rstrip("/").encode()).hexdigest()[:16]
     marker_dir = gate_dir / slug
     marker_dir.mkdir(parents=True, exist_ok=True)
 
@@ -88,11 +112,13 @@ def write_marker(phase: str, project_dir: str, code: str,
         "phase": phase,
         "project_dir": project_dir,
         "code": code,
-        "timestamp": datetime.utcnow().isoformat() + "Z",
+        "timestamp": datetime.now(timezone.utc).isoformat(),
     }
     if meta:
         marker.update(meta)
 
+    # HMAC signature (machine-bound, tamper-evident)
+    marker["hmac"] = _compute_hmac(marker)
     marker_path.write_text(json.dumps(marker, indent=2) + "\n")
     return marker_path
 
@@ -167,7 +193,7 @@ def find_file_in_changes(project_dir: str, names: list[str]) -> Path | None:
 # ---------------------------------------------------------------------------
 
 def output_result(gate_name: str, passed: bool, errors: list[str] | None = None,
-                  code: str | None = None) -> None:
+                  code: str | None = None, meta: dict | None = None) -> None:
     """Print a structured JSON result to stdout.
 
     Always exits with the appropriate code:
@@ -180,6 +206,8 @@ def output_result(gate_name: str, passed: bool, errors: list[str] | None = None,
     }
     if code:
         result["code"] = code
+    if meta:
+        result["meta"] = meta
 
     print(json.dumps(result, indent=2))
     sys.exit(0 if passed else 1)

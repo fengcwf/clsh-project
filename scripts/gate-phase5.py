@@ -224,12 +224,29 @@ def run_gate(project_dir: str) -> None:
     """Run the Phase 5 gate checks."""
     errors = check_tasks_md(project_dir)
 
+    # Build coverage summary for output
+    coverage = {}
+    product_path = gu.find_file_in_changes(project_dir, ["PRODUCT.md"])
+    if product_path:
+        product_content = product_path.read_text(encoding="utf-8", errors="replace")
+        all_us = extract_us_refs(product_content)
+        task_path = gu.find_file_in_changes(project_dir, ["tasks.md"])
+        if task_path:
+            task_content = task_path.read_text(encoding="utf-8", errors="replace")
+            covered = extract_task_us_refs(task_content)
+            uncovered = sorted(all_us - covered)
+            coverage = {
+                "total_stories": len(all_us),
+                "covered": len(all_us) - len(uncovered),
+                "uncovered": uncovered,
+            }
+
     if not errors:
         code = gu.generate_code(project_dir, GATE_NAME)
         gu.write_marker(GATE_NAME, project_dir, code)
-        gu.output_result(GATE_NAME, True, code=code)
+        gu.output_result(GATE_NAME, True, code=code, meta={"coverage": coverage})
     else:
-        gu.output_result(GATE_NAME, False, errors=errors)
+        gu.output_result(GATE_NAME, False, errors=errors, meta={"coverage": coverage})
 
 
 def main():

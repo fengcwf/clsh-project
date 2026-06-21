@@ -51,7 +51,7 @@ EXPECTED_DIMENSIONS = [
     r"coverage",
 ]
 
-MIN_DIMENSIONS = 3
+MIN_DIMENSIONS = 5
 MIN_NONBLANK_LINES = 15
 
 
@@ -120,6 +120,27 @@ def check_review_report(project_dir: str) -> list[str]:
     if not has_assessment:
         errors.append(
             f"{report_path.name}: no overall assessment/conclusion found"
+        )
+
+    # --- Severity classification (FAIL if missing) ---
+    SEVERITY_PATTERN = re.compile(
+        r'\b(Critical|Major|Minor|Suggestion)\b', re.IGNORECASE
+    )
+    severities = SEVERITY_PATTERN.findall(content)
+    if not severities:
+        errors.append(
+            f"{report_path.name}: no severity classification found. "
+            f"Each finding must be tagged Critical/Major/Minor/Suggestion"
+        )
+
+    # --- Evidence references (FAIL if < 3) ---
+    EVIDENCE_PATTERN = re.compile(r'\[[\w\-./]+:\d+(?:-\d+)?\]')
+    evidence_refs = EVIDENCE_PATTERN.findall(content)
+    if len(evidence_refs) < 3:
+        errors.append(
+            f"{report_path.name}: insufficient evidence references "
+            f"({len(evidence_refs)} found, need >=3). "
+            f"Format: [filename:line_number]"
         )
 
     return errors

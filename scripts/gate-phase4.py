@@ -35,12 +35,12 @@ import gate_utils as gu
 
 # Files to check and their required keyword patterns
 REQUIRED_DOCS = {
-    "overview.md":       [r"\w{4,}"],               # at least one word >= 4 chars
-    "conversation.md":   [r"\w{4,}"],
-    "proposal.md":       [r"\w{4,}"],
-    "constitution.md":   [r"\w{4,}"],
-    "PRODUCT.md":        [r"(?:goal|requirement|scope|objective|deliverable)"],
-    "TECH.md":           [r"(?:architecture|design|stack|component|implementation)"],
+    "overview.md":       [r"(?:goal|purpose|scope|background|目标|范围|背景|overview)"],
+    "conversation.md":   [r"(?:requirement|user.story|need|question|需求|用户|场景|问题)"],
+    "proposal.md":       [r"(?:approach|option|trade.?off|方案|选型|权衡|设计|决策)"],
+    "constitution.md":   [r"(?:constraint|must.not|forbidden|验收|约束|禁止|标准)"],
+    "PRODUCT.md":        [r"(?:goal|requirement|scope|objective|deliverable|用户故事|不变量)"],
+    "TECH.md":           [r"(?:architecture|design|stack|component|implementation|架构|技术选型)"],
 }
 
 MIN_NONBLANK_LINES = 5
