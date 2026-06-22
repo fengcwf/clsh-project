@@ -36,6 +36,22 @@ REVIEW_FILENAMES = [
     "reviewer-report.md",
 ]
 
+# Archive documents required by Phase 7
+ARCHIVE_DOCS = {
+    "completion-summary.md": {
+        "keywords": [r"(?:summary|completion|完成|总结|摘要)"],
+        "min_lines": 5,
+    },
+    "retrospective.md": {
+        "keywords": [r"(?:retrospective|lesson|improve|复盘|教训|改进)"],
+        "min_lines": 5,
+    },
+    "handoff.md": {
+        "keywords": [r"(?:handoff|next|remaining|交接|后续|剩余)"],
+        "min_lines": 3,
+    },
+}
+
 # Review dimensions expected in a C7 fresh-context review
 EXPECTED_DIMENSIONS = [
     r"completeness",
@@ -146,9 +162,53 @@ def check_review_report(project_dir: str) -> list[str]:
     return errors
 
 
+def check_archive_docs(project_dir: str) -> list[str]:
+    """Check that Phase 7 archive documents exist and have content.
+
+    Returns a list of error strings (empty = pass).
+    """
+    errors = []
+    archive_root = Path(project_dir) / "changes" / "archive"
+
+    for filename, spec in ARCHIVE_DOCS.items():
+        # Search in changes/archive/ first, then changes/*/, then project root
+        fpath = None
+        if archive_root.is_dir():
+            candidate = archive_root / filename
+            if candidate.is_file():
+                fpath = candidate
+
+        if fpath is None:
+            fpath = gu.find_file_in_changes(project_dir, [filename])
+
+        if fpath is None:
+            errors.append(f"Archive doc missing: {filename}")
+            continue
+
+        content = fpath.read_text(encoding="utf-8", errors="replace")
+        lines = [l for l in content.splitlines() if l.strip()]
+        if len(lines) < spec["min_lines"]:
+            errors.append(
+                f"{filename}: too short ({len(lines)} non-blank lines, "
+                f"minimum {spec['min_lines']})"
+            )
+
+        content_lower = content.lower()
+        has_keyword = any(
+            re.search(p, content_lower) for p in spec["keywords"]
+        )
+        if not has_keyword:
+            errors.append(
+                f"{filename}: missing expected content keywords"
+            )
+
+    return errors
+
+
 def run_gate(project_dir: str) -> None:
     """Run the Phase 7 gate checks."""
     errors = check_review_report(project_dir)
+    errors.extend(check_archive_docs(project_dir))
 
     if not errors:
         code = gu.generate_code(project_dir, GATE_NAME)

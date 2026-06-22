@@ -19,7 +19,7 @@ import re
 import secrets
 import sys
 import time
-from datetime import datetime, timezone
+from datetime import datetime, timezone, timedelta
 from pathlib import Path
 
 # ---------------------------------------------------------------------------
@@ -46,15 +46,9 @@ def get_gate_dir() -> Path:
 # 2. Confirmation code generation (hash-based)
 # ---------------------------------------------------------------------------
 
-def generate_code(project_dir: str, phase: str) -> str:
+def generate_code(project_dir: str, phase: str, ttl_minutes: int = 30) -> str:
     """Generate a 10-char uppercase confirmation code (40-bit entropy).
-
-    The code is the first 10 hex chars of:
-        sha256(project_dir + phase + timestamp + random_salt)
-
-    This makes codes deterministic for the same input but practically
-    unforgable without knowing the exact salt and timestamp.
-    """
+    The code includes a TTL (time-to-live) recorded in the marker."""
     timestamp = str(int(time.time()))
     salt = secrets.token_hex(16)
     payload = f"{project_dir}{phase}{timestamp}{salt}"
@@ -67,9 +61,13 @@ def generate_code(project_dir: str, phase: str) -> str:
 # ---------------------------------------------------------------------------
 
 def _get_machine_key() -> bytes:
-    """Derive a machine-specific key for marker signing."""
-    import platform
-    raw = f"{platform.node()}-{os.getuid()}"
+    """Derive a key for marker signing. Prefers GATE_SECRET env var."""
+    secret = os.environ.get("GATE_SECRET")
+    if secret:
+        raw = secret
+    else:
+        import platform
+        raw = f"{platform.node()}-{os.getuid()}"
     return hashlib.sha256(raw.encode()).digest()
 
 
@@ -87,6 +85,26 @@ def verify_marker(marker: dict) -> bool:
     if not stored:
         return False
     return _hmac.compare_digest(stored, _compute_hmac(marker))
+
+
+def verify_marker_with_expiry(marker: dict) -> tuple[bool, str]:
+    """Verify marker HMAC and TTL. Returns (valid, reason)."""
+    # Check HMAC
+    stored = marker.get("hmac")
+    if not stored:
+        return False, "missing hmac"
+    if not _hmac.compare_digest(stored, _compute_hmac(marker)):
+        return False, "hmac mismatch"
+    # Check TTL
+    expires_str = marker.get("expires_at")
+    if expires_str:
+        try:
+            expires = datetime.fromisoformat(expires_str)
+            if datetime.now(timezone.utc) > expires:
+                return False, f"code expired at {expires_str}"
+        except ValueError:
+            return False, "invalid expires_at format"
+    return True, "ok"
 
 
 def write_marker(phase: str, project_dir: str, code: str,
@@ -108,11 +126,13 @@ def write_marker(phase: str, project_dir: str, code: str,
     marker_dir.mkdir(parents=True, exist_ok=True)
 
     marker_path = marker_dir / f"{phase}.json"
+    expires_at = datetime.now(timezone.utc) + timedelta(minutes=30)
     marker = {
         "phase": phase,
         "project_dir": project_dir,
         "code": code,
         "timestamp": datetime.now(timezone.utc).isoformat(),
+        "expires_at": expires_at.isoformat(),
     }
     if meta:
         marker.update(meta)

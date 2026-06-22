@@ -44,7 +44,7 @@ PLACEHOLDER_PATTERNS = [
 ]
 
 SKILL_ANNOTATION_PATTERNS = [
-    r"(?:skill|skills|agent)\s*[:=]",
+    r"(?:skill|skills|agent|需要技能|技能)\s*[:=]",
     r"(?:skill[s]?/|agent[s]?/)\S+",
 ]
 
@@ -125,7 +125,8 @@ def check_tasks_md(project_dir: str) -> list[str]:
     task_blocks = re.split(r"(?=^##?\s+)", content, flags=re.MULTILINE)
 
     # Filter out non-task blocks (preamble, etc.)
-    task_blocks = [b for b in task_blocks if re.match(r"^##\s+", b, re.MULTILINE)]
+    # Support both ## and ### heading levels
+    task_blocks = [b for b in task_blocks if re.match(r"^#{2,3}\s+", b, re.MULTILINE)]
 
     if not task_blocks:
         errors.append("No task sections found (expected ## headings)")
