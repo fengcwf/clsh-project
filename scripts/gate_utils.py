@@ -53,7 +53,7 @@ def generate_code(project_dir: str, phase: str, ttl_minutes: int = 30) -> str:
     salt = secrets.token_hex(16)
     payload = f"{project_dir}{phase}{timestamp}{salt}"
     digest = hashlib.sha256(payload.encode()).hexdigest()
-    return digest[:10].upper()
+    return digest[:4].upper()
 
 
 # ---------------------------------------------------------------------------
@@ -226,6 +226,8 @@ def output_result(gate_name: str, passed: bool, errors: list[str] | None = None,
     }
     if code:
         result["code"] = code
+        # Copy-friendly confirmation code
+        print(f"\n📋 确认码（复制用）: {code}\n", file=sys.stderr)
     if meta:
         result["meta"] = meta
 
