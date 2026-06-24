@@ -33,10 +33,10 @@ import gate_utils as gu
 # Phase 定义：每个 Phase 的入口 gate（检查前置条件）和出口 gate（生成确认码）
 PHASES = {
     0: {
-        "name": "内化历史教训",
+        "name": "内化历史教训 + 机械扫描",
         "entry_requires": None,  # Phase 0 无前置要求
-        "exit_gate": None,       # Phase 0 无出口 gate（轻量级）
-        "output_files": [],      # Phase 0 无强制产出物
+        "exit_gate": "gate-phase0.py",
+        "output_files": ["phase0-data.json", "phase0-research.md"],
     },
     1: {
         "name": "需求澄清",
@@ -145,22 +145,24 @@ def build_action(phase_num: int, project_dir: str) -> dict:
 
     actions = {
         0: {
-            "step": "读取项目历史教训和 pitfalls",
+            "step": "内化历史教训 + 机械扫描",
             "instructions": [
-                "1. 检查项目目录下是否有 learnings/ 或 changes/ 目录",
-                "2. 读取相关的历史教训文件",
-                "3. 读取 pitfalls-common.md 中与本项目 tech/domain 相关的条目",
-                "4. 完成后运行: echo 'Phase 0 complete'（Phase 0 无出口 gate）",
+                "1. 运行机械扫描: python3 scripts/phase0-scan.py <项目目录>",
+                "2. 读取 phase0-data.json（项目结构/技术栈/Obsidian 匹配/历史教训）",
+                "3. 基于 JSON 数据写 phase0-research.md（信息缺口清单 + 追问建议）",
+                f"4. 完成后运行: python3 {gu.get_gate_dir().parent}/skills/productivity/clsh-project/scripts/gate-phase0.py {project_dir}",
             ],
-            "gate_exit": None,
+            "gate_exit": "gate-phase0.py",
         },
         1: {
-            "step": "需求澄清（5 维度追问）",
+            "step": "需求澄清（缺口驱动探索追问）",
             "instructions": [
-                "1. 使用 5 维度追问框架澄清需求：用户与场景、功能与流程、安全与威胁、合规与隐私、行业与技术",
-                "2. 生成 PRODUCT.md（用户故事 US-* + 产品不变量 INV-* + 优先级）",
-                "3. 生成 conversation.md（对话记录）",
-                f"4. 完成后运行: python3 {gu.get_gate_dir().parent}/skills/productivity/clsh-project/scripts/gate-phase1.py {project_dir}",
+                "1. 读取 phase0-research.md 中的信息缺口清单",
+                "2. Round 1-3: 对缺口做探索调研（web_search/竞品/技术调研）→ 追问用户",
+                "3. Round 4-6: 针对回答中的新缺口 → 定向探索 → 追问补充",
+                "4. Round 7+: 纯追问澄清（不再探索）",
+                "5. 用户确认材料足够后，生成 PRODUCT.md + conversation.md",
+                f"6. 完成后运行: python3 {gu.get_gate_dir().parent}/skills/productivity/clsh-project/scripts/gate-phase1.py {project_dir}",
             ],
             "gate_exit": "gate-phase1.py",
         },

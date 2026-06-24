@@ -295,6 +295,81 @@ def check_tester_report(project_dir: str) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# Check 5: Coordinator review evidence
+# ---------------------------------------------------------------------------
+
+REVIEW_PATTERNS = [
+    r"(?:review|审查|检查|确认|复核).*tester",
+    r"tester.*(?:review|审查|检查|确认|复核)",
+    r"(?:review|审查|确认).*test.?report",
+    r"(?:review|审查|确认).*PASS",
+    r"灵犀.*review",
+    r"coordinator.*review",
+    r"(?:LGTM|确认通过|验证通过|结果正确)",
+]
+
+
+def check_coordinator_review(project_dir: str) -> list[str]:
+    """Verify that coordinator reviewed tester results after testing."""
+    errors = []
+
+    conv_path = gu.find_file_in_changes(project_dir, ["conversation.md"])
+    if conv_path is None:
+        return []  # already reported in dispatch check
+
+    content = conv_path.read_text(encoding="utf-8", errors="replace")
+
+    has_review = any(
+        re.search(p, content, re.IGNORECASE) for p in REVIEW_PATTERNS
+    )
+    if not has_review:
+        errors.append(
+            "No coordinator review evidence after tester report — "
+            "conversation.md must show coordinator reviewed/approved "
+            "tester results before proceeding to Phase 7."
+        )
+
+    return errors
+
+
+# ---------------------------------------------------------------------------
+# Check 6: Toolset constraint for tester delegation
+# ---------------------------------------------------------------------------
+
+TERMINAL_IN_TOOLSETS = re.compile(
+    r"toolsets?\s*[=:\[].*?(?:terminal|code_execution)",
+    re.IGNORECASE | re.DOTALL,
+)
+
+
+def check_tester_toolsets(project_dir: str) -> list[str]:
+    """Verify that tester delegate_task calls don't include terminal."""
+    errors = []
+
+    conv_path = gu.find_file_in_changes(project_dir, ["conversation.md"])
+    if conv_path is None:
+        return []
+
+    content = conv_path.read_text(encoding="utf-8", errors="replace")
+
+    # Find delegate_task blocks mentioning tester
+    # Look for patterns like: delegate_task(... toolsets=[...terminal...] ...)
+    # near tester-related keywords
+    blocks = re.split(r"(?=delegate_task|kanban\s+create)", content, flags=re.IGNORECASE)
+    for block in blocks:
+        is_tester = re.search(r"(?:tester|test|测试|验证|review)", block, re.IGNORECASE)
+        if not is_tester:
+            continue
+        if TERMINAL_IN_TOOLSETS.search(block):
+            errors.append(
+                "tester delegate_task contains terminal/code_execution in toolsets — "
+                "tester must use browser tools only, not terminal/curl."
+            )
+
+    return errors
+
+
+# ---------------------------------------------------------------------------
 # Main gate logic
 # ---------------------------------------------------------------------------
 
@@ -313,6 +388,12 @@ def run_gate(project_dir: str) -> None:
 
     # Check 4: Tester report
     all_errors.extend(check_tester_report(project_dir))
+
+    # Check 5: Coordinator review of tester results
+    all_errors.extend(check_coordinator_review(project_dir))
+
+    # Check 6: Tester toolset constraints
+    all_errors.extend(check_tester_toolsets(project_dir))
 
     if not all_errors:
         code = gu.generate_code(project_dir, GATE_NAME)
