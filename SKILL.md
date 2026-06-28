@@ -9,6 +9,7 @@ platforms: [linux, macos, windows]
 metadata:
   hermes:
     tags: [workflow, project, spec-driven, planning, methodology]
+    pinned: true
     related_skills:
       - kanban-orchestrator
       - plan
