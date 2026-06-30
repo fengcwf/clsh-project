@@ -112,7 +112,21 @@ def get_completed_phases(project_dir: str) -> dict[int, dict]:
             marker = json.loads(marker_file.read_text(encoding="utf-8"))
             phase_name = marker.get("phase", "")
             # phase names are like "phase1", "phase2", etc.
-            if phase_name.startswith("phase"):
+            if isinstance(phase_name, int):
+                # Handle integer phase numbers
+                phase_num = phase_name
+                # Verify HMAC if present
+                if "hmac" in marker:
+                    valid, reason = gu.verify_marker_with_expiry(marker)
+                    if valid:
+                        completed[phase_num] = marker
+                    # Note: expired codes still count as "completed" for workflow
+                    # (the phase was done, just the code expired)
+                    elif "expired" in reason:
+                        completed[phase_num] = marker
+                else:
+                    completed[phase_num] = marker
+            elif isinstance(phase_name, str) and phase_name.startswith("phase"):
                 phase_num = int(phase_name.replace("phase", ""))
                 # Verify HMAC if present
                 if "hmac" in marker:
