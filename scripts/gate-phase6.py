@@ -397,8 +397,8 @@ def run_gate(project_dir: str) -> None:
 
     if not all_errors:
         code = gu.generate_code(project_dir, GATE_NAME)
-        gu.write_marker(GATE_NAME, project_dir, code)
-        gu.output_result(GATE_NAME, True, code=code)
+        gu.write_pending(GATE_NAME, project_dir, code)
+        gu.output_result(GATE_NAME, True, code=code, pending=True)
     else:
         gu.output_result(GATE_NAME, False, errors=all_errors)
 
@@ -406,12 +406,20 @@ def run_gate(project_dir: str) -> None:
 def main():
     if len(sys.argv) < 2:
         gu.output_result(GATE_NAME, False,
-                         errors=["Usage: gate-phase6.py <project_dir>"])
+                         errors=["Usage: gate-phase6.py <project_dir> [--verify CODE]"])
 
     project_dir = sys.argv[1]
     if not Path(project_dir).is_dir():
         gu.output_result(GATE_NAME, False,
                          errors=[f"Project directory not found: {project_dir}"])
+
+    # --verify subcommand
+    if len(sys.argv) >= 4 and sys.argv[2] == "--verify":
+        code = sys.argv[3]
+        ok, msg, _ = gu.verify_and_write_marker(GATE_NAME, project_dir, code)
+        gu.output_result(GATE_NAME, ok, errors=[msg] if not ok else None,
+                         code=code if ok else None)
+        return
 
     run_gate(project_dir)
 
