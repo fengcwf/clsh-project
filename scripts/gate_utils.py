@@ -42,18 +42,23 @@ def get_gate_dir() -> Path:
     return Path(hermes_home) / "gate-state"
 
 
+def _get_slug(project_dir: str) -> str:
+    """Compute SHA256 hash slug for a project directory (16 hex chars)."""
+    return hashlib.sha256(project_dir.rstrip("/").encode()).hexdigest()[:16]
+
+
 # ---------------------------------------------------------------------------
 # 2. Confirmation code generation (hash-based)
 # ---------------------------------------------------------------------------
 
 def generate_code(project_dir: str, phase: str, ttl_minutes: int = 30) -> str:
-    """Generate a 10-char uppercase confirmation code (40-bit entropy).
+    """Generate an 8-char uppercase hex confirmation code (32-bit entropy).
     The code includes a TTL (time-to-live) recorded in the marker."""
     timestamp = str(int(time.time()))
     salt = secrets.token_hex(16)
     payload = f"{project_dir}{phase}{timestamp}{salt}"
     digest = hashlib.sha256(payload.encode()).hexdigest()
-    return digest[:4].upper()
+    return digest[:8].upper()
 
 
 # ---------------------------------------------------------------------------
@@ -61,40 +66,98 @@ def generate_code(project_dir: str, phase: str, ttl_minutes: int = 30) -> str:
 # ---------------------------------------------------------------------------
 
 def _get_machine_key() -> bytes:
-    """Derive a key for marker signing. Prefers GATE_SECRET env var."""
+    """Derive a key for marker signing.
+
+    Order of precedence:
+      1. GATE_SECRET env var (for CI/testing)
+      2. Persisted random key at <GATE_DIR>/.hmac_key
+      3. Generate + persist a new random key (first run)
+
+    The persisted key ensures HMAC is unpredictable even if hostname/uid
+    are known, and survives across sessions.
+    """
     secret = os.environ.get("GATE_SECRET")
     if secret:
-        raw = secret
-    else:
-        import platform
-        raw = f"{platform.node()}-{os.getuid()}"
+        return hashlib.sha256(secret.encode()).digest()
+
+    key_file = get_gate_dir() / ".hmac_key"
+    if key_file.is_file():
+        try:
+            raw = key_file.read_text(encoding="utf-8").strip()
+            if len(raw) >= 64:  # at least 32 bytes hex-encoded
+                return bytes.fromhex(raw)
+        except (ValueError, OSError):
+            pass  # corrupt file, regenerate below
+
+    # Generate random key and persist
+    key_bytes = secrets.token_bytes(32)
+    try:
+        key_file.parent.mkdir(parents=True, exist_ok=True)
+        key_file.write_text(key_bytes.hex() + "\n", encoding="utf-8")
+        key_file.chmod(0o600)  # owner-only read/write
+    except OSError:
+        pass  # non-fatal: key still works for this session
+
+    return key_bytes
+
+
+def _get_legacy_key() -> bytes:
+    """Get the legacy key (hostname+uid) for backward compatibility."""
+    import platform
+    raw = f"{platform.node()}-{os.getuid()}"
     return hashlib.sha256(raw.encode()).digest()
 
 
-def _compute_hmac(marker: dict) -> str:
-    """Compute HMAC-SHA256 for a marker dict (16 hex chars)."""
-    key = _get_machine_key()
+def _compute_hmac_with_key(marker: dict, key: bytes) -> str:
+    """Compute HMAC-SHA256 for a marker dict with a specific key."""
     signable = {k: v for k, v in marker.items() if k != "hmac"}
     payload = json.dumps(signable, sort_keys=True).encode()
     return _hmac.new(key, payload, hashlib.sha256).hexdigest()[:16]
 
 
+def _compute_hmac(marker: dict) -> str:
+    """Compute HMAC-SHA256 for a marker dict (16 hex chars)."""
+    key = _get_machine_key()
+    return _compute_hmac_with_key(marker, key)
+
+
 def verify_marker(marker: dict) -> bool:
-    """Verify a marker's HMAC signature. Returns True if valid."""
+    """Verify a marker's HMAC signature. Returns True if valid.
+
+    Tries new key first, then legacy key for backward compatibility.
+    """
     stored = marker.get("hmac")
     if not stored:
         return False
-    return _hmac.compare_digest(stored, _compute_hmac(marker))
+    # Try new key
+    if _hmac.compare_digest(stored, _compute_hmac(marker)):
+        return True
+    # Try legacy key
+    legacy = _compute_hmac_with_key(marker, _get_legacy_key())
+    if _hmac.compare_digest(stored, legacy):
+        return True
+    return False
 
 
 def verify_marker_with_expiry(marker: dict) -> tuple[bool, str]:
-    """Verify marker HMAC and TTL. Returns (valid, reason)."""
-    # Check HMAC
+    """Verify marker HMAC and TTL. Returns (valid, reason).
+
+    Tries new key first, then legacy key for backward compatibility.
+    """
+    # Check HMAC (try new key, then legacy)
     stored = marker.get("hmac")
     if not stored:
         return False, "missing hmac"
-    if not _hmac.compare_digest(stored, _compute_hmac(marker)):
+
+    new_hmac = _compute_hmac(marker)
+    legacy_hmac = _compute_hmac_with_key(marker, _get_legacy_key())
+
+    hmac_valid = (_hmac.compare_digest(stored, new_hmac) or
+                  _hmac.compare_digest(stored, legacy_hmac))
+
+    if not hmac_valid:
         return False, "hmac mismatch"
+
     # Check TTL
     expires_str = marker.get("expires_at")
     if expires_str:
@@ -141,6 +204,107 @@ def write_marker(phase: str, project_dir: str, code: str,
     marker["hmac"] = _compute_hmac(marker)
     marker_path.write_text(json.dumps(marker, indent=2) + "\n")
     return marker_path
+
+
+def write_pending(phase: str, project_dir: str, code: str,
+                  meta: dict | None = None) -> Path:
+    """Write a .pending file for two-step confirmation.
+
+    The pending file records the code but NO HMAC — it is not a valid marker.
+    The LLM must present the code to the user, then call verify_and_write_marker().
+    """
+    gate_dir = get_gate_dir()
+    slug = _get_slug(project_dir)
+    marker_dir = gate_dir / slug
+    marker_dir.mkdir(parents=True, exist_ok=True)
+
+    pending_path = marker_dir / f"{phase}.pending"
+    pending = {
+        "phase": phase,
+        "project_dir": project_dir,
+        "code": code,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }
+    if meta:
+        pending["meta"] = meta
+    pending_path.write_text(json.dumps(pending, indent=2) + "\n")
+    return pending_path
+
+
+def verify_and_write_marker(phase: str, project_dir: str,
+                            user_code: str) -> tuple[bool, str, Path | None]:
+    """Verify user-provided code against .pending file, then write marker.
+
+    Returns (success, message, marker_path).
+    On success: marker is written, .pending is deleted.
+    On failure: no marker written, .pending preserved.
+    """
+    gate_dir = get_gate_dir()
+    slug = hashlib.sha256(project_dir.rstrip("/").encode()).hexdigest()[:16]
+    marker_dir = gate_dir / slug
+    pending_path = marker_dir / f"{phase}.pending"
+
+    if not pending_path.is_file():
+        return False, f"No pending confirmation for {phase}. Run gate-phaseN.py first.", None
+
+    try:
+        pending = json.loads(pending_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        return False, f"Corrupt pending file: {e}", None
+
+    # Verify code matches
+    if not _hmac.compare_digest(pending.get("code", ""), user_code.upper()):
+        return False, "Confirmation code mismatch.", None
+
+    # Code matches — write the real marker
+    meta = pending.get("meta") or {}
+    if not isinstance(meta, dict):
+        meta = {}
+    marker_path = write_marker(phase, project_dir, user_code, meta=meta)
+
+    # Clean up .pending
+    try:
+        pending_path.unlink()
+    except OSError:
+        pass  # non-fatal
+
+    return True, "Phase confirmed.", marker_path
+
+
+def is_marker_valid(marker: dict) -> tuple[bool, str]:
+    """Check if a marker has a valid HMAC, ignoring TTL expiry.
+
+    Tries new key first, then legacy key for backward compatibility.
+
+    Returns (valid, reason).
+    - (True, "ok") — HMAC valid, not expired
+    - (True, "expired but valid") — HMAC valid but TTL expired (phase was completed)
+    - (False, ...) — HMAC invalid or missing
+    """
+    stored = marker.get("hmac")
+    if not stored:
+        return False, "missing hmac"
+
+    # Try new key, then legacy
+    new_hmac = _compute_hmac(marker)
+    legacy_hmac = _compute_hmac_with_key(marker, _get_legacy_key())
+
+    hmac_valid = (_hmac.compare_digest(stored, new_hmac) or
+                  _hmac.compare_digest(stored, legacy_hmac))
+
+    if not hmac_valid:
+        return False, "hmac mismatch"
+
+    # HMAC is valid — check TTL separately
+    expires_str = marker.get("expires_at")
+    if expires_str:
+        try:
+            expires = datetime.fromisoformat(expires_str)
+            if datetime.now(timezone.utc) > expires:
+                return True, "expired but valid"  # HMAC OK, just expired
+        except ValueError:
+            pass  # bad format, but HMAC is valid
+    return True, "ok"
 
 
 # ---------------------------------------------------------------------------
@@ -213,11 +377,16 @@ def find_file_in_changes(project_dir: str, names: list[str]) -> Path | None:
 # ---------------------------------------------------------------------------
 
 def output_result(gate_name: str, passed: bool, errors: list[str] | None = None,
-                  code: str | None = None, meta: dict | None = None) -> None:
+                  code: str | None = None, meta: dict | None = None,
+                  pending: bool = False) -> None:
     """Print a structured JSON result to stdout.
 
     Always exits with the appropriate code:
         0 on PASS, 1 on FAIL
+
+    When pending=True, the result signals that a confirmation code was
+    generated but NO marker was written yet. The LLM must present the
+    code to the user, then run: gate-phaseN.py <dir> --verify <code>
     """
     result = {
         "gate": gate_name,
@@ -226,8 +395,14 @@ def output_result(gate_name: str, passed: bool, errors: list[str] | None = None,
     }
     if code:
         result["code"] = code
-        # Copy-friendly confirmation code
+        # Copy-friendly confirmation code (stderr is user-visible)
         print(f"\n📋 确认码（复制用）: {code}\n", file=sys.stderr)
+    if pending:
+        result["pending"] = True
+        result["instruction"] = (
+            f"MANDATORY: Present the code to the user and wait for them to "
+            f"confirm. Then run: gate-{gate_name}.py <project_dir> --verify <code>"
+        )
     if meta:
         result["meta"] = meta
 
