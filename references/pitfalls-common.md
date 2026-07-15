@@ -77,3 +77,11 @@ updated: 2026-06-23
 | 38 | gate-phase5 tasks.md 格式不匹配 | regex 期望独立行 `role:` 和 `skills:`（不带 ** 包裹）。用 **负责人角色**: 不匹配。每个 task 必须有 role:、skills:、验收标准: 三行 | High |
 | 39 | gate-phase6 tester-report 缺证据 | tester-report.md 不能只有断言（PASS），必须包含实际命令输出作为证据（test results/logs/code blocks） | High |
 | 40 | 跳过 Phase 1 五维度追问 | Phase 1 必须走完 5 维度框架（用户与场景/功能与流程/安全与威胁/合规与隐私/行业与技术），不能因为"需求明确"就跳过 | High |
+
+## 8. Superpowers 6.0 优化相关（3 条，2026-07-15 新增）
+
+| # | 陷阱 | 规则 | 严重度 |
+|---|------|------|--------|
+| 41 | 派 tester 前不生成 review package | Phase 6 协调者必须先运行 gen-review-package.sh，tester 只读 review-package.md | High |
+| 42 | 派 implementer 时传完整 tasks.md | 必须生成 task-N-brief.md，implementer 只读 brief 文件 | High |
+| 43 | tester 输出冗长 | tester-report 用简洁合同（双轴判定+证据+风险点），禁止完整审查报告 | Medium |

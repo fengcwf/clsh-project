@@ -2,7 +2,7 @@
 name: clsh-project
 aliases: [cp]
 description: "需求驱动的项目开发工作流 — 从需求澄清到设计文档到实现计划到执行。DO trigger: 用户说'我要做一个 XXX'、'/clsh-project'、'/cp'。Do NOT trigger: 简单查询、修 bug、已有明确方案的小改动。"
-version: 9.0.0
+version: 9.1.0
 author: clsh
 license: MIT
 platforms: [linux, macos, windows]
@@ -32,6 +32,11 @@ metadata:
 
 需求驱动项目开发工作流。Phase 0-8 顺序执行，每 Phase 有独立门禁。
 **核心理念：** 需求不能跳到编码 | 文档是锚点 | 分阶段审批 | 机械判断优先
+
+> **v9.1 Superpowers 6.0 优化**：
+> - P1: 预生成 Review Package（`gen-review-package.sh`）→ tester 不跑 git，-10% token
+> - P2: 简洁审查合同（tester-report 双轴判定+证据）→ -40% 输出
+> - P3: Task Brief 文件化（`task-N-brief.md`）→ 主会话 -30% 上下文
 
 ## 路径约定
 
