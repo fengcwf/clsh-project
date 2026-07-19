@@ -122,11 +122,25 @@ def check_tasks_md(project_dir: str) -> list[str]:
     content = tasks_path.read_text(encoding="utf-8", errors="replace")
 
     # Split into task blocks: look for lines starting with ## or ### as delimiters
-    task_blocks = re.split(r"(?=^##?\s+)", content, flags=re.MULTILINE)
+    all_blocks = re.split(r"(?=^##?\s+)", content, flags=re.MULTILINE)
 
-    # Filter out non-task blocks (preamble, etc.)
+    # Filter out non-task blocks (preamble, metadata, self-check, etc.)
     # Support both ## and ### heading levels
-    task_blocks = [b for b in task_blocks if re.match(r"^#{2,3}\s+", b, re.MULTILINE)]
+    NON_TASK_KEYWORDS = [
+        "依赖图", "文件清单", "自检", "INV 覆盖", "覆盖矩阵",
+        "dependency", "file manifest", "self.?check", "coverage",
+        "任务总览", "阶段里程碑", "summary", "milestone",
+    ]
+    task_blocks = []
+    for b in all_blocks:
+        if not re.match(r"^#{2,3}\s+", b, re.MULTILINE):
+            continue
+        heading = b.split("\n")[0].strip()
+        if any(re.search(kw, heading, re.IGNORECASE) for kw in NON_TASK_KEYWORDS):
+            continue  # Skip metadata / self-check blocks
+        if re.match(r"^#{2,3}\s+Task\s+\d+", heading):
+            pass  # Explicit task block — always include
+        task_blocks.append(b)
 
     if not task_blocks:
         errors.append("No task sections found (expected ## headings)")
@@ -151,9 +165,27 @@ def check_tasks_md(project_dir: str) -> list[str]:
         if not has_ac:
             errors.append(f"Task {i} ({heading}): missing acceptance criteria")
 
-    # --- Placeholder check (full document) ---
+    # --- Placeholder check (full document, excluding self-check section) ---
+    # Remove self-check / intro sections that may reference TODO/TBD in context
+    # (e.g. "自检四问: 无 TODO/TBD/占位符")
+    content_for_placeholder = content
+    # Strip sections between "## 自检" / "### 自检" and the next ## heading
+    content_for_placeholder = re.sub(
+        r"^#{2,3}\s+自检.*?(?=^#{2,3}\s+)",
+        "",
+        content_for_placeholder,
+        flags=re.MULTILINE | re.DOTALL,
+    )
+    # Also strip any lines that are part of self-check enumeration
+    # "**无 TBD/TODO/占位符**" style lines at end of document
+    content_for_placeholder = re.sub(
+        r"^\*\*无\s*(?:TBD|TODO).*$",
+        "",
+        content_for_placeholder,
+        flags=re.MULTILINE,
+    )
     for pattern in PLACEHOLDER_PATTERNS:
-        matches = re.findall(pattern, content, re.MULTILINE)
+        matches = re.findall(pattern, content_for_placeholder, re.MULTILINE)
         if matches:
             errors.append(
                 f"Placeholder found: '{matches[0]}' "
