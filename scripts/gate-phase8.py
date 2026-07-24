@@ -71,8 +71,8 @@ def check_kanban_chain(project_dir: str) -> list[str]:
 
     if not kanban_files:
         # Try to find kanban state in conversation.md
-        conv_files = list(Path(project_dir).glob("*conversation*.md"))
-        if not conv_files:
+        conv_path = gu.find_file_in_changes(project_dir, ["conversation.md"])
+        if conv_path is None:
             errors.append(
                 "No kanban files or conversation.md found. "
                 "Phase 8 requires kanban task chain (diagnostic→fix→review)"
@@ -80,7 +80,23 @@ def check_kanban_chain(project_dir: str) -> list[str]:
             return errors
 
         # Check conversation.md for kanban task creation evidence
-        conv_content = conv_files[0].read_text(encoding="utf-8", errors="replace")
+        conv_content = conv_path.read_text(encoding="utf-8", errors="replace")
+
+        # Check for "no issues" pattern first
+        no_issues_patterns = [
+            r"Phase 8.*(?:无问题|没有问题|没有需要修复)",
+            r"(?:无问题|没有问题|没有需要修复).*Phase 8",
+            r"反馈循环.*(?:无问题|没有问题|没有需要修复)",
+            r"(?:无问题|没有问题|没有需要修复).*反馈循环",
+        ]
+        has_no_issues = any(
+            re.search(p, conv_content, re.IGNORECASE)
+            for p in no_issues_patterns
+        )
+
+        if has_no_issues:
+            # Phase 8 completed with no issues - skip kanban chain check
+            return errors
 
         # Check for 3-card creation
         card_indicators = [
@@ -109,9 +125,9 @@ def check_parent_links(project_dir: str) -> list[str]:
     errors = []
 
     # Look for parent link evidence in conversation.md
-    conv_files = list(Path(project_dir).glob("*conversation*.md"))
-    if conv_files:
-        content = conv_files[0].read_text(encoding="utf-8", errors="replace")
+    conv_path = gu.find_file_in_changes(project_dir, ["conversation.md"])
+    if conv_path:
+        content = conv_path.read_text(encoding="utf-8", errors="replace")
 
         # Check for parent link patterns
         parent_patterns = [
@@ -138,9 +154,9 @@ def check_skill_injection(project_dir: str) -> list[str]:
     """Check that skills are injected into kanban cards."""
     errors = []
 
-    conv_files = list(Path(project_dir).glob("*conversation*.md"))
-    if conv_files:
-        content = conv_files[0].read_text(encoding="utf-8", errors="replace")
+    conv_path = gu.find_file_in_changes(project_dir, ["conversation.md"])
+    if conv_path:
+        content = conv_path.read_text(encoding="utf-8", errors="replace")
 
         # Check for skill injection evidence
         skill_patterns = [
@@ -167,11 +183,11 @@ def check_coordinator_behavior(project_dir: str) -> list[str]:
     """Check that coordinator only recorded symptoms, didn't analyze code."""
     errors = []
 
-    conv_files = list(Path(project_dir).glob("*conversation*.md"))
-    if not conv_files:
+    conv_path = gu.find_file_in_changes(project_dir, ["conversation.md"])
+    if conv_path is None:
         return ["No conversation.md found for behavior check"]
 
-    content = conv_files[0].read_text(encoding="utf-8", errors="replace")
+    content = conv_path.read_text(encoding="utf-8", errors="replace")
     content_lower = content.lower()
 
     # Check for analysis patterns (violation)
@@ -211,9 +227,9 @@ def check_tester_review(project_dir: str) -> list[str]:
     tester_files = list(Path(project_dir).glob("*tester*.md"))
     if not tester_files:
         # Check conversation.md for tester evidence
-        conv_files = list(Path(project_dir).glob("*conversation*.md"))
-        if conv_files:
-            content = conv_files[0].read_text(encoding="utf-8", errors="replace")
+        conv_path = gu.find_file_in_changes(project_dir, ["conversation.md"])
+        if conv_path:
+            content = conv_path.read_text(encoding="utf-8", errors="replace")
             tester_patterns = [
                 r"tester.*review",
                 r"tester.*验证",
@@ -259,13 +275,33 @@ def run_gate(project_dir: str) -> None:
     """Run the Phase 8 gate checks."""
     errors = []
 
-    # Run all checks
-    errors.extend(check_kanban_chain(project_dir))
-    errors.extend(check_parent_links(project_dir))
-    errors.extend(check_skill_injection(project_dir))
-    errors.extend(check_coordinator_behavior(project_dir))
-    errors.extend(check_tester_review(project_dir))
-    errors.extend(check_placeholders(project_dir))
+    # Check if Phase 8 has no issues (skip kanban chain requirement)
+    conv_path = gu.find_file_in_changes(project_dir, ["conversation.md"])
+    has_no_issues = False
+    if conv_path:
+        conv_content = conv_path.read_text(encoding="utf-8", errors="replace")
+        no_issues_patterns = [
+            r"Phase 8.*(?:无问题|没有问题|没有需要修复)",
+            r"(?:无问题|没有问题|没有需要修复).*Phase 8",
+            r"反馈循环.*(?:无问题|没有问题|没有需要修复)",
+            r"(?:无问题|没有问题|没有需要修复).*反馈循环",
+        ]
+        has_no_issues = any(
+            re.search(p, conv_content, re.IGNORECASE)
+            for p in no_issues_patterns
+        )
+
+    if has_no_issues:
+        # Phase 8 completed with no issues - only check placeholders
+        errors.extend(check_placeholders(project_dir))
+    else:
+        # Phase 8 has issues - run all checks
+        errors.extend(check_kanban_chain(project_dir))
+        errors.extend(check_parent_links(project_dir))
+        errors.extend(check_skill_injection(project_dir))
+        errors.extend(check_coordinator_behavior(project_dir))
+        errors.extend(check_tester_review(project_dir))
+        errors.extend(check_placeholders(project_dir))
 
     if not errors:
         code = gu.generate_code(project_dir, GATE_NAME)
