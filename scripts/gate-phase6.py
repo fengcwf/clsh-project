@@ -370,6 +370,38 @@ def check_tester_toolsets(project_dir: str) -> list[str]:
 
 
 # ---------------------------------------------------------------------------
+# Check 7: Ledger file (v9.2)
+# ---------------------------------------------------------------------------
+
+LEDGER_FILENAMES = ["ledger.md"]
+
+
+def check_ledger(project_dir: str) -> list[str]:
+    """Verify that ledger.md exists and has valid structure."""
+    errors = []
+
+    ledger_path = gu.find_file_in_changes(project_dir, LEDGER_FILENAMES)
+    if ledger_path is None:
+        errors.append(
+            "ledger.md not found — Phase 6 requires a progress ledger. "
+            "Create from templates/ledger-template.md. "
+            "See: https://github.com/obra/superpowers for rationale."
+        )
+        return errors
+
+    content = ledger_path.read_text(encoding="utf-8", errors="replace")
+
+    # Must have plan identity on first line
+    if not re.search(r"#\s+Ledger\s*—\s*plan:", content):
+        errors.append(
+            "ledger.md missing plan identity header. "
+            "First line must be: # Ledger — plan: <project_name>"
+        )
+
+    return errors
+
+
+# ---------------------------------------------------------------------------
 # Main gate logic
 # ---------------------------------------------------------------------------
 
@@ -394,6 +426,9 @@ def run_gate(project_dir: str) -> None:
 
     # Check 6: Tester toolset constraints
     all_errors.extend(check_tester_toolsets(project_dir))
+
+    # Check 7: Ledger file (v9.2)
+    all_errors.extend(check_ledger(project_dir))
 
     if not all_errors:
         code = gu.generate_code(project_dir, GATE_NAME)

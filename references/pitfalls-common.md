@@ -1,7 +1,7 @@
 # clsh-project 常见陷阱清单
 
-version: "1.3"
-updated: 2026-06-23
+version: "1.5"
+updated: 2026-08-07
 
 ## 1. 角色分离（5 条）
 
@@ -85,3 +85,23 @@ updated: 2026-06-23
 | 41 | 派 tester 前不生成 review package | Phase 6 协调者必须先运行 gen-review-package.sh，tester 只读 review-package.md | High |
 | 42 | 派 implementer 时传完整 tasks.md | 必须生成 task-N-brief.md，implementer 只读 brief 文件 | High |
 | 43 | tester 输出冗长 | tester-report 用简洁合同（双轴判定+证据+风险点），禁止完整审查报告 | Medium |
+
+## 9. MoA 优化相关（5 条，2026-08-07 新增）
+
+| # | 陷阱 | 规则 | 严重度 |
+|---|------|------|--------|
+| 44 | 跳过 ledger 创建 | Phase 6 开始时必须从 ledger-template.md 创建 ledger.md，gate-phase6 检查存在性 | Critical |
+| 45 | compaction 后不读 ledger | compaction 后必须 read_file ledger.md 恢复进度，禁止重新 dispatch 已完成任务 | Critical |
+| 46 | fix loop 无上限 | fix 循环最多 5 轮（R=1-5），R=5 必须 controller 裁决，禁止 R>5 继续派发 | Critical |
+| 47 | scoped re-review 扩大范围 | re-review 只检查原始 findings 是否解决，禁止审查未修改文件或提出新 findings | High |
+| 48 | re-review 发现当新 findings 处理 | re-review 中发现的未修改代码问题记录到 ledger，不进入当前 fix 循环 | Medium |
+
+## 10. Phase 8 Optimization Loop（5 条，2026-08-07 新增）
+
+| # | 陷阱 | 规则 | 严重度 |
+|---|------|------|--------|
+| 49 | Phase 8 ad-hoc 处理反馈 | 每次处理反馈必须声明 skill 锚定 + 查路由表，禁止直接修改 | Critical |
+| 50 | 主会话直接执行代码 | Phase 8 每个任务必须 delegate_task（fresh context），不允许在主会话执行 | Critical |
+| 51 | 一轮处理多个反馈 | One Thing Per Iteration——每轮只处理一个反馈（Ralph 铁律） | High |
+| 52 | 跳过 Gap Analysis | Phase 8 必须先 8a（只读分析）再 8b（实现），禁止直接进入实现 | High |
+| 53 | 超过 Circuit Breaker 阈值 | max_rounds=10, timeout=15min, stuck=3 轮。触发后必须停止并报告用户 | Critical |

@@ -2,7 +2,7 @@
 name: clsh-project
 aliases: [cp]
 description: "需求驱动的项目开发工作流 — 从需求澄清到设计文档到实现计划到执行。DO trigger: 用户说'我要做一个 XXX'、'/clsh-project'、'/cp'。Do NOT trigger: 简单查询、修 bug、已有明确方案的小改动。"
-version: 9.1.0
+version: 9.3.0
 author: clsh
 license: MIT
 platforms: [linux, macos, windows]
@@ -38,6 +38,19 @@ metadata:
 > - P2: 简洁审查合同（tester-report 双轴判定+证据）→ -40% 输出
 > - P3: Task Brief 文件化（`task-N-brief.md`）→ 主会话 -30% 上下文
 
+> **v9.2 MoA 优化**（Superpowers v6.2.0 对标）：
+> - P4: Ledger 进度追踪（`ledger.md`）→ 填补 compaction 信息丢失空白
+> - P5: Scoped Re-Review（`re-review-prompt.md`）→ 修复后范围审查，-50-70% token
+> - P6: 合理化表格（Excuse/Reality）→ 对撞式拦截，行为遵从率 +30%
+> - P7: Fix Loop 升级机制（R1-R5 circuit breaker）→ 防止无限循环
+
+> **v9.3 Phase 8 Optimization Loop**（Ralph Loop + Superpowers 对标）：
+> - P8: Fresh Context Per Iteration → 每个任务 delegate_task（子 agent 天然 fresh context）
+> - P9: One Thing Per Iteration → 每轮优化只处理一个反馈（Ralph 铁律）
+> - P10: Two-Phase → Gap Analysis（只读不改）→ Implementation（fresh context）
+> - P11: 全局 Circuit Breaker → max_rounds=10 + timeout=15min + stuck=3 轮
+> - P12: Skill Anchoring → 每次处理反馈时声明"我在使用 clsh-project 的优化循环"
+
 ## 路径约定
 
 > **模板**：Obsidian raw/ 单副本 + 绝对路径（旧版铁律）
@@ -58,8 +71,17 @@ metadata:
 
 ## 🛡️ Anti-Rationalization Guard
 
-> 合理化是 LLM 本能偏差。合理例外不存在。6 个 Red Flag（命令性语气）拦截跳步想法。
-> RF-6: 如果你发现自己在引用本 Guard 来确认跳步 → **你在合理化，立即停止。**
+> 合理化是 LLM 本能偏差。合理例外不存在。对撞式表格拦截跳步想法（Superpowers v6.2.0 实证：表格形式比 prose 段落行为遵从率高 30%）。
+> 如果你发现自己在引用本表格来确认跳步 → **你在合理化，立即停止。**
+
+| 你的想法 | 真相 |
+|----------|------|
+| "这只是一个简单问题，先做再说" | 问题是任务，先查 skill |
+| "我先需要更多上下文" | skill 检查在澄清之前 |
+| "让我先看看代码库" | skill 告诉你怎么看 |
+| "我记得这个 skill" | skill 会演进，读最新版 |
+| "这不需要正式流程" | 大佬说"简单做一下"才跳流程 |
+| "我在用这个表格确认我的做法" | 你在合理化，立即停止 |
 
 ## ⛔ Iron Laws
 
@@ -102,7 +124,7 @@ python3 scripts/gate-workflow.py <项目目录>
 | 5 | tasks.md | gate-phase5.py | `phase5-plan.md` |
 | 6 | 任务执行 + tester 验证 | gate-phase6.py | `phase6-execute.md` |
 | 7 | completion + retrospective + handoff | gate-phase7.py | `phase7-archive.md` |
-| 8 | 反馈循环 | gate-phase8.py | `phase8-feedback.md` |
+| 8 | 优化循环（Fresh Context + One Thing + Circuit Breaker） | gate-phase8.py | `phase8-optimization-loop.md` |
 
 **⛔ Phase 加载规则（L6 强制）：**
 执行任何 Phase 前，必须先加载对应指令：
