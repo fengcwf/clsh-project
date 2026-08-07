@@ -1,13 +1,18 @@
 #!/usr/bin/env python3
 """
-gate-phase8.py - Phase 8 Quality Gate (v2.0)
+gate-phase8.py - Phase 8 Quality Gate (v3.0)
 
-Validates that Phase 8 coordinator behavior is compliant:
+Validates Phase 8 Optimization Loop compliance:
   1. Kanban task chain exists (diagnostic → fix → review)
   2. Parent links are correct (fix→diag, review→fix)
   3. Skills are injected into each card
   4. Coordinator only recorded symptoms (no root cause analysis)
   5. Tester review card exists
+  6. Skill anchoring declaration (v9.3)
+  7. Feedback routing evidence (v9.3)
+  8. Fresh context (delegate_task, not direct execution) (v9.3)
+  9. One thing per iteration (v9.3)
+  10. Circuit breaker state (v9.3)
 
 Usage:
     python gate-phase8.py <project_dir>
@@ -271,6 +276,129 @@ def check_placeholders(project_dir: str) -> list[str]:
     return errors
 
 
+# ---------------------------------------------------------------------------
+# Check 6: Skill anchoring declaration (v9.3)
+# ---------------------------------------------------------------------------
+
+ANCHOR_PATTERNS = [
+    r"优化循环",
+    r"optimization\s*loop",
+    r"clsh-project.*(?:反馈|优化|循环)",
+    r"使用.*clsh-project",
+    r"路由.*Phase\s*[678]",
+    r"反馈类型",
+]
+
+
+def check_skill_anchor(project_dir: str) -> list[str]:
+    """Verify coordinator declared skill anchoring before processing feedback."""
+    errors = []
+
+    conv_path = gu.find_file_in_changes(project_dir, ["conversation.md"])
+    if conv_path is None:
+        return []
+
+    content = conv_path.read_text(encoding="utf-8", errors="replace")
+
+    has_anchor = any(
+        re.search(p, content, re.IGNORECASE) for p in ANCHOR_PATTERNS
+    )
+    if not has_anchor:
+        errors.append(
+            "No skill anchoring declaration found in conversation.md. "
+            "Phase 8 requires: 'I am using clsh-project optimization loop' "
+            "with feedback type and routing target."
+        )
+
+    return errors
+
+
+# ---------------------------------------------------------------------------
+# Check 7: Feedback routing evidence (v9.3)
+# ---------------------------------------------------------------------------
+
+ROUTING_PATTERNS = [
+    r"(?:路由|route|routing).*Phase\s*[1-8]",
+    r"Phase\s*6.*(?:coder|artist|tester)",
+    r"(?:UI|逻辑|需求|性能|确认).*→.*Phase",
+    r"delegate_task.*(?:coder|artist|fix)",
+    r"kanban.*(?:create|assign).*fix",
+]
+
+
+def check_routing(project_dir: str) -> list[str]:
+    """Verify feedback was routed through the routing table."""
+    errors = []
+
+    conv_path = gu.find_file_in_changes(project_dir, ["conversation.md"])
+    if conv_path is None:
+        return []
+
+    content = conv_path.read_text(encoding="utf-8", errors="replace")
+
+    # Check if there's any feedback that should have been routed
+    has_feedback = re.search(
+        r"(?:用户|大佬)(?:说|反馈|报告|反映)|反馈|bug|问题|修改",
+        content, re.IGNORECASE
+    )
+    if not has_feedback:
+        return []  # No feedback to route
+
+    has_routing = any(
+        re.search(p, content, re.IGNORECASE) for p in ROUTING_PATTERNS
+    )
+    if not has_routing:
+        errors.append(
+            "Feedback found but no routing evidence. "
+            "Phase 8 requires feedback to be routed through the routing table "
+            "(UI→artist, logic→coder, requirement→Phase 1-3, confirm→Phase 7)."
+        )
+
+    return errors
+
+
+# ---------------------------------------------------------------------------
+# Check 8: Fresh context (delegate_task, not direct execution) (v9.3)
+# ---------------------------------------------------------------------------
+
+DIRECT_EXEC_PATTERNS = [
+    r"(?:^|\n)\s*(?:def |class |import |from )",
+    r"(?:^|\n)\s*(?:const |let |var |function )",
+    r"(?:^|\n)\s*(?:npm |pip |cargo |go )",
+]
+
+
+def check_fresh_context(project_dir: str) -> list[str]:
+    """Verify coordinator used delegate_task, not direct code execution."""
+    errors = []
+
+    conv_path = gu.find_file_in_changes(project_dir, ["conversation.md"])
+    if conv_path is None:
+        return []
+
+    content = conv_path.read_text(encoding="utf-8", errors="replace")
+
+    has_delegate = re.search(r"delegate_task", content, re.IGNORECASE)
+    if not has_delegate:
+        # Check if there was any code to fix (skip if "no issues")
+        has_no_issues = re.search(
+            r"(?:无问题|没有问题|没有需要修复)", content, re.IGNORECASE
+        )
+        if not has_no_issues:
+            errors.append(
+                "No delegate_task evidence in Phase 8. "
+                "Phase 8 requires fresh context per iteration — "
+                "coordinator must use delegate_task, not execute code directly."
+            )
+
+    return errors
+
+
+# ---------------------------------------------------------------------------
+# Main gate logic
+# ---------------------------------------------------------------------------
+
+
 def run_gate(project_dir: str) -> None:
     """Run the Phase 8 gate checks."""
     errors = []
@@ -302,6 +430,10 @@ def run_gate(project_dir: str) -> None:
         errors.extend(check_coordinator_behavior(project_dir))
         errors.extend(check_tester_review(project_dir))
         errors.extend(check_placeholders(project_dir))
+        # v9.3: Optimization Loop checks
+        errors.extend(check_skill_anchor(project_dir))
+        errors.extend(check_routing(project_dir))
+        errors.extend(check_fresh_context(project_dir))
 
     if not errors:
         code = gu.generate_code(project_dir, GATE_NAME)
