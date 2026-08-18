@@ -231,6 +231,29 @@ def write_pending(phase: str, project_dir: str, code: str,
     return pending_path
 
 
+def write_user_confirmed(phase: str, project_dir: str) -> Path:
+    """Write a .user-confirmed marker file.
+
+    This file signals that the user has seen and confirmed the phase's code.
+    Gate Enforcer L9 checks for this file before allowing --verify to run.
+    The file is consumed (deleted) by L9 on successful check.
+
+    Call this after the user explicitly confirms the code (not just "继续").
+    """
+    gate_dir = get_gate_dir()
+    slug = _get_slug(project_dir)
+    marker_dir = gate_dir / slug
+    marker_dir.mkdir(parents=True, exist_ok=True)
+
+    confirm_path = marker_dir / f"{phase}.user-confirmed"
+    confirm_path.write_text(json.dumps({
+        "phase": phase,
+        "project_dir": project_dir,
+        "timestamp": datetime.now(timezone.utc).isoformat(),
+    }) + "\n")
+    return confirm_path
+
+
 def verify_and_write_marker(phase: str, project_dir: str,
                             user_code: str) -> tuple[bool, str, Path | None]:
     """Verify user-provided code against .pending file, then write marker.

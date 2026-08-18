@@ -139,6 +139,28 @@ def check_exploration_evidence(project_dir: str) -> list[str]:
     return errors
 
 
+def check_round_count(project_dir: str) -> list[str]:
+    """Check that conversation.md has >= 5 rounds of discussion."""
+    errors = []
+
+    conv_path = gu.find_file_in_changes(project_dir, ["conversation.md"])
+    if conv_path is None:
+        return []
+
+    content = conv_path.read_text(encoding="utf-8", errors="replace")
+
+    # Count rounds: lines matching "## Round N" pattern
+    round_count = len(re.findall(r"##\s+Round\s+\d+", content, re.IGNORECASE))
+    if round_count < 5:
+        errors.append(
+            f"conversation.md has only {round_count} rounds (need >= 5). "
+            "Phase 1 requires sufficient discussion rounds before proceeding. "
+            "Continue asking questions from different angles."
+        )
+
+    return errors
+
+
 def run_gate(project_dir: str) -> None:
     """Run the Phase 1 gate checks."""
     errors = []
@@ -154,6 +176,9 @@ def run_gate(project_dir: str) -> None:
 
     # Check exploration evidence
     errors.extend(check_exploration_evidence(project_dir))
+
+    # Check round count (>= 5 rounds)
+    errors.extend(check_round_count(project_dir))
 
     if not errors:
         code = gu.generate_code(project_dir, GATE_NAME)
