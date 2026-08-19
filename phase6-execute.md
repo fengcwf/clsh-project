@@ -19,7 +19,9 @@ output_files: ["tester-report.md", "ledger.md"]
 
 1. **dispatch 方式**：conversation.md 必须记录派发证据（`delegate_task` 调用 或 `kanban create`）
 2. **skill 注入**：派发时必须注入 skills（coder→TDD+incremental, artist→frontend, tester→review+debug）
-3. **Level 适配**：Level A 用 kanban/delegate_task，Level B 用 delegate_task，Level C 降级为 WARN
+3. **Level 适配**：Level A 用 kanban（首选）或 delegate_task，Level B 用 delegate_task，Level C 降级为 WARN
+   - ⚠️ **L4 拦截降级**：delegate_task 被 gate-enforcer L4 拦截时（缺少 toolsets），必须改用 `hermes kanban create` 派活，不得自己写代码（IL-3）
+4. **kanban 通知订阅**：kanban create 后必须调用 `hermes kanban notify-subscribe <task_id> --platform desktop --chat-id default --delivery-mode notify+wake`，确保任务完成通知回到当前会话
 4. **tester 独立验证**：tester-report.md 必须存在且含 PASS/FAIL + 证据
 
 ---
