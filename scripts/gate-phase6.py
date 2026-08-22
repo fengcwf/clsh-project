@@ -8,6 +8,7 @@ Validates:
   3. Level awareness — check dispatch method matches env Level (A/B/C)
   4. Tester report — must exist with PASS/FAIL judgment and evidence
   5. Entry pre-check — tasks.md must exist with role annotations (from Phase 5)
+  6. notify+wake subscription — kanban tasks must have notify+wake subscription
 
 Usage:
     python gate-phase6.py <project_dir>
@@ -36,6 +37,14 @@ DISPATCH_PATTERNS = [
     r"任务派发",
     r"已派发",
     r"已分配给",
+]
+
+NOTIFY_WAKE_PATTERNS = [
+    r"notify.*wake",
+    r"notify\+wake",
+    r"delivery.mode.*notify\+wake",
+    r"notify-subscribe.*notify\+wake",
+    r"notify-subscribe.*--delivery-mode",
 ]
 
 SKILL_INJECTION_PATTERNS = [
@@ -369,6 +378,37 @@ def check_tester_toolsets(project_dir: str) -> list[str]:
     return errors
 
 
+def check_notify_wake(project_dir: str) -> list[str]:
+    """Verify that kanban tasks have notify+wake subscription."""
+    errors = []
+
+    conv_path = gu.find_file_in_changes(project_dir, ["conversation.md"])
+    if conv_path is None:
+        return []
+
+    content = conv_path.read_text(encoding="utf-8", errors="replace")
+
+    # Only check if kanban was used (not delegate_task)
+    has_kanban = any(
+        re.search(p, content, re.IGNORECASE) for p in LEVEL_A_KEYWORDS
+    )
+    if not has_kanban:
+        return []  # delegate_task doesn't need notify+wake
+
+    has_notify_wake = any(
+        re.search(p, content, re.IGNORECASE) for p in NOTIFY_WAKE_PATTERNS
+    )
+    if not has_notify_wake:
+        errors.append(
+            "kanban task missing notify+wake subscription — "
+            "after kanban_create, must call: "
+            "hermes kanban notify-subscribe <task_id> --delivery-mode notify+wake. "
+            "This ensures the main LLM is automatically woken when the task completes."
+        )
+
+    return errors
+
+
 # ---------------------------------------------------------------------------
 # Check 7: Ledger file (v9.2)
 # ---------------------------------------------------------------------------
@@ -429,6 +469,9 @@ def run_gate(project_dir: str) -> None:
 
     # Check 7: Ledger file (v9.2)
     all_errors.extend(check_ledger(project_dir))
+
+    # Check 8: notify+wake subscription (for kanban tasks)
+    all_errors.extend(check_notify_wake(project_dir))
 
     if not all_errors:
         code = gu.generate_code(project_dir, GATE_NAME)
