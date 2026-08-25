@@ -11,7 +11,7 @@ metadata:
     tags: [workflow, project, spec-driven, planning, methodology]
     pinned: true
     related_skills:
-      - kanban-orchestrator
+      - kanban-worker
       - plan
       - test-driven-development
       - incremental-implementation
