@@ -159,9 +159,17 @@ compaction 后，协调者必须：
 
 ## 子 agent toolsets 要求
 
-- coder: `['terminal', 'file', 'code_execution', 'skills', 'todo']`
-- tester: `['file', 'browser', 'vision', 'web', 'skills', 'todo']`（**无 terminal**）
-- artist: `['browser', 'vision', 'file', 'image_gen', 'skills', 'todo']`
+> 所有 profile 已配置 `browser.backend: browser-use`（Playwright 模式），无需单独启用 `web` toolset。
+> 所有使用 `coding` 的 profile 已配置 `agent.coding_context: focus`（自动剥离非编码工具）。
+> `coding` 工具集（focus 模式）包含：terminal、file、code_execution、vision、browser、web（search/extract）、skills、todo、memory、session_search、clarify、delegate。
+> focus 模式自动剥离：image_gen、tts、cronjob、kanban、computer_use、homeassistant。
+
+- coder: `['coding']` — 全套编码工具
+- tester: `['file', 'browser', 'vision', 'skills', 'todo', 'code_execution', 'memory', 'session_search', 'clarify']`（**无 terminal，防止修改代码**）
+- artist: `['coding', 'image_gen']` — 编码工具 + 图片生成
+- scout: `['coding', 'memory', 'session_search']` — 调研 + 记忆
+- reviewer: `['coding', 'memory', 'session_search']` — 审查 + 记忆
+- worker: `['coding']` — 通用编码工具
 
 ## 子 agent 派发模板路径
 
