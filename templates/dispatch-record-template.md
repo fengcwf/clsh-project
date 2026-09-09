@@ -21,7 +21,7 @@
 
 - **角色**: coder / artist / tester
 - **派发方式**: `delegate_task(...)` / `kanban create ...`
-- **toolsets**: `['browser', 'vision', 'file', 'skills']`
+- **toolsets**: `['coding']`
 - **注入 skills**: test-driven-development, incremental-implementation
 - **派发时间**: [HH:MM]
 - **完成时间**: [HH:MM]
@@ -49,11 +49,12 @@
 
 | 任务 | 角色 | toolsets | 含 terminal? |
 |------|------|----------|-------------|
-| Task 1 | coder | terminal, file, skills | ✅ 允许 |
-| Task 2 | artist | browser, vision, file, skills | ❌ 不含 |
-| Task 3 | tester | browser, vision, file, skills | ❌ 不含 |
+| Task 1 | coder | `['coding']` | ✅ 允许 |
+| Task 2 | artist | `['coding', 'image_gen']` | ✅ 允许 |
+| Task 3 | tester | `['file', 'browser', 'vision', 'skills', 'todo', 'code_execution', 'memory', 'session_search', 'clarify']` | ❌ 不含 |
 
-> ⚠️ tester 和 artist 的 toolsets 不得包含 terminal（防止 curl 绕过测试约束）
+> ⚠️ tester 的 toolsets 不得包含 terminal（防止修改代码）。coder/artist/reviewer 使用 `coding` 工具集。
+> 所有 profile 已配置 `browser.backend: browser-use`（Playwright 模式）+ `agent.coding_context: focus`（自动剥离非编码工具）。
 
 ---
 
