@@ -46,9 +46,8 @@ python3 /root/.hermes/scripts/save-main-session-id.py
   ↓
 保存主 session ID（save-main-session-id.py）
   ↓
-创建 project + board（如果不存在）：
-  hermes project create "<项目名>" --slug <slug> --primary <项目目录> --board <slug> --use
-  hermes kanban boards switch <slug>
+读取 .cp-init.json（基础设施已在 init 阶段创建并验证，Phase 6 不再创建）
+  hermes kanban boards switch <board>   # board 名来自 .cp-init.json
   ↓
 创建 ledger.md（从模板初始化）
   ↓
