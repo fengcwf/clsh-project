@@ -1,29 +1,25 @@
-# mimo-clsh-project
+﻿# clsh-project-mimo
 
-This is the mimocode-adapted version of the spec-driven-project skill.
+MiMo Desktop 适配的 CLSH spec-driven project skill。
 
-## Overview
+## 内容
 
-This branch (`mimo-clsh-project`) contains the spec-driven-project skill specifically adapted for use with mimocode. It includes optimizations and customizations to better integrate with the mimocode environment.
+同步自本地 `~/.claude/skills/clsh-project-mimo`（分支 `mimo-clsh-project`）。
 
-## Usage
+| 目录 | 说明 |
+|------|------|
+| `SKILL.md` | 主技能入口与触发描述 |
+| `agents/` | scout / coder / reviewer / tester / artist |
+| `scripts/` | 环境检查、阶段门禁、角色引导 |
+| `references/` | 阶段、管线、坑位、wiki 检索 |
+| `templates/` | constitution / plan / tasks / reports 等模板 |
+| `workflows/` | 任务管线 |
+| `locales/` | 中英文展示名 |
 
-Refer to the `SKILL.md` file for detailed instructions on how to use this skill.
+## 使用
 
-## Differences from Original
+复制到 MiMoCode skill 根后，在新会话中触发 CLSH 相关任务。
 
-- Adapted for mimocode compatibility
-- Optimized for mimocode workflows
-- May include additional features or modifications specific to mimocode
+## 同步
 
-## License
-
-Same as the original spec-driven-project skill (see LICENSE file).
-
-## 测试同步
-
-此行为测试同步脚本而添加。
-
-测试同步脚本 v2。
-
-测试迁移后同步。
+由 MiMo Desktop 会话自动同步；请勿在未备份时对本分支 force-push。
