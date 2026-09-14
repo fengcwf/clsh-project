@@ -2,7 +2,7 @@
 name: clsh-project
 aliases: [cp]
 description: "需求驱动的项目开发工作流 — 从需求澄清到设计文档到实现计划到执行。DO trigger: 用户说'我要做一个 XXX'、'/clsh-project'、'/cp'。Do NOT trigger: 简单查询、修 bug、已有明确方案的小改动。"
-version: 9.3.0
+version: 9.4.0
 author: clsh
 license: MIT
 platforms: [linux, macos, windows]
@@ -50,6 +50,12 @@ metadata:
 > - P10: Two-Phase → Gap Analysis（只读不改）→ Implementation（fresh context）
 > - P11: 全局 Circuit Breaker → max_rounds=10 + timeout=15min + stuck=3 轮
 > - P12: Skill Anchoring → 每次处理反馈时声明"我在使用 clsh-project 的优化循环"
+
+> **v9.4 项目基础设施初始化（Init）**：
+> - I1: Init 前置门禁 → Phase 0 前必须完成目录确认 + project/board/项目 bot 创建，gate-init.py 机械验证
+> - I2: 目录每次与用户确认（IL-INIT-1）→ 禁止静默使用默认目录
+> - I3: 项目专用 bot（5 角色，从 artist/coder/scout/tester/reviewer 克隆）→ kanban 派活禁用全局 profile
+> - I4: Phase 6 不再创建 project/board → 基础设施只在 init 创建一次
 
 ## 路径约定
 
@@ -104,11 +110,13 @@ metadata:
 python3 scripts/gate-workflow.py <项目目录>
 ```
 
+- `status: "blocked"` + `current_phase: "init"` → 项目未初始化，加载 `init-project.md` 执行初始化
+  （⛔ 目录必须每次与用户确认；gate-init.py 验证 + 用户确认码通过后才能进 Phase 0）
 - `status: "continue"` + `current_phase: N` → 执行 Phase N
-- `status: "blocked"` → 被拦截，回到正确 Phase
+- `status: "blocked"`（其他） → 被拦截，回到正确 Phase
 - `status: "complete"` → 进入 Phase 8 或结束
 
-**⛔ 禁止：** 不跑脚本直接写码 | 忽略 current_phase | 在脚本前做实际工作
+**⛔ 禁止：** 不跑脚本直接写码 | 忽略 current_phase | 在脚本前做实际工作 | 跳过 init 直接进 Phase 0
 
 ---
 
@@ -116,6 +124,7 @@ python3 scripts/gate-workflow.py <项目目录>
 
 | Phase | 核心产出 | Gate 脚本 | 详细指令 |
 |-------|---------|-----------|---------|
+| init | .cp-init.json（目录确认 + project/board/5 bot） | gate-init.py | `init-project.md` |
 | 0 | phase0-data.json + phase0-research.md | gate-phase0.py | `phase0-research.md` |
 | 1 | PRODUCT.md + conversation.md | gate-phase1.py | `phase1-exploration.md` |
 | 2 | TECH.md | gate-phase2.py | `phase2-spec.md` |

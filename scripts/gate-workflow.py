@@ -89,12 +89,43 @@ PHASES = {
 }
 
 
+GATE_SCRIPTS_DIR = Path(__file__).resolve().parent
+
+
 def find_project_dir(raw_path: str) -> Path | None:
     """Resolve project directory. Returns None if invalid."""
     p = Path(raw_path).expanduser().resolve()
     if p.is_dir():
         return p
     return None
+
+
+def is_initialized(project_path: Path) -> bool:
+    """Check if project infrastructure init was completed.
+
+    Source of truth: <project_dir>/.cp-init.json (written by init-project.md
+    flow, validated by gate-init.py).
+    """
+    return (project_path / ".cp-init.json").is_file()
+
+
+def build_init_action(project_dir: str) -> dict:
+    """Build the action instruction for project infrastructure init (Step -1)."""
+    return {
+        "phase": "init",
+        "phase_name": "项目基础设施初始化",
+        "step": "目录确认 + project/board/bot 创建（Phase 0 前置）",
+        "instructions": [
+            "1. 加载初始化指令: skill_view('clsh-project', file_path='init-project.md')",
+            "2. 按 init-project.md 步骤执行 — ⛔ 项目目录必须每次与用户确认",
+            f"3. 完成后运行: python3 {GATE_SCRIPTS_DIR}/gate-init.py {project_dir}",
+            "4. PASS 后向用户展示确认码，用户确认后运行: "
+            f"python3 {GATE_SCRIPTS_DIR}/gate-init.py {project_dir} --verify <CODE>",
+            "5. 验证通过后重新运行 gate-workflow.py 进入 Phase 0",
+        ],
+        "gate_exit": "gate-init.py",
+        "blocked_reason": "项目基础设施未初始化（.cp-init.json 缺失），不得直接进入 Phase 0",
+    }
 
 
 def get_completed_phases(project_dir: str) -> dict[int, dict]:
@@ -259,21 +290,33 @@ def main():
     project_dir = find_project_dir(raw_path)
 
     if project_dir is None:
-        # Project doesn't exist yet — this is a new project
-        # Phase 0 can start immediately
+        # Project doesn't exist yet — infrastructure init required first
         print(json.dumps({
-            "status": "continue",
-            "current_phase": 0,
+            "status": "blocked",
+            "current_phase": "init",
             "project_dir": raw_path,
             "project_exists": False,
-            "action": build_action(0, raw_path),
-            "message": f"新项目: {raw_path}。从 Phase 0 开始。",
+            "action": build_init_action(raw_path),
+            "message": f"新项目: {raw_path}。⛔ 必须先完成项目基础设施初始化（目录确认 + project/board/bot），"
+                       "gate-init.py 验证通过后才能进入 Phase 0。",
         }, ensure_ascii=False, indent=2))
-        sys.exit(0)
+        sys.exit(1)
 
     project_dir_str = str(project_dir)
     completed = get_completed_phases(project_dir_str)
     next_phase = determine_next_phase(completed)
+
+    # Init gate: Phase 0 requires verified project infrastructure
+    if next_phase == 0 and not is_initialized(project_dir):
+        print(json.dumps({
+            "status": "blocked",
+            "current_phase": "init",
+            "project_dir": project_dir_str,
+            "action": build_init_action(project_dir_str),
+            "message": "⛔ 项目基础设施未初始化（.cp-init.json 缺失）。"
+                       "先完成 init（每次与用户确认目录），gate-init.py 验证通过后进入 Phase 0。",
+        }, ensure_ascii=False, indent=2))
+        sys.exit(1)
 
     # Write workflow-initialized marker (gate-enforcer checks this)
     try:

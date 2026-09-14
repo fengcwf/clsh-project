@@ -51,6 +51,34 @@ QUESTION_DIMENSIONS = {
 }
 
 
+def check_init_manifest(project_dir: str) -> list[str]:
+    """Check that project infrastructure init (.cp-init.json) was completed."""
+    errors = []
+    manifest_path = Path(project_dir) / ".cp-init.json"
+    if not manifest_path.is_file():
+        errors.append(
+            ".cp-init.json NOT FOUND — project infrastructure not initialized. "
+            "Run init-project.md flow first (confirm directory with user, "
+            "create project/board/bots), then gate-init.py --verify. "
+            "Phase 0 is blocked until init passes."
+        )
+        return errors
+
+    try:
+        data = json.loads(manifest_path.read_text(encoding="utf-8"))
+    except (json.JSONDecodeError, OSError) as e:
+        errors.append(f".cp-init.json parse error: {e}")
+        return errors
+
+    if data.get("user_confirmed") is not True:
+        errors.append(".cp-init.json: user_confirmed must be true "
+                      "(directory confirmed with user, IL-INIT-1)")
+    for role in ["artist", "coder", "scout", "tester", "reviewer"]:
+        if not data.get("bots", {}).get(role):
+            errors.append(f".cp-init.json: bots.{role} missing")
+    return errors
+
+
 def check_phase0_data(project_dir: str) -> list[str]:
     """Check that phase0-data.json exists and has valid structure."""
     errors = []
@@ -179,6 +207,9 @@ def check_question_list(project_dir: str) -> list[str]:
 def run_gate(project_dir: str) -> None:
     """Run Phase 0 gate checks."""
     all_errors = []
+
+    # Check 0: project infrastructure init (gate-init.py must have passed)
+    all_errors.extend(check_init_manifest(project_dir))
 
     all_errors.extend(check_phase0_data(project_dir))
     all_errors.extend(check_phase0_research(project_dir))
