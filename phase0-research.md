@@ -19,6 +19,8 @@ python3 scripts/phase0-scan.py <项目目录>
 
 输出 `phase0-data.json`（项目结构/技术栈/Obsidian 匹配/历史教训），**LLM 不参与此步骤**。
 
+**📁 文档布局规则（强制）：** `phase0-scan.py` 会创建 `changes/<YYYYMMDD>-phase0/` 目录。**所有 Phase 0-6 的文档产出物（conversation.md、phase0-research.md、PRODUCT.md、TECH.md、constitution.md、proposal.md、tasks.md、tester-report.md、ledger.md）必须写入该目录，与 phase0-data.json 同级。** 禁止写到项目根目录（pitfalls #37）。归档文档除外——Phase 7 写入 `changes/archive/`。
+
 ### Step 1: LLM 分析 + 结构化问题清单（基于 JSON 数据）
 
 读取 `phase0-data.json` → 分析信息缺口 → 写 `phase0-research.md`。

@@ -54,9 +54,12 @@ ROLE_ANNOTATION_PATTERNS = [
     r"(?:AI|human|agent)\s+task",
 ]
 
-ACCEPTANCE_CRITERIA_PATTERNS = [
-    r"(?:acceptance|criteria|done|verif|验收|pass\s*:=)",
-    r"(?:AC|Given|When|Then)\b",
+ACCEPTANCE_FIELD_PATTERNS = [
+    # W1: template mandates '**验收标准**:' per task (templates/tasks-template.md).
+    # The shorthand '验收' is tolerated, but if BOTH are missing the task FAILs —
+    # English-only substitutes (acceptance/criteria/Given-When-Then) no longer pass.
+    r"验收标准",
+    r"验收",
 ]
 
 
@@ -161,9 +164,12 @@ def check_tasks_md(project_dir: str) -> list[str]:
             errors.append(f"Task {i} ({heading}): missing role/owner annotation")
 
         # Acceptance criteria check
-        has_ac = any(re.search(p, block, re.IGNORECASE) for p in ACCEPTANCE_CRITERIA_PATTERNS)
+        has_ac = any(re.search(p, block) for p in ACCEPTANCE_FIELD_PATTERNS)
         if not has_ac:
-            errors.append(f"Task {i} ({heading}): missing acceptance criteria")
+            errors.append(
+                f"Task {i} ({heading}): missing acceptance criteria field "
+                f"(expected '验收标准' or '验收')"
+            )
 
     # --- Placeholder check (full document, excluding self-check section) ---
     # Remove self-check / intro sections that may reference TODO/TBD in context

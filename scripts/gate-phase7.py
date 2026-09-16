@@ -12,6 +12,9 @@ Checks performed:
   3. Each dimension must have substantive content (not just a heading)
   4. Report must contain an overall assessment
   5. Report must have minimum content length
+  6. overview.md must contain '状态' and '进度表' sections (W2)
+  7. retrospective.md '教训' section must have substantive content
+     (>= 2 non-blank lines inside the section, heading alone = FAIL) (W6)
 
 Usage:
     python gate-phase7.py <project_dir>
@@ -69,6 +72,13 @@ EXPECTED_DIMENSIONS = [
 
 MIN_DIMENSIONS = 5
 MIN_NONBLANK_LINES = 15
+
+# W2: overview.md must track project state and progress (templates/overview-template.md)
+OVERVIEW_REQUIRED_KEYWORDS = ["状态", "进度表"]
+
+# W6: retrospective.md 教训 section depth
+RETRO_LESSON_HEADING = re.compile(r"^#{1,6}\s*.*(?:教训|lessons?)", re.IGNORECASE)
+RETRO_LESSON_MIN_LINES = 2
 
 
 def check_review_report(project_dir: str) -> list[str]:
@@ -202,6 +212,74 @@ def check_archive_docs(project_dir: str) -> list[str]:
                 f"{filename}: missing expected content keywords"
             )
 
+        # W6: 教训 section must have substantive content, not just a heading
+        if filename == "retrospective.md":
+            lesson_lines = _section_nonblank_lines(content, RETRO_LESSON_HEADING)
+            if lesson_lines is None:
+                errors.append(
+                    "retrospective.md: missing 教训/lessons section"
+                )
+            elif lesson_lines < RETRO_LESSON_MIN_LINES:
+                errors.append(
+                    f"retrospective.md: 教训 section lacks substantive content "
+                    f"({lesson_lines} non-blank line(s), "
+                    f"minimum {RETRO_LESSON_MIN_LINES})"
+                )
+
+    return errors
+
+
+def _section_nonblank_lines(content: str,
+                            heading_pattern: re.Pattern) -> int | None:
+    """Count non-blank body lines under the first heading matching pattern.
+
+    Returns None if no matching heading exists. The section ends at the next
+    heading of the same or higher level (fewer/equal '#'), or EOF.
+    """
+    lines = content.splitlines()
+    start = None
+    level = 0
+    for idx, line in enumerate(lines):
+        m = re.match(r"^(#{1,6})\s+", line)
+        if m and heading_pattern.search(line):
+            start = idx + 1
+            level = len(m.group(1))
+            break
+    if start is None:
+        return None
+    count = 0
+    for line in lines[start:]:
+        m = re.match(r"^(#{1,6})\s+", line)
+        if m and len(m.group(1)) <= level:
+            break
+        if line.strip():
+            count += 1
+    return count
+
+
+def check_overview_doc(project_dir: str) -> list[str]:
+    """W2: overview.md must contain 状态 and 进度表 sections.
+
+    The overview is the one-page project summary; by template it must track
+    current status ('状态') and a progress table ('进度表'). A project whose
+    overview drifts out of date is exactly what the drift detector later
+    reports as archive_hollow, so the gate blocks it here.
+
+    Returns a list of error strings (empty = pass).
+    """
+    errors = []
+    fpath = gu.find_file_in_changes(project_dir, ["overview.md"])
+    if fpath is None:
+        errors.append("Missing file: overview.md")
+        return errors
+
+    content = fpath.read_text(encoding="utf-8", errors="replace")
+    for keyword in OVERVIEW_REQUIRED_KEYWORDS:
+        if keyword not in content:
+            errors.append(
+                f"overview.md: missing required section '{keyword}' "
+                f"(overview must contain both '状态' and '进度表')"
+            )
     return errors
 
 
@@ -209,6 +287,7 @@ def run_gate(project_dir: str) -> None:
     """Run the Phase 7 gate checks."""
     errors = check_review_report(project_dir)
     errors.extend(check_archive_docs(project_dir))
+    errors.extend(check_overview_doc(project_dir))
 
     if not errors:
         code = gu.generate_code(project_dir, GATE_NAME)

@@ -15,8 +15,8 @@ output_files: ["completion-summary.md", "retrospective.md", "handoff.md"]
 
 生成三份归档文档，归档到 changes/archive/：
 
-1. `changes/archive/completion-summary.md` — 项目完成总结
-2. `changes/archive/retrospective.md` — 复盘报告
+1. `changes/archive/completion-summary.md` — 项目完成总结（必须含：目标、结果、限制）
+2. `changes/archive/retrospective.md` — 复盘报告（必须含：教训、改进、角色分离执行情况——是否遵守协调者/执行者分工，违规要记录）
 3. `changes/archive/handoff.md` — 交接文档
 
 📋 `/mnt/unraid_data/Obsidian/raw/projects/clsh-project/references/templates/overview-template.md`
