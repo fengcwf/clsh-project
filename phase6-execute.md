@@ -38,6 +38,8 @@ python3 /root/.hermes/scripts/save-main-session-id.py
 2. **skill 注入**：派发时必须注入 skills（coder→TDD+incremental, artist→frontend, tester→review+debug）
 3. **通知指令注入**：task body 必须包含"完成后通知"指令
 4. **tester 独立验证**：tester-report.md 必须存在且含 PASS/FAIL + 证据
+5. **视觉保真（存在 DESIGN.md 时强制）**：tester 任务必须包含浏览器截图 + vision 工具对比
+   `visual/final.png` 定稿图与 DESIGN.md token（色彩/字体/间距/断点），偏差按严重度记 FAIL/Nit
 
 ### 标准派发流程
 

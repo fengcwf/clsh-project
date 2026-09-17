@@ -328,6 +328,17 @@ def main():
     except Exception:
         pass  # Non-fatal: marker is for gate-enforcer, not for flow control
 
+    # HTML 报告 hook：每次进入工作流重新生成当前项目报告
+    # 报告是生成物（derived artifact），此处是它唯一的自动更新时机。
+    # 非阻塞：生成失败/超时静默忽略，绝不影响 gate 流程输出。
+    try:
+        import subprocess
+        subprocess.run(
+            [sys.executable, str(Path(__file__).resolve().parent / "gen-report.py"), project_dir_str],
+            capture_output=True, timeout=30)
+    except Exception:
+        pass
+
     if next_phase == -1:
         # All phases complete
         print(json.dumps({

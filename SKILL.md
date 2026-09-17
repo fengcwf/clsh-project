@@ -2,7 +2,7 @@
 name: clsh-project
 aliases: [cp]
 description: "需求驱动的项目开发工作流 — 从需求澄清到设计文档到实现计划到执行。DO trigger: 用户说'我要做一个 XXX'、'/clsh-project'、'/cp'。Do NOT trigger: 简单查询、修 bug、已有明确方案的小改动。"
-version: 9.4.0
+version: 9.5.0
 author: clsh
 license: MIT
 platforms: [linux, macos, windows]
@@ -56,6 +56,12 @@ metadata:
 > - I2: 目录每次与用户确认（IL-INIT-1）→ 禁止静默使用默认目录
 > - I3: 项目专用 bot（5 角色，从 artist/coder/scout/tester/reviewer 克隆）→ kanban 派活禁用全局 profile
 > - I4: Phase 6 不再创建 project/board → 基础设施只在 init 创建一次
+
+> **v9.5 视觉定稿（Phase 2.5 视觉 Spike）**：
+> - V1: UI 类项目参考图 2-3 候选 → 用户定稿 1 张（visual/final.png）+ DESIGN.md token 化
+> - V2: gate-phase2.py 机械检查（PRODUCT.md UI 关键词触发；非 UI 项目用 .cp-visual-skip 显式跳过）
+> - V3: Phase 6 tester 视觉保真检查（截图 vs 定稿图 + token 对比）——修复 Superpowers #1783 实证的"文字决策→实现漂移"
+> - V4: gate-phase1.py v2.1 加固——用户过渡声明 ≥3 次（IL-9 停止条件机械代理）+ 15 轮安全阀拦截（.cp-human-intervention 豁免）+ IL-NEW-4 中途禁要码（openwrt-agent 17 轮教训）
 
 ## 路径约定
 
@@ -127,7 +133,7 @@ python3 scripts/gate-workflow.py <项目目录>
 | init | .cp-init.json（目录确认 + project/board/5 bot） | gate-init.py | `init-project.md` |
 | 0 | phase0-data.json + phase0-research.md | gate-phase0.py | `phase0-research.md` |
 | 1 | PRODUCT.md + conversation.md | gate-phase1.py | `phase1-exploration.md` |
-| 2 | TECH.md | gate-phase2.py | `phase2-spec.md` |
+| 2 | TECH.md（UI 类 + DESIGN.md/定稿图，Phase 2.5） | gate-phase2.py | `phase2-spec.md` |
 | 3 | proposal.md + constitution.md | gate-phase3.py | `phase3-design.md` |
 | 4 | 6 文件合规 | gate-phase4.py | `phase4-review.md` |
 | 5 | tasks.md | gate-phase5.py | `phase5-plan.md` |
