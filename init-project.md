@@ -87,11 +87,25 @@ project 已注册、`.cp-init.json` 字段完整。
 - PASS → 向用户展示确认码，用户确认后运行 `gate-init.py <目录> --verify <CODE>`
 - FAIL → 按 errors 修复后重跑，**不得带病进入 Phase 0**
 
+### Step 7: 会话迁移（init 验证通过后立即执行）
+
+桌面端按 `sessions.cwd` 与项目目录匹配做会话分组。init 完成后必须把当前会话归入项目：
+
+```bash
+# 会话 ID 来源：system prompt 中的 session id，或 hermes sessions list 最近一条
+sqlite3 ~/.hermes/state.db "UPDATE sessions SET cwd='<项目目录>' WHERE id='<当前会话ID>';"
+# 验证
+sqlite3 ~/.hermes/state.db "SELECT id, cwd FROM sessions WHERE id='<当前会话ID>';"
+```
+
+迁移后告知用户：桌面端刷新后该会话将出现在项目分组下。若桌面端已打开，分组可能需重启 App 生效。
+
 ## 铁律
 
 - IL-INIT-1: **目录必须每次与用户确认** — 禁止静默使用默认值
 - IL-INIT-2: **gate-init.py PASS + 用户确认码验证后才能进入 Phase 0**
 - IL-INIT-3: **Phase 6 不再创建 project/board/bot** — 基础设施只在本步骤创建一次
+- IL-INIT-4: **会话必须迁移** — init 验证通过后当前会话 cwd 必须指向项目目录
 
 ## 验收标准
 
@@ -100,3 +114,4 @@ project 已注册、`.cp-init.json` 字段完整。
 - `hermes profile list` 包含 5 个 `<slug>-<role>` bot
 - `hermes project list` 包含本项目且 primary 指向确认过的目录
 - gate-init.py 返回 PASS 且 --verify 通过
+- 当前会话 `sessions.cwd` 已指向项目目录

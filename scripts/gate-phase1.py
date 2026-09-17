@@ -24,6 +24,12 @@ Checks performed:
   10. conversation.md must have >= 5 rounds of discussion
   11. Questions must cover >= 3 of 5 dimensions (功能/边界/异常/性能/安全)
   12. No fake confirmations (user must give substantive answers)
+  13. (v2.1) User-initiated transition: >= 3 USER lines containing
+      没有了/足够了/确认进入下一阶段 — mechanical proxy for the stop condition.
+      Prevents the coordinator from requesting the confirmation code
+      mid-clarification (IL-9 / IL-NEW-4; openwrt-agent Round 2/13 lesson).
+  14. (v2.1) Round cap safety valve: rounds > 15 FAIL unless the project root
+      contains .cp-human-intervention (with a written reason).
 
 Usage:
     python gate-phase1.py <project_dir>
@@ -57,8 +63,14 @@ REQUIRED_DOCS = {
 
 GATE_NAME = "phase1"
 MIN_ROUNDS = 5
+MAX_ROUNDS = 15  # v2.1 safety valve
 MIN_DIMENSIONS = 3  # out of 5
 MIN_SUBSTANTIVE_ANSWERS = 3  # user must give >= 3 real answers
+MIN_TRANSITION_STATEMENTS = 3  # v2.1 user-initiated transition
+HUMAN_INTERVENTION_MARKER = ".cp-human-intervention"  # v2.1 round-cap exemption
+
+# v2.1: user lines that explicitly authorize moving to the next phase
+USER_TRANSITION_PATTERN = r"(?:没有了|足够了|确认进入|进入下一阶段|可以进入|进入 Phase\s*[23]|开始下一阶段)"
 
 # Question dimension patterns for Phase 1
 QUESTION_DIMENSIONS = {
@@ -104,6 +116,8 @@ FAKE_CONFIRMATION_PATTERNS = [
     r"^\s*(继续|没问题|好的)([。，,.]|\s*$)",
 ]
 
+USER_LINE_PATTERN = re.compile(r"(用户|大佬|User|>)\s*[:：]")
+
 
 def check_document(project_dir: str, filename: str,
                    keyword_patterns: list[str],
@@ -127,7 +141,6 @@ def check_document(project_dir: str, filename: str,
 
     return errors
 
-
 def check_phase0_prerequisites(project_dir: str) -> list[str]:
     """Check that Phase 0 outputs exist before allowing Phase 1."""
     errors = []
@@ -150,17 +163,14 @@ def check_phase0_prerequisites(project_dir: str) -> list[str]:
 
     return errors
 
-
 def check_exploration_evidence(project_dir: str) -> list[str]:
     """Check that conversation.md contains exploration evidence."""
     errors = []
-
     conv_path = gu.find_file_in_changes(project_dir, ["conversation.md"])
     if conv_path is None:
         return []  # already reported in document check
 
     content = conv_path.read_text(encoding="utf-8", errors="replace")
-
     has_exploration = any(
         re.search(p, content, re.IGNORECASE) for p in EXPLORATION_PATTERNS
     )
@@ -174,17 +184,14 @@ def check_exploration_evidence(project_dir: str) -> list[str]:
 
     return errors
 
-
 def check_round_count(project_dir: str) -> list[str]:
     """Check that conversation.md has >= 5 rounds of discussion."""
     errors = []
-
     conv_path = gu.find_file_in_changes(project_dir, ["conversation.md"])
     if conv_path is None:
         return []
 
     content = conv_path.read_text(encoding="utf-8", errors="replace")
-
     # Count rounds: lines matching "## Round N" pattern
     round_count = len(re.findall(r"##\s+Round\s+\d+", content, re.IGNORECASE))
     if round_count < MIN_ROUNDS:
@@ -196,11 +203,32 @@ def check_round_count(project_dir: str) -> list[str]:
 
     return errors
 
+def check_round_cap(project_dir: str) -> list[str]:
+    """v2.1 safety valve: rounds > 15 require human intervention marker."""
+    errors = []
+    conv_path = gu.find_file_in_changes(project_dir, ["conversation.md"])
+    if conv_path is None:
+        return []
+
+    content = conv_path.read_text(encoding="utf-8", errors="replace")
+    round_count = len(re.findall(r"##\s+Round\s+\d+", content, re.IGNORECASE))
+
+    if round_count > MAX_ROUNDS:
+        marker = Path(project_dir) / HUMAN_INTERVENTION_MARKER
+        if not marker.exists():
+            errors.append(
+                f"conversation.md has {round_count} rounds "
+                f"(safety valve: > {MAX_ROUNDS}). "
+                "Phase 1 硬上限已触发：必须暂停并请求人工介入。"
+                f"若用户已知情并同意继续，在项目根创建 {HUMAN_INTERVENTION_MARKER} "
+                "并写明原因后重跑 gate。"
+            )
+
+    return errors
 
 def check_dimension_coverage(project_dir: str) -> list[str]:
     """Check that questions cover >= 3 of 5 dimensions."""
     errors = []
-
     conv_path = gu.find_file_in_changes(project_dir, ["conversation.md"])
     if conv_path is None:
         return []
@@ -246,11 +274,9 @@ def check_dimension_coverage(project_dir: str) -> list[str]:
 
     return errors
 
-
 def check_confirmation_quality(project_dir: str) -> list[str]:
     """Check that user gave substantive answers, not just 'continue'."""
     errors = []
-
     conv_path = gu.find_file_in_changes(project_dir, ["conversation.md"])
     if conv_path is None:
         return []
@@ -261,8 +287,8 @@ def check_confirmation_quality(project_dir: str) -> list[str]:
     user_lines = []
     for line in content.splitlines():
         # Match user response markers
-        if re.match(r"(用户|大佬|User|>)\s*[:：]", line):
-            response = re.sub(r"^(用户|大佬|User|>)\s*[:：]\s*", "", line).strip()
+        if USER_LINE_PATTERN.match(line):
+            response = USER_LINE_PATTERN.sub("", line, count=1).strip()
             if response:
                 user_lines.append(response)
 
@@ -288,6 +314,40 @@ def check_confirmation_quality(project_dir: str) -> list[str]:
 
     return errors
 
+def check_user_initiated_transition(project_dir: str) -> list[str]:
+    """v2.1: stop condition must be user-initiated (mechanical proxy).
+
+    IL-9 says the stop condition is controlled by the user, but nothing
+    verified it — the coordinator could request the confirmation code after
+    only a few rounds (observed in openwrt-agent: code requested at
+    Round 2/13, 17 rounds total). This check requires >= 3 USER lines
+    explicitly authorizing the transition before the gate emits a code.
+    """
+    errors = []
+    conv_path = gu.find_file_in_changes(project_dir, ["conversation.md"])
+    if conv_path is None:
+        return []
+
+    content = conv_path.read_text(encoding="utf-8", errors="replace")
+
+    # Only count transition statements inside USER lines (not LLM prose)
+    transition_count = 0
+    for line in content.splitlines():
+        if USER_LINE_PATTERN.match(line):
+            response = USER_LINE_PATTERN.sub("", line, count=1).strip()
+            if response and re.search(USER_TRANSITION_PATTERN, response):
+                transition_count += 1
+
+    if transition_count < MIN_TRANSITION_STATEMENTS:
+        errors.append(
+            f"用户过渡声明不足：只检测到 {transition_count} 次 "
+            f"(需要 >= {MIN_TRANSITION_STATEMENTS}). "
+            "停止条件由用户控制（IL-9）：必须有用户明确说"
+            "'没有了'/'足够了'/'确认进入下一阶段'。"
+            "继续从轮转表缺失维度追问，⛔ 不得请求确认码。"
+        )
+
+    return errors
 
 def run_gate(project_dir: str) -> None:
     """Run the Phase 1 gate checks."""
@@ -308,11 +368,17 @@ def run_gate(project_dir: str) -> None:
     # Check round count (>= 5 rounds)
     errors.extend(check_round_count(project_dir))
 
+    # v2.1: round cap safety valve (> 15 requires human intervention marker)
+    errors.extend(check_round_cap(project_dir))
+
     # Check dimension coverage (>= 3/5)
     errors.extend(check_dimension_coverage(project_dir))
 
     # Check confirmation quality (no fake confirmations)
     errors.extend(check_confirmation_quality(project_dir))
+
+    # v2.1: user-initiated transition (stop condition mechanical proxy)
+    errors.extend(check_user_initiated_transition(project_dir))
 
     if not errors:
         code = gu.generate_code(project_dir, GATE_NAME)
