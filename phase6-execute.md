@@ -35,11 +35,24 @@ python3 /root/.hermes/scripts/save-main-session-id.py
 ### 执行协议（gate-phase6.py 检查）
 
 1. **dispatch 方式**：必须使用 `kanban create`（Level A 首选）
-2. **skill 注入**：派发时必须注入 skills（coder→TDD+incremental, artist→frontend, tester→review+debug）
+2. **skill 注入**：派发时必须注入 skills（coder→TDD+incremental+ponytail, artist→frontend+ponytail, tester→review+debug, reviewer→code-review+ponytail-review）
 3. **通知指令注入**：task body 必须包含"完成后通知"指令
 4. **tester 独立验证**：tester-report.md 必须存在且含 PASS/FAIL + 证据
 5. **视觉保真（存在 DESIGN.md 时强制）**：tester 任务必须包含浏览器截图 + vision 工具对比
    `visual/final.png` 定稿图与 DESIGN.md token（色彩/字体/间距/断点），偏差按严重度记 FAIL/Nit
+6. **Ponytail 边界规则**（skill 注入配套，见下方小节）：YAGNI 阶梯只对实现方式生效，不对需求本身生效
+
+### Ponytail 边界规则（skill 注入配套）
+
+> ponytail 的 YAGNI 阶梯（"这需要存在吗"）**只对实现方式生效，不对需求本身生效**。
+> Phase 1-3 已定稿需求（PRODUCT.md/TECH.md），Phase 6 coder 无权砍需求。
+
+- coder 认为某需求/功能可砍 → ledger 记录 + notify-main-session 提出，**不得自行删除需求范围**
+- 需求变更必须回 Phase 1-3 走流程（与 IL-3 对称：协调者不写代码，coder 不改需求）
+- ponytail 红线与本流程天然契合：验收标准中的验证/错误处理/安全项不许"懒"，非平凡逻辑必留可运行检查（tester 实测的证据来源）
+- ponytail 阶梯前提：先读完任务和受影响代码、端到端 trace 之后再爬阶梯——阶梯缩短方案，永不缩短阅读，防止 ponytail 变成跳步借口
+- reviewer 用 ponytail-review 审查过度工程：输出 `L<line>: <tag> <what>. <replacement>.` + `net: -<N> lines possible`，审查发现随 reviewer 报告归档
+- Phase 8/长期维护可跑 ponytail-debt：收割代码库 `ponytail:` 注释标记成 ledger，防止"简化项"永久烂尾
 
 ### 标准派发流程
 
@@ -57,6 +70,9 @@ python3 /root/.hermes/scripts/save-main-session-id.py
   1. 更新 ledger: Task N: in-progress
   2. 生成 task-N-brief.md（从 tasks.md 提取）
   3. kanban_create(title, assignee, body, skills=[...])
+     # coder: [test-driven-development, incremental-implementation, ponytail]
+     # reviewer: [code-review-and-quality, ponytail-review]
+     # artist: [frontend-design, ponytail]
      body 必须包含通知指令（见下方模板）
   4. hermes kanban dispatch --max 1（立即派发，不等 60s tick）
   5. → 等待 worker 通知（自动，无需轮询）
